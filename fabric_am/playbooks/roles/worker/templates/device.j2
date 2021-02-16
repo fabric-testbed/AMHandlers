@@ -1,0 +1,5 @@
+    <hostdev mode='subsystem' type='pci' managed='yes'>
+      <source>
+        <address domain='0x{{ pcicard_address[0] }}' bus='0x{{ pcicard_address[1] }}' slot='0x{{ pcicard_address[2] }}' function='0x{{ pcicard_address[3] }}'/>
+      </source>
+    </hostdev>

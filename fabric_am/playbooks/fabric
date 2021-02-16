@@ -1,0 +1,19 @@
+# file: fabric
+
+[fabric_head]
+
+[fabric_worker]
+
+[fabric_uky_worker]
+fabric-uky-1 ansible_host=192.168.12.11
+fabric-uky-2 ansible_host=192.168.12.12
+fabric-uky-3 ansible_host=192.168.12.13
+
+[fabric_uky_head]
+fabric-uky-head ansible_host=192.168.12.10
+
+[fabric_worker:children]
+fabric_uky_worker
+
+[fabric_head:children]
+fabric_uky_head

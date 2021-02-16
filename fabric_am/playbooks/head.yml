@@ -1,0 +1,13 @@
+---
+# file: head.yml
+
+- hosts: 
+    - fabric_head
+
+  gather_facts: no
+
+  vars:
+    - add_pcicard: False
+
+  roles:
+    - head

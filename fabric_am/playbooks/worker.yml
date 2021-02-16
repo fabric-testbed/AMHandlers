@@ -1,0 +1,10 @@
+---
+# file: worker.yml
+
+- hosts: 
+    - "{{ workernode_name }}"
+
+  vars:
+
+  roles:
+    - worker
