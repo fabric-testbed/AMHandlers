@@ -1,7 +1,7 @@
 --- 
 # /tasks/main.yml
 #
-# headnode_name, instance_name, pcicard_address, add_pcicard
+# headnode_name, instance_name, pcidevice_address, add_pcidevice
 # kvmguest_name, workernode_name
 # instance_info ( instance_uuid, workernode, kvmguest_name, kvmguest_status)
 

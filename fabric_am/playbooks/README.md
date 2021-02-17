@@ -65,9 +65,9 @@ where
 2. Add the PCI card, with address 0000:01:0.1, to  `kvmguest_name`. Note that we have to make `kvmguest_name` match its name in the inventory.
 
 ```bash
-ansible-playbook -i inventory worker.yml --extra-vars 'kvmguest_name=instance-00000040 workernode_name=fabric-site1-w3 add_pcicard=True' --extra-vars '{"pcicard_address": "[0, 1, 0, 1]"}'
+ansible-playbook -i inventory worker.yml --extra-vars 'kvmguest_name=instance-00000040 workernode_name=fabric-site1-w3 add_pcidevice=True' --extra-vars '{"pcidevice_address": "[0, 1, 0, 1]"}'
 ```
-Note the number of zeros on the left of each number in `pcicard_address` are not important.
+Note the number of zeros on the left of each number in `pcidevice_address` are not important.
 
 Returns (for successful run):
 ```bash
@@ -80,10 +80,10 @@ Returns (for successful run):
 3. Remove the PCI card
 
 ```bash
-ansible-playbook -i inventory worker.yml --extra-vars 'kvmguest_name=instance-00000040 workernode_name=fabric-site1-w3 add_pcicard=False' --extra-vars '{"pcicard_address": "[0,1,0,1]"}'
+ansible-playbook -i inventory worker.yml --extra-vars 'kvmguest_name=instance-00000040 workernode_name=fabric-site1-w3 add_pcidevice=False' --extra-vars '{"pcidevice_address": "[0,1,0,1]"}'
 ```
 
-Note the space between the numbers in the `pcicard_address` does not matter.
+Note the space between the numbers in the `pcidevice_address` does not matter.
 
 Returns (for successful run):
 ```bash

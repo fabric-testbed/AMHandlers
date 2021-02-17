@@ -11,10 +11,10 @@
 - name: Add PCI Card to VM
   ansible.builtin.shell: 
     virsh attach-device {{ kvmguest_name }} /tmp/device.yml --live
-  when: add_pcicard == "True"
+  when: add_pcidevice == "True"
 
 - name: Remove PCI Card to VM
   ansible.builtin.shell: 
     virsh detach-device {{ kvmguest_name }} /tmp/device.yml --live
-  when: add_pcicard == "False"
+  when: add_pcidevice == "False"
 
