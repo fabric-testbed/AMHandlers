@@ -1,5 +1,5 @@
 ---
-# file: worker.yml
+# file: worker_add_pci_device.yml
 
 - hosts: 
     - "{{ workernode_name }}"
@@ -7,4 +7,4 @@
   vars:
 
   roles:
-    - worker
+    - worker_add_pci_device

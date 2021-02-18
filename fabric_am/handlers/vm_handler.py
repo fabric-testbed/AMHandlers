@@ -30,11 +30,25 @@ from fabric_cf.actor.core.common.constants import Constants
 from fabric_cf.actor.core.plugins.handlers.config_token import ConfigToken
 from fabric_cf.actor.handlers.handler_base import HandlerBase
 
+from fabric_am.util.am_constants import AmConstants
+
 
 class VMHandler(HandlerBase):
     def __init__(self, logger, properties: dict):
         self.logger = logger
         self.properties = properties
+        self.config = None
+        self._load()
+
+    def _load(self):
+        config_properties_file = self.properties.get(AmConstants.CONFIG_PROPERTIES_FILE, None)
+        if config_properties_file is None:
+            return
+
+        self.config = self.load_config(path=config_properties_file)
+
+    def get_config(self) -> dict:
+        return self.config
 
     def create(self, unit: ConfigToken, properties: dict) -> Tuple[dict, ConfigToken]:
         result = None

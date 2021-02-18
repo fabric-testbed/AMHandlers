@@ -1,5 +1,5 @@
 ---
-# file: head.yml
+# file: head_get_worker_node_for_vm.yml
 
 - hosts: 
     - fabric_head
@@ -10,4 +10,4 @@
     - add_pcidevice: False
 
   roles:
-    - head
+    - head_get_worker_node_for_vm

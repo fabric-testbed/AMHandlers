@@ -1,0 +1,12 @@
+---
+# file: head_attach_floating_ip.yml
+
+- hosts:
+    - fabric_head
+
+  gather_facts: no
+
+  vars:
+
+  roles:
+    - head_attach_floating_ip
