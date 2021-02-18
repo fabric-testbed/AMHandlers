@@ -6,19 +6,19 @@
   os_server:
     state: present
     auth:
-      auth_url: {{ auth_url }}
-      password: {{ password }}
-      project_name: {{ project_name }}
-      username: {{ username }}
-    name: {{ vmname }}
-    image: {{ image }}
-    key_name: {{ key }}
+      auth_url: "{{ auth_url }}"
+      password: "{{ password }}"
+      project_name: "{{ project_name }}"
+      username: "{{ username }}"
+    name: "{{ vmname }}"
+    image: "{{ image }}"
+    key_name: "{{ key }}"
     timeout: 200
-    flavor: {{ flavor }}
-    availability_zone: {{ workernode }}
+    flavor: "{{ flavor }}"
+    availability_zone: "{{ workernode }}"
     nics:
-      - net-name: {{ network_name }}
-    security_groups: {{ security_group }}
+      - net-name: "{{ network_name }}"
+    security_groups: "{{ security_group }}"
 
   register: instance_reply
 

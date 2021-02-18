@@ -9,7 +9,7 @@
       password: {{ password }}
       project_name: {{ project_name }}
       username: {{ username }}
-    server: {{ name }}
+    server: {{ vmname }}
     state: present
     reuse: yes
     wait: true

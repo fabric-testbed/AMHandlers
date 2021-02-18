@@ -31,6 +31,11 @@ from fabric_cf.actor.core.plugins.handlers.config_token import ConfigToken
 from fabric_cf.actor.handlers.handler_base import HandlerBase
 
 from fabric_am.util.am_constants import AmConstants
+from fabric_am.util.ansible_helper import AnsibleHelper
+
+
+class VmHandlerException(Exception):
+    pass
 
 
 class VMHandler(HandlerBase):
@@ -54,6 +59,39 @@ class VMHandler(HandlerBase):
         result = None
         try:
             self.logger.info(f"Create invoked for unit: {unit} properties: {properties}")
+            self.logger.info(f"Config: {self.get_config()}")
+
+            head_node = properties.get(Constants.HEAD_NODE, None)
+            worker_node = properties.get(Constants.WORKER_NODE, None)
+            flavor = properties.get(Constants.FLAVOR, None)
+            vmname = properties.get(Constants.VM_NAME, None)
+
+            pb_location = self.config[AmConstants.PLAYBOOK_SECTION][AmConstants.PB_LOCATION]
+            create_vm_pb = self.config[AmConstants.PLAYBOOK_SECTION][AmConstants.PB_VM_CREATE]
+            fip_attach_pb = self.config[AmConstants.PLAYBOOK_SECTION][AmConstants.PB_FLOATING_IP_ATTACH]
+            delete_vm_pb = self.config[AmConstants.PLAYBOOK_SECTION][AmConstants.PB_VM_DELETE]
+
+            if head_node is None or worker_node is None or flavor is None or vmname is None or create_vm_pb is None or \
+                    fip_attach_pb is None or delete_vm_pb is None:
+                raise VmHandlerException(f"Missing required parameters headnode: {head_node} workernode: {worker_node} "
+                                         f"flavor: {flavor}: vmname: {vmname} create_vm_pb: {create_vm_pb} "
+                                         f"fip_attach_pb: {fip_attach_pb} delete_vm_pb: {delete_vm_pb} "
+                                         f"pb_location: {pb_location}")
+
+            ansible_helper = self.create_ansible_helper(host=head_node)
+
+            # create VM
+            ansible_helper.add_vars(host=head_node, var_name=AmConstants.EC2_AVAILABILITY_ZONE,
+                                    value=f"nova:{worker_node}")
+            ansible_helper.add_vars(host=head_node, var_name=Constants.VM_NAME, value=vmname)
+            ansible_helper.add_vars(host=head_node, var_name=Constants.FLAVOR, value=flavor)
+
+            playbook_path = f"{pb_location}/{create_vm_pb}"
+            self.logger.debug(f"Executing playbook {playbook_path}")
+
+            status = ansible_helper.run_playbook(playbook_path=playbook_path)
+
+            self.logger.info(f"Playbook {create_vm_pb} status: {status}")
 
         except Exception as e:
             result = {Constants.PROPERTY_TARGET_NAME: Constants.TARGET_CREATE,
@@ -96,3 +134,50 @@ class VMHandler(HandlerBase):
         finally:
             self.logger.info(f"Modify completed")
         return result, unit
+
+    def create_ansible_helper(self, *, host: str):
+        try:
+            helper = AnsibleHelper(hosts=[host], logger=self.logger)
+            helper.add_vars(host=host, var_name=AmConstants.AUTH_URL,
+                            value=self.config[AmConstants.AUTH_SECTION][AmConstants.AUTH_URL])
+
+            helper.add_vars(host=host, var_name=AmConstants.AUTH_PASSWORD,
+                            value=self.config[AmConstants.AUTH_SECTION][AmConstants.AUTH_PASSWORD])
+
+            helper.add_vars(host=host, var_name=AmConstants.AUTH_PROJECT_NAME,
+                            value=self.config[AmConstants.AUTH_SECTION][AmConstants.AUTH_PROJECT_NAME])
+
+            helper.add_vars(host=host, var_name=AmConstants.AUTH_USER_NAME,
+                            value=self.config[AmConstants.AUTH_SECTION][AmConstants.AUTH_USER_NAME])
+
+            helper.add_vars(host=host, var_name=AmConstants.EC2_MGMT_NETWORK_NAME,
+                            value=self.config[AmConstants.EC2_SECTION][AmConstants.EC2_MGMT_NETWORK_NAME])
+
+            helper.add_vars(host=host, var_name=AmConstants.EC2_SECURITY_GROUP,
+                            value=self.config[AmConstants.EC2_SECTION][AmConstants.EC2_SECURITY_GROUP])
+
+            helper.add_vars(host=host, var_name=AmConstants.EC2_KEY_NAME,
+                            value=self.config[AmConstants.EC2_SECTION][AmConstants.EC2_KEY_NAME])
+
+            return helper
+        except Exception as e:
+            self.logger.error(f"Error occurred while creating ansible helper: {e}")
+            self.logger.error(traceback.format_exc())
+            raise e
+
+
+if __name__ == '__main__':
+    import logging
+
+    from fabric_cf.actor.core.util.id import ID
+    from fabric_cf.actor.core.core.unit import Unit
+    u = Unit(uid=ID(uid='u1'))
+    logger = logging.getLogger(__name__)
+    logging.basicConfig(level=logging.DEBUG, format="%(asctime)s [%(levelname)s] %(message)s",
+                        handlers=[logging.StreamHandler()])
+
+    prop = {AmConstants.CONFIG_PROPERTIES_FILE: '../config/vm_handler_config.yml'}
+    handler = VMHandler(logger=logger, properties=prop)
+    prop2 = {Constants.VM_NAME: "vm1", Constants.WORKER_NODE: "uky-w2.fabric-testbed.net",
+             Constants.HEAD_NODE: "uky-hn.fabric-testbed.net", Constants.FLAVOR: "fabric.large"}
+    handler.create(unit=u, properties=prop2)

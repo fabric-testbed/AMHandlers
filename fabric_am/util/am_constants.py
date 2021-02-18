@@ -38,3 +38,10 @@ class AmConstants:
     EC2_SECURITY_GROUP = 'security_group'
     EC2_KEY_NAME = 'key_name'
     EC2_EXTERNAL_NETWORK = 'ext_network'
+    EC2_AVAILABILITY_ZONE = 'availability_zone'
+
+    PLAYBOOK_SECTION = 'playbooks'
+    PB_VM_CREATE = 'vm_create'
+    PB_VM_DELETE = 'vm_delete'
+    PB_FLOATING_IP_ATTACH = 'floating_ip_attach'
+    PB_LOCATION = "location"

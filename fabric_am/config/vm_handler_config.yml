@@ -1,6 +1,6 @@
 auth:
   auth_url:
-  password: 
+  password:
   project_name: admin
   username: admin
 ec2:
@@ -8,3 +8,8 @@ ec2:
   security_group: custom-permissive
   key_name: default
   ext_network: public
+playbooks:
+  location: ../playbooks
+  vm_create: head_create_vm.yml
+  floating_ip_attach: head_attach_floating_ip.yml
+  vm_delete: head_delete_vm.yml
