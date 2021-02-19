@@ -1,0 +1,20 @@
+---
+# /tasks/main.yml
+#
+- name: Create a VM
+  os_server:
+    state: present
+    auth:
+      auth_url: "{{ auth_url }}"
+      password: "{{ password }}"
+      project_name: "{{ project_name }}"
+      username: "{{ username }}"
+    name: "{{ vmname }}"
+    image: "{{ image }}"
+    key_name: "{{ key_name }}"
+    timeout: 200
+    flavor: "{{ flavor }}"
+    availability_zone: "{{ availability_zone }}"
+    nics:
+      - net-name: "{{ net_name }}"
+    security_groups: "{{ security_group }}"
