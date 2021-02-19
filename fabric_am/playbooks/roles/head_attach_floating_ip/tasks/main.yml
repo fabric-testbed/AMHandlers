@@ -14,12 +14,4 @@
     reuse: yes
     wait: true
     timeout: 200
-    network: {{ network_name }}
-
-  register: instance_reply
-
-- set_fact:
-      workernode_name: "{{ instance_reply.stdout.replace('|', ' ').split()[1] }}"
-      kvmguest_name: "{{ instance_reply.stdout.replace('|', ' ').split()[2] }}"
-      kvmguest_status: "{{ instance_reply.stdout.replace('|', ' ').split()[3] }}"
-
+    network: {{ ext_network }}

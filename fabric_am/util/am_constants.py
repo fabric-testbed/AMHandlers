@@ -45,3 +45,10 @@ class AmConstants:
     PB_VM_DELETE = 'vm_delete'
     PB_FLOATING_IP_ATTACH = 'floating_ip_attach'
     PB_LOCATION = "location"
+    PB_INVENTORY = "inventory_location"
+
+    VM_PROV_OP = "vm_prov_op"
+    VM_PROV_OP_CREATE = "create"
+    VM_PROV_OP_DELETE = "delete"
+    VM_PROV_OP_ATTACH_FIP = "attach_fip"
+

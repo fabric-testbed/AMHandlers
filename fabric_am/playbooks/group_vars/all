@@ -1,0 +1,10 @@
+---
+auth_url:
+password:
+project_name: admin
+username: admin
+
+net_name: management-2004
+security_group: custom-permissive
+key_name: default
+ext_network: public

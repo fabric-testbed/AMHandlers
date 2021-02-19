@@ -27,7 +27,6 @@
 import json
 import os
 import traceback
-from typing import List
 
 from ansible import context
 from ansible.executor.playbook_executor import PlaybookExecutor
@@ -36,6 +35,10 @@ from ansible.module_utils.common.collections import ImmutableDict
 from ansible.parsing.dataloader import DataLoader
 from ansible.plugins.callback import CallbackBase
 from ansible.vars.manager import VariableManager
+
+
+class PlaybookException(Exception):
+    pass
 
 
 class ResultsCollectorJSONCallback(CallbackBase):
@@ -76,31 +79,39 @@ class ResultsCollectorJSONCallback(CallbackBase):
         host = result._host
         self.host_failed[host.get_name()] = result
 
-    def get_json_result(self, host: str, host_result_map: dict):
+    def _get_json_result(self, host: str, host_result_map: dict):
         """
         Get Json Result for a host
         @param host host
         @param host_result_map map containing host results
         """
-        result = host_result_map.get(host, None)
-        if result is not None:
-            return json.dumps(result._result)
+        if host is None:
+            if len(host_result_map) == 0:
+                return None
+            result = {}
+            for h, result in host_result_map:
+                result[h] = json.dumps(result._result)
+            return result
+        else:
+            result = host_result_map.get(host, None)
+            if result is not None:
+                return json.dumps(result._result)
 
-    def get_json_result_ok(self, host: str):
+    def get_json_result_ok(self, host: str = None):
         """
         Get Json OK Result for a host
         @param host host
         """
         return self.get_json_result(host=host, host_result_map=self.host_ok)
 
-    def get_json_result_unreachable(self, host: str):
+    def get_json_result_unreachable(self, host: str = None):
         """
         Get Json Unreachable Result for a host
         @param host host
         """
         return self.get_json_result(host=host, host_result_map=self.host_unreachable)
 
-    def get_json_result_failed(self, host: str):
+    def get_json_result_failed(self, host: str = None):
         """
         Get Json Failed Result for a host
         @param host host
@@ -112,10 +123,10 @@ class AnsibleHelper:
     """
     Helper class to invoke the Ansible Playbook
     """
-    def __init__(self, hosts: List[str], logger):
+    def __init__(self, inventory_path: str, logger):
         self.results_callback = ResultsCollectorJSONCallback()
         self.loader = DataLoader()
-        self.inventory = InventoryManager(loader=self.loader, sources=hosts)
+        self.inventory = InventoryManager(loader=self.loader, sources=[inventory_path])
         self.variable_manager = VariableManager(loader=self.loader, inventory=self.inventory)
         self.logger = logger
 
@@ -128,11 +139,11 @@ class AnsibleHelper:
         """
         self.variable_manager.set_host_variable(host=host, varname=var_name, value=value)
 
-    def run_playbook(self, playbook_path: str) -> bool:
+    def run_playbook(self, playbook_path: str):
         """
         Run a playbook
         @param playbook_path path for the playbook
-        @return True if playbook ran and false otherwise
+        @raises Exception in case of Failure
         """
         if not os.path.exists(playbook_path):
             raise Exception("Playbook not found")
@@ -153,14 +164,21 @@ class AnsibleHelper:
         pbex._tqm._stdout_callback = self.results_callback
         try:
             results = pbex.run()
-            return True
         except Exception as e:
             self.logger.error(f"Exception occurred while executing playbook {playbook_path} e: {e}")
             self.logger.error(traceback.format_exc())
         finally:
             if self.loader is not None:
                 self.loader.cleanup_all_tmp_files()
-        return False
+
+        self.logger.debug(f"Play results ok: {self.results_callback.get_json_result_ok()}")
+
+        failed = self.results_callback.get_json_result_failed()
+        unreachable = self.results_callback.get_json_result_unreachable()
+        if failed is not None or unreachable is not None:
+            self.logger.error(f"Play results failed: {failed}")
+            self.logger.error(f"Play results unreachable: {unreachable}")
+            raise PlaybookException(f"Playbook {playbook_path} failed")
 
     def get_result_callback(self):
         """

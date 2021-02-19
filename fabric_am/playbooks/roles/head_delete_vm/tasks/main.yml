@@ -12,5 +12,3 @@
       username: {{ username }}
     name: {{ vmname }}
 
-  register: instance_reply
-

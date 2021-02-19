@@ -3,13 +3,16 @@ auth:
   password:
   project_name: admin
   username: admin
+
 ec2:
   net_name: management-2004
   security_group: custom-permissive
   key_name: default
   ext_network: public
+
 playbooks:
-  location: ../playbooks
-  vm_create: head_create_vm.yml
+  location: fabric_am/playbooks
+  inventory_location: fabric_am/playbooks/inventory
+  vm_create: head_vm_provisioning.yml
   floating_ip_attach: head_attach_floating_ip.yml
   vm_delete: head_delete_vm.yml

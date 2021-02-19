@@ -1,5 +1,5 @@
 ---
-# file: head_create_vm.yml
+# file: head_vm_provisioning.yml
 
 - hosts:
     - fabric_head
@@ -9,4 +9,4 @@
   vars:
 
   roles:
-    - head_create_vm
+    - head_vm_provisioning
