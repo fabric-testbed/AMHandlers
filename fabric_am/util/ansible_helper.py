@@ -27,7 +27,6 @@
 import json
 import os
 import traceback
-from typing import List
 
 from ansible import context
 from ansible.executor.playbook_executor import PlaybookExecutor
@@ -37,6 +36,9 @@ from ansible.parsing.dataloader import DataLoader
 from ansible.plugins.callback import CallbackBase
 from ansible.vars.manager import VariableManager
 
+
+class PlaybookException(Exception):
+    pass
 
 class ResultsCollectorJSONCallback(CallbackBase):
     """A callback plugin used for performing an action as results come in.
@@ -107,6 +109,11 @@ class ResultsCollectorJSONCallback(CallbackBase):
         """
         return self.get_json_result(host=host, host_result_map=self.host_failed)
 
+    def is_failed_or_unreachable(self) -> bool:
+        if len(self.host_failed) > 0 or len(self.host_unreachable) > 0:
+            return True
+        return False
+
 
 class AnsibleHelper:
     """
@@ -128,11 +135,11 @@ class AnsibleHelper:
         """
         self.variable_manager.set_host_variable(host=host, varname=var_name, value=value)
 
-    def run_playbook(self, playbook_path: str) -> bool:
+    def run_playbook(self, playbook_path: str):
         """
         Run a playbook
         @param playbook_path path for the playbook
-        @return True if playbook ran and false otherwise
+        @raises Exception in case of failure
         """
         if not os.path.exists(playbook_path):
             raise Exception("Playbook not found")
@@ -153,14 +160,17 @@ class AnsibleHelper:
         pbex._tqm._stdout_callback = self.results_callback
         try:
             results = pbex.run()
-            return True
+            self.logger.debug(f"Playbook result: {results}")
+
+            if self.results_callback.is_failed_or_unreachable():
+                raise PlaybookException("Playbook has failed tasks")
         except Exception as e:
             self.logger.error(f"Exception occurred while executing playbook {playbook_path} e: {e}")
             self.logger.error(traceback.format_exc())
+            raise e
         finally:
             if self.loader is not None:
                 self.loader.cleanup_all_tmp_files()
-        return False
 
     def get_result_callback(self):
         """

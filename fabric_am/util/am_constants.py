@@ -41,9 +41,7 @@ class AmConstants:
     EC2_AVAILABILITY_ZONE = 'availability_zone'
 
     PLAYBOOK_SECTION = 'playbooks'
-    PB_VM_CREATE = 'vm_create'
-    PB_VM_DELETE = 'vm_delete'
-    PB_FLOATING_IP_ATTACH = 'floating_ip_attach'
+    PB_VM_PROVISIONING = 'vm_provisioning'
     PB_LOCATION = "location"
     PB_INVENTORY = "inventory_location"
 

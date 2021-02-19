@@ -65,43 +65,31 @@ class VMHandler(HandlerBase):
             worker_node = properties.get(Constants.WORKER_NODE, None)
             flavor = properties.get(Constants.FLAVOR, None)
             vmname = properties.get(Constants.VM_NAME, None)
-            image = properties.get(Constants.IMAGE, BaseException)
+            image = properties.get(Constants.IMAGE, None)
 
             if head_node is None or worker_node is None or flavor is None or vmname is None or image is None:
                 raise VmHandlerException(f"Missing required parameters headnode: {head_node} workernode: {worker_node} "
                                          f"flavor: {flavor}: vmname: {vmname} image: {image}")
 
             pb_location = self.config[AmConstants.PLAYBOOK_SECTION][AmConstants.PB_LOCATION]
-            create_vm_pb = self.config[AmConstants.PLAYBOOK_SECTION][AmConstants.PB_VM_CREATE]
-            fip_attach_pb = self.config[AmConstants.PLAYBOOK_SECTION][AmConstants.PB_FLOATING_IP_ATTACH]
-            delete_vm_pb = self.config[AmConstants.PLAYBOOK_SECTION][AmConstants.PB_VM_DELETE]
+            pb_vm_prov = self.config[AmConstants.PLAYBOOK_SECTION][AmConstants.PB_VM_PROVISIONING]
             inventory_path = self.config[AmConstants.PLAYBOOK_SECTION][AmConstants.PB_INVENTORY]
 
-            if create_vm_pb is None or fip_attach_pb is None or delete_vm_pb is None or inventory_path is None:
-                raise VmHandlerException(f"Missing config parameters create_vm_pb: {create_vm_pb} "
-                                         f"fip_attach_pb: {fip_attach_pb} delete_vm_pb: {delete_vm_pb} "
+            if pb_vm_prov is None or inventory_path is None:
+                raise VmHandlerException(f"Missing config parameters pb_vm_prov: {pb_vm_prov} "
                                          f"pb_location: {pb_location} inventory_path: {inventory_path}")
 
-            ansible_helper = self.create_ansible_helper(host=head_node, inventory_path=inventory_path)
+            auth_params = self.get_auth_params()
 
             # create VM
             az = f"nova:{worker_node}"
-            ansible_helper.add_vars(host=head_node, var_name=AmConstants.EC2_AVAILABILITY_ZONE, value=az)
-            ansible_helper.add_vars(host=head_node, var_name=Constants.VM_NAME, value=vmname)
-            ansible_helper.add_vars(host=head_node, var_name=Constants.FLAVOR, value=flavor)
-            ansible_helper.add_vars(host=head_node, var_name=Constants.IMAGE, value=image)
+            playbook_path = f"{pb_location}/{pb_vm_prov}"
+            props = self.create_vm(playbook_path=playbook_path, inventory_path=inventory_path, host=head_node,
+                                   auth_vars=auth_params, vm_name=vmname, image=image, flavor=flavor, avail_zone=az)
 
-            playbook_path = f"{pb_location}/{create_vm_pb}"
-            self.logger.debug(f"Executing playbook {playbook_path}")
-
-            status = ansible_helper.run_playbook(playbook_path=playbook_path)
-
-            self.logger.info(f"Playbook {create_vm_pb} status: {status}")
-            results_callback = ansible_helper.get_result_callback()
-
-            self.logger.debug(f"Play results ok: {results_callback.get_json_result_ok(host=head_node)}")
-            self.logger.debug(f"Play results failed: {results_callback.get_json_result_failed(host=head_node)}")
-            self.logger.debug(f"Play results unreachable: {results_callback.get_json_result_unreachable(host=head_node)}")
+            # Attach FIP
+            props2 = self.attach_fip(playbook_path=playbook_path, inventory_path=inventory_path, host=head_node,
+                                     auth_vars=auth_params, vm_name=vmname)
 
         except Exception as e:
             result = {Constants.PROPERTY_TARGET_NAME: Constants.TARGET_CREATE,
@@ -145,33 +133,68 @@ class VMHandler(HandlerBase):
             self.logger.info(f"Modify completed")
         return result, unit
 
-    def create_ansible_helper(self, *, host: str, inventory_path: str):
+    def get_auth_params(self) -> dict:
         try:
-            helper = AnsibleHelper(inventory_path=inventory_path, logger=self.logger)
-            helper.add_vars(host=host, var_name=AmConstants.AUTH_URL,
-                            value=self.config[AmConstants.AUTH_SECTION][AmConstants.AUTH_URL])
+            result = {}
 
-            helper.add_vars(host=host, var_name=AmConstants.AUTH_PASSWORD,
-                            value=self.config[AmConstants.AUTH_SECTION][AmConstants.AUTH_PASSWORD])
+            result[AmConstants.AUTH_URL] = self.config[AmConstants.AUTH_SECTION][AmConstants.AUTH_URL]
 
-            helper.add_vars(host=host, var_name=AmConstants.AUTH_PROJECT_NAME,
-                            value=self.config[AmConstants.AUTH_SECTION][AmConstants.AUTH_PROJECT_NAME])
+            result[AmConstants.AUTH_PASSWORD] = self.config[AmConstants.AUTH_SECTION][AmConstants.AUTH_PASSWORD]
 
-            helper.add_vars(host=host, var_name=AmConstants.AUTH_USER_NAME,
-                            value=self.config[AmConstants.AUTH_SECTION][AmConstants.AUTH_USER_NAME])
+            result[AmConstants.AUTH_PROJECT_NAME] = self.config[AmConstants.AUTH_SECTION][AmConstants.AUTH_PROJECT_NAME]
 
-            helper.add_vars(host=host, var_name=AmConstants.EC2_MGMT_NETWORK_NAME,
-                            value=self.config[AmConstants.EC2_SECTION][AmConstants.EC2_MGMT_NETWORK_NAME])
+            result[AmConstants.AUTH_USER_NAME] = self.config[AmConstants.AUTH_SECTION][AmConstants.AUTH_USER_NAME]
 
-            helper.add_vars(host=host, var_name=AmConstants.EC2_SECURITY_GROUP,
-                            value=self.config[AmConstants.EC2_SECTION][AmConstants.EC2_SECURITY_GROUP])
+            result[AmConstants.EC2_MGMT_NETWORK_NAME] = self.config[AmConstants.EC2_SECTION][AmConstants.EC2_MGMT_NETWORK_NAME]
 
-            helper.add_vars(host=host, var_name=AmConstants.EC2_KEY_NAME,
-                            value=self.config[AmConstants.EC2_SECTION][AmConstants.EC2_KEY_NAME])
+            result[AmConstants.EC2_SECURITY_GROUP] = self.config[AmConstants.EC2_SECTION][AmConstants.EC2_SECURITY_GROUP]
 
-            return helper
+            result[AmConstants.EC2_KEY_NAME] = self.config[AmConstants.EC2_SECTION][AmConstants.EC2_KEY_NAME]
+
+            result[AmConstants.EC2_EXTERNAL_NETWORK] = self.config[AmConstants.EC2_SECTION][AmConstants.EC2_EXTERNAL_NETWORK]
+
+            return result
         except Exception as e:
-            self.logger.error(f"Error occurred while creating ansible helper: {e}")
+            self.logger.error(f"Error occurred while grabbing Auth parameters: {e}")
             self.logger.error(traceback.format_exc())
             raise e
 
+    def create_vm(self, *, playbook_path: str, inventory_path: str, auth_vars: dict, host: str,
+                  vm_name: str, avail_zone: str, image: str, flavor: str) -> dict:
+        ansible_helper = AnsibleHelper(inventory_path=inventory_path, logger=self.logger)
+        for key, value in auth_vars.items():
+            ansible_helper.add_vars(host=host, var_name=key, value=value)
+        ansible_helper.add_vars(host=host, var_name=AmConstants.VM_PROV_OP, value=AmConstants.VM_PROV_OP_CREATE)
+
+        ansible_helper.add_vars(host=host, var_name=AmConstants.EC2_AVAILABILITY_ZONE, value=avail_zone)
+        ansible_helper.add_vars(host=host, var_name=Constants.VM_NAME, value=vm_name)
+        ansible_helper.add_vars(host=host, var_name=Constants.FLAVOR, value=flavor)
+        ansible_helper.add_vars(host=host, var_name=Constants.IMAGE, value=image)
+
+        self.logger.debug(f"Executing playbook {playbook_path}")
+        ansible_helper.run_playbook(playbook_path=playbook_path)
+        # TODO process properties and return a dict
+        return {}
+
+    def delete_vm(self, *, playbook_path: str, inventory_path: str, auth_vars: dict, host: str, vm_name: str) -> bool:
+        ansible_helper = AnsibleHelper(inventory_path=inventory_path, logger=self.logger)
+        for key, value in auth_vars.items():
+            ansible_helper.add_vars(host=host, var_name=key, value=value)
+        ansible_helper.add_vars(host=host, var_name=AmConstants.VM_PROV_OP, value=AmConstants.VM_PROV_OP_DELETE)
+        ansible_helper.add_vars(host=host, var_name=Constants.VM_NAME, value=vm_name)
+
+        self.logger.debug(f"Executing playbook {playbook_path}")
+        ansible_helper.run_playbook(playbook_path=playbook_path)
+        return True
+
+    def attach_fip(self, *, playbook_path: str, inventory_path: str, auth_vars: dict, host: str, vm_name: str) -> dict:
+        ansible_helper = AnsibleHelper(inventory_path=inventory_path, logger=self.logger)
+        for key, value in auth_vars.items():
+            ansible_helper.add_vars(host=host, var_name=key, value=value)
+        ansible_helper.add_vars(host=host, var_name=AmConstants.VM_PROV_OP, value=AmConstants.VM_PROV_OP_ATTACH_FIP)
+        ansible_helper.add_vars(host=host, var_name=Constants.VM_NAME, value=vm_name)
+
+        self.logger.debug(f"Executing playbook {playbook_path}")
+        ansible_helper.run_playbook(playbook_path=playbook_path)
+        # TODO process properties and return a dict
+        return {}

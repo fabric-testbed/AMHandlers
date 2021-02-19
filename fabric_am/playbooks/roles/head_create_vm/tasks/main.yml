@@ -1,6 +1,12 @@
 ---
 # /tasks/main.yml
 #
+- name: Set the operation
+  ansible.builtin.set_fact:
+    x: "{{ vm_prov_op }}"
+  when: x is not defined
+  # this task sets a value for x
+
 - name: Create a VM
   os_server:
     state: present
@@ -18,3 +24,31 @@
     nics:
       - net-name: "{{ net_name }}"
     security_groups: "{{ security_group }}"
+  when: x == 'create'
+
+- name: Attach a floating IP to the instance
+  os_floating_ip:
+    auth:
+      auth_url: "{{ auth_url }}"
+      password: "{{ password }}"
+      project_name: "{{ project_name }}"
+      username: "{{ username }}"
+    server: "{{ vmname }}"
+    state: present
+    reuse: yes
+    wait: true
+    timeout: 200
+    network: "{{ ext_network }}"
+  when: x == 'attach_fip'
+
+- name: Delete a VM
+  os_server:
+    state: absent
+    auth:
+      auth_url: "{{ auth_url }}"
+      password: "{{ password }}"
+      project_name: "{{ project_name }}"
+      username: "{{ username }}"
+    name: "{{ vmname }}"
+  when: x == 'delete'
+
