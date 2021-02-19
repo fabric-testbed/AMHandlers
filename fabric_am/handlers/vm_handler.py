@@ -100,6 +100,19 @@ class VMHandler(HandlerBase):
             for x, y in fip_props.items():
                 instance_props[x] = y
 
+            pci_devices = properties.get(Constants.PCI_DEVICES, None)
+            instance_name = instance_props[AmConstants.SERVER_INSTANCE_NAME]
+            if pci_devices is not None and len(pci_devices) > 0:
+                pb_pci_prov = self.config[AmConstants.PLAYBOOK_SECTION][AmConstants.PB_PCI_PROVISIONING]
+                if pb_pci_prov is None or instance_name is None:
+                    raise VmHandlerException(f"Missing parameters pb_pci_prov: {pb_pci_prov} "
+                                             f"instance_name: {instance_name}")
+
+                playbook_path = f"{pb_location}/{pb_pci_prov}"
+                for p in pci_devices:
+                    self.__attach_detach_pci(playbook_path=playbook_path, inventory_path=inventory_path,
+                                             host=worker_node, instance_name=instance_name, pci_device=p)
+
         except Exception as e:
             # Delete VM in case of failure
             if playbook_path is not None and inventory_path is not None and head_node is not None \
@@ -131,6 +144,8 @@ class VMHandler(HandlerBase):
             self.logger.info(f"Delete invoked for unit: {unit} properties: {properties}")
 
             head_node = properties.get(Constants.HEAD_NODE, None)
+            worker_node = properties.get(Constants.WORKER_NODE, None)
+            instance_name = properties.get(AmConstants.SERVER_INSTANCE_NAME, None)
             vmname = properties.get(Constants.VM_NAME, None)
 
             if head_node is None or vmname is None:
@@ -144,6 +159,19 @@ class VMHandler(HandlerBase):
                 raise VmHandlerException(f"Missing config parameters pb_vm_prov: {pb_vm_prov} "
                                          f"pb_location: {pb_location} inventory_path: {inventory_path}")
 
+            # Detach any attached PCI Devices
+            pci_devices = properties.get(Constants.PCI_DEVICES, None)
+            if pci_devices is not None and len(pci_devices) > 0:
+                pb_pci_prov = self.config[AmConstants.PLAYBOOK_SECTION][AmConstants.PB_PCI_PROVISIONING]
+                if pb_pci_prov is None or instance_name is None:
+                    raise VmHandlerException(f"Missing parameters pb_pci_prov: {pb_pci_prov} "
+                                             f"instance_name: {instance_name}")
+
+                playbook_path = f"{pb_location}/{pb_pci_prov}"
+                for p in pci_devices:
+                    self.__attach_detach_pci(playbook_path=playbook_path, inventory_path=inventory_path,
+                                             host=worker_node, instance_name=instance_name, pci_device=p,
+                                             attach=False)
             # Delete VM
             playbook_path = f"{pb_location}/{pb_vm_prov}"
             props = self.__delete_vm(playbook_path=playbook_path, inventory_path=inventory_path, host=head_node,
@@ -209,7 +237,7 @@ class VMHandler(HandlerBase):
             ok = ansible_helper.get_result_callback().get_json_result_ok(host=host)
 
             result = {
-                AmConstants.SERVER_VM_STATE:ok[AmConstants.SERVER][AmConstants.SERVER_VM_STATE],
+                AmConstants.SERVER_VM_STATE: ok[AmConstants.SERVER][AmConstants.SERVER_VM_STATE],
                 AmConstants.SERVER_INSTANCE_NAME: ok[AmConstants.SERVER][AmConstants.SERVER_INSTANCE_NAME],
                 AmConstants.SERVER_ACCESS_IPv4: ok[AmConstants.SERVER][AmConstants.SERVER_ACCESS_IPv4]
             }
@@ -280,3 +308,36 @@ class VMHandler(HandlerBase):
                 self.logger.error(f"Unreachable: "
                                   f"{ansible_helper.get_result_callback().get_json_result_unreachable(host=host)}")
 
+    def __attach_detach_pci(self, *, playbook_path: str, inventory_path: str, host: str, instance_name: str,
+                            pci_device: str, attach: bool = True):
+        """
+        Invoke ansible playbook to attach/detach a PCI device to a provisioned VM
+        :param playbook_path: playbook location
+        :param inventory_path: inventory location
+        :param host: host
+        :param instance_name: Instance Name
+        :param pci_device: PCI Device
+        :param attach: True for attach and False for detach
+        :return:
+        """
+        ansible_helper = None
+        try:
+            ansible_helper = AnsibleHelper(inventory_path=inventory_path, logger=self.logger)
+
+            ansible_helper.add_vars(host=host, var_name=AmConstants.KVM_GUEST_NAME, value=instance_name)
+            ansible_helper.add_vars(host=host, var_name=AmConstants.PCI_ADDRESS, value=pci_device)
+
+            self.logger.debug(f"Executing playbook {playbook_path} to attach PCI Address")
+            ansible_helper.run_playbook(playbook_path=playbook_path)
+
+            ok = ansible_helper.get_result_callback().get_json_result_ok(host=host)
+
+            result = {}
+            self.logger.debug(f"Returning properties {result}")
+            return result
+        finally:
+            if ansible_helper is not None:
+                self.logger.debug(f"OK: {ansible_helper.get_result_callback().get_json_result_ok(host=host)}")
+                self.logger.error(f"Failed: {ansible_helper.get_result_callback().get_json_result_failed(host=host)}")
+                self.logger.error(f"Unreachable: "
+                                  f"{ansible_helper.get_result_callback().get_json_result_unreachable(host=host)}")

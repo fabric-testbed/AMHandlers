@@ -32,6 +32,7 @@ class AmConstants:
 
     PLAYBOOK_SECTION = 'playbooks'
     PB_VM_PROVISIONING = 'vm_provisioning'
+    PB_PCI_PROVISIONING = 'pci_provisioning'
     PB_LOCATION = "location"
     PB_INVENTORY = "inventory_location"
 
@@ -50,3 +51,7 @@ class AmConstants:
     FLOATING_IP_PROPERTIES = 'properties'
     FLOATING_IP_PORT_DETAILS = 'port_details'
     FLOATING_IP_MAC_ADDRESS = 'mac_address'
+
+    KVM_GUEST_NAME = 'kvmguest_name'
+    PCI_ADDRESS = 'pcidevice_address'
+    ADD_PCI_DEVICE = 'add_pcidevice'

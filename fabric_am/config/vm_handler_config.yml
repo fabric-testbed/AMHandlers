@@ -2,3 +2,4 @@ playbooks:
   location: fabric_am/playbooks
   inventory_location: fabric_am/playbooks/inventory
   vm_provisioning: head_vm_provisioning.yml
+  pci_provisioning: worker_pci_provisioning.yml
