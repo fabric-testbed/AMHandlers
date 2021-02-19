@@ -43,29 +43,38 @@ class VMHandler(HandlerBase):
         self.logger = logger
         self.properties = properties
         self.config = None
-        self._load()
 
-    def _load(self):
         config_properties_file = self.properties.get(AmConstants.CONFIG_PROPERTIES_FILE, None)
         if config_properties_file is None:
             return
 
         self.config = self.load_config(path=config_properties_file)
 
-    def get_config(self) -> dict:
-        return self.config
-
     def create(self, unit: ConfigToken, properties: dict) -> Tuple[dict, ConfigToken]:
-        result = None
+        """
+        Create a VM
+        :param unit: unit representing VM
+        :param properties: properties
+        :return: tuple of result status and the unit
+        """
+        result = {Constants.PROPERTY_TARGET_NAME: Constants.TARGET_DELETE,
+                  Constants.PROPERTY_TARGET_RESULT_CODE: Constants.RESULT_CODE_OK,
+                  Constants.PROPERTY_ACTION_SEQUENCE_NUMBER: 0}
+
+        playbook_path = None
+        inventory_path = None
+        head_node = None
+        vmname = None
+
         try:
             self.logger.info(f"Create invoked for unit: {unit} properties: {properties}")
-            self.logger.info(f"Config: {self.get_config()}")
 
             head_node = properties.get(Constants.HEAD_NODE, None)
             worker_node = properties.get(Constants.WORKER_NODE, None)
             flavor = properties.get(Constants.FLAVOR, None)
             vmname = properties.get(Constants.VM_NAME, None)
             image = properties.get(Constants.IMAGE, None)
+            az = f"nova:{worker_node}"
 
             if head_node is None or worker_node is None or flavor is None or vmname is None or image is None:
                 raise VmHandlerException(f"Missing required parameters headnode: {head_node} workernode: {worker_node} "
@@ -79,19 +88,22 @@ class VMHandler(HandlerBase):
                 raise VmHandlerException(f"Missing config parameters pb_vm_prov: {pb_vm_prov} "
                                          f"pb_location: {pb_location} inventory_path: {inventory_path}")
 
-            auth_params = self.get_auth_params()
-
             # create VM
-            az = f"nova:{worker_node}"
             playbook_path = f"{pb_location}/{pb_vm_prov}"
-            props = self.create_vm(playbook_path=playbook_path, inventory_path=inventory_path, host=head_node,
-                                   auth_vars=auth_params, vm_name=vmname, image=image, flavor=flavor, avail_zone=az)
+            props = self.__create_vm(playbook_path=playbook_path, inventory_path=inventory_path, host=head_node,
+                                     vm_name=vmname, image=image, flavor=flavor, avail_zone=az)
 
             # Attach FIP
-            props2 = self.attach_fip(playbook_path=playbook_path, inventory_path=inventory_path, host=head_node,
-                                     auth_vars=auth_params, vm_name=vmname)
+            props2 = self.__attach_fip(playbook_path=playbook_path, inventory_path=inventory_path, host=head_node,
+                                       vm_name=vmname)
 
         except Exception as e:
+            # Delete VM in case of failure
+            if playbook_path is not None and inventory_path is not None and head_node is not None \
+                    and vmname is not None:
+                self.__delete_vm(playbook_path=playbook_path, inventory_path=inventory_path, host=head_node,
+                                 vm_name=vmname)
+
             result = {Constants.PROPERTY_TARGET_NAME: Constants.TARGET_CREATE,
                       Constants.PROPERTY_TARGET_RESULT_CODE: Constants.RESULT_CODE_EXCEPTION,
                       Constants.PROPERTY_ACTION_SEQUENCE_NUMBER: 0}
@@ -103,9 +115,36 @@ class VMHandler(HandlerBase):
         return result, unit
 
     def delete(self, unit: ConfigToken, properties: dict) -> Tuple[dict, ConfigToken]:
-        result = None
+        """
+        Delete a provisioned VM
+        :param unit: unit representing VM
+        :param properties:  properties
+        :return: tuple of result status and the unit
+        """
+        result = {Constants.PROPERTY_TARGET_NAME: Constants.TARGET_DELETE,
+                  Constants.PROPERTY_TARGET_RESULT_CODE: Constants.RESULT_CODE_OK,
+                  Constants.PROPERTY_ACTION_SEQUENCE_NUMBER: 0}
         try:
             self.logger.info(f"Delete invoked for unit: {unit} properties: {properties}")
+
+            head_node = properties.get(Constants.HEAD_NODE, None)
+            vmname = properties.get(Constants.VM_NAME, None)
+
+            if head_node is None or vmname is None:
+                raise VmHandlerException(f"Missing required parameters headnode: {head_node} vmname: {vmname}")
+
+            pb_location = self.config[AmConstants.PLAYBOOK_SECTION][AmConstants.PB_LOCATION]
+            pb_vm_prov = self.config[AmConstants.PLAYBOOK_SECTION][AmConstants.PB_VM_PROVISIONING]
+            inventory_path = self.config[AmConstants.PLAYBOOK_SECTION][AmConstants.PB_INVENTORY]
+
+            if pb_vm_prov is None or inventory_path is None:
+                raise VmHandlerException(f"Missing config parameters pb_vm_prov: {pb_vm_prov} "
+                                         f"pb_location: {pb_location} inventory_path: {inventory_path}")
+
+            # Delete VM
+            playbook_path = f"{pb_location}/{pb_vm_prov}"
+            props = self.__delete_vm(playbook_path=playbook_path, inventory_path=inventory_path, host=head_node,
+                                     vm_name=vmname)
 
         except Exception as e:
             result = {Constants.PROPERTY_TARGET_NAME: Constants.TARGET_DELETE,
@@ -119,6 +158,12 @@ class VMHandler(HandlerBase):
         return result, unit
 
     def modify(self, unit: ConfigToken, properties: dict) -> Tuple[dict, ConfigToken]:
+        """
+        Modify a provisioned Unit
+        :param unit: unit representing VM
+        :param properties: properties
+        :return: tuple of result status and the unit
+        """
         result = None
         try:
             self.logger.info(f"Modify invoked for unit: {unit} properties: {properties}")
@@ -133,68 +178,101 @@ class VMHandler(HandlerBase):
             self.logger.info(f"Modify completed")
         return result, unit
 
-    def get_auth_params(self) -> dict:
+    def __create_vm(self, *, playbook_path: str, inventory_path: str, host: str, vm_name: str,
+                    avail_zone: str, image: str, flavor: str) -> dict:
+        """
+        Invoke ansible playbook to provision a VM
+        :param playbook_path: playbook location
+        :param inventory_path: inventory location
+        :param host: host
+        :param vm_name: VM Name
+        :param avail_zone: Availability Zone
+        :param image: Image
+        :param flavor: Flavor
+        :return: dictionary containing created instance details
+        """
+        ansible_helper = None
         try:
-            result = {}
+            ansible_helper = AnsibleHelper(inventory_path=inventory_path, logger=self.logger)
 
-            result[AmConstants.AUTH_URL] = self.config[AmConstants.AUTH_SECTION][AmConstants.AUTH_URL]
+            ansible_helper.add_vars(host=host, var_name=AmConstants.VM_PROV_OP, value=AmConstants.VM_PROV_OP_CREATE)
+            ansible_helper.add_vars(host=host, var_name=AmConstants.EC2_AVAILABILITY_ZONE, value=avail_zone)
+            ansible_helper.add_vars(host=host, var_name=Constants.VM_NAME, value=vm_name)
+            ansible_helper.add_vars(host=host, var_name=Constants.FLAVOR, value=flavor)
+            ansible_helper.add_vars(host=host, var_name=Constants.IMAGE, value=image)
 
-            result[AmConstants.AUTH_PASSWORD] = self.config[AmConstants.AUTH_SECTION][AmConstants.AUTH_PASSWORD]
+            self.logger.debug(f"Executing playbook {playbook_path}")
+            ansible_helper.run_playbook(playbook_path=playbook_path)
+            ok = ansible_helper.get_result_callback().get_json_result_ok(host=host)
 
-            result[AmConstants.AUTH_PROJECT_NAME] = self.config[AmConstants.AUTH_SECTION][AmConstants.AUTH_PROJECT_NAME]
-
-            result[AmConstants.AUTH_USER_NAME] = self.config[AmConstants.AUTH_SECTION][AmConstants.AUTH_USER_NAME]
-
-            result[AmConstants.EC2_MGMT_NETWORK_NAME] = self.config[AmConstants.EC2_SECTION][AmConstants.EC2_MGMT_NETWORK_NAME]
-
-            result[AmConstants.EC2_SECURITY_GROUP] = self.config[AmConstants.EC2_SECTION][AmConstants.EC2_SECURITY_GROUP]
-
-            result[AmConstants.EC2_KEY_NAME] = self.config[AmConstants.EC2_SECTION][AmConstants.EC2_KEY_NAME]
-
-            result[AmConstants.EC2_EXTERNAL_NETWORK] = self.config[AmConstants.EC2_SECTION][AmConstants.EC2_EXTERNAL_NETWORK]
+            result = {
+                AmConstants.SERVER_VM_STATE:ok[AmConstants.SERVER][AmConstants.SERVER_VM_STATE],
+                AmConstants.SERVER_INSTANCE_NAME: ok[AmConstants.SERVER][AmConstants.SERVER_INSTANCE_NAME],
+                AmConstants.SERVER_ACCESS_IPv4: ok[AmConstants.SERVER][AmConstants.SERVER_ACCESS_IPv4]
+            }
+            self.logger.debug(f"Returning properties {result}")
 
             return result
-        except Exception as e:
-            self.logger.error(f"Error occurred while grabbing Auth parameters: {e}")
-            self.logger.error(traceback.format_exc())
-            raise e
+        finally:
+            if ansible_helper is not None:
+                self.logger.debug(f"OK: {ansible_helper.get_result_callback().get_json_result_ok(host=host)}")
+                self.logger.error(f"Failed: {ansible_helper.get_result_callback().get_json_result_failed(host=host)}")
+                self.logger.error(f"Unreachable: "
+                                  f"{ansible_helper.get_result_callback().get_json_result_unreachable(host=host)}")
 
-    def create_vm(self, *, playbook_path: str, inventory_path: str, auth_vars: dict, host: str,
-                  vm_name: str, avail_zone: str, image: str, flavor: str) -> dict:
-        ansible_helper = AnsibleHelper(inventory_path=inventory_path, logger=self.logger)
-        for key, value in auth_vars.items():
-            ansible_helper.add_vars(host=host, var_name=key, value=value)
-        ansible_helper.add_vars(host=host, var_name=AmConstants.VM_PROV_OP, value=AmConstants.VM_PROV_OP_CREATE)
+    def __delete_vm(self, *, playbook_path: str, inventory_path: str, host: str, vm_name: str) -> bool:
+        """
+        Invoke ansible playbook to remove a provisioned VM
+        :param playbook_path: playbook location
+        :param inventory_path: inventory location
+        :param host: host
+        :param vm_name: VM Name
+        :return: True or False representing success/failure
+        """
+        ansible_helper = None
+        try:
+            ansible_helper = AnsibleHelper(inventory_path=inventory_path, logger=self.logger)
 
-        ansible_helper.add_vars(host=host, var_name=AmConstants.EC2_AVAILABILITY_ZONE, value=avail_zone)
-        ansible_helper.add_vars(host=host, var_name=Constants.VM_NAME, value=vm_name)
-        ansible_helper.add_vars(host=host, var_name=Constants.FLAVOR, value=flavor)
-        ansible_helper.add_vars(host=host, var_name=Constants.IMAGE, value=image)
+            ansible_helper.add_vars(host=host, var_name=AmConstants.VM_PROV_OP, value=AmConstants.VM_PROV_OP_DELETE)
+            ansible_helper.add_vars(host=host, var_name=Constants.VM_NAME, value=vm_name)
 
-        self.logger.debug(f"Executing playbook {playbook_path}")
-        ansible_helper.run_playbook(playbook_path=playbook_path)
-        # TODO process properties and return a dict
-        return {}
+            self.logger.debug(f"Executing playbook {playbook_path}")
+            ansible_helper.run_playbook(playbook_path=playbook_path)
+            return True
+        finally:
+            if ansible_helper is not None:
+                self.logger.debug(f"OK: {ansible_helper.get_result_callback().get_json_result_ok(host=host)}")
+                self.logger.error(f"Failed: {ansible_helper.get_result_callback().get_json_result_failed(host=host)}")
+                self.logger.error(f"Unreachable: "
+                                  f"{ansible_helper.get_result_callback().get_json_result_unreachable(host=host)}")
 
-    def delete_vm(self, *, playbook_path: str, inventory_path: str, auth_vars: dict, host: str, vm_name: str) -> bool:
-        ansible_helper = AnsibleHelper(inventory_path=inventory_path, logger=self.logger)
-        for key, value in auth_vars.items():
-            ansible_helper.add_vars(host=host, var_name=key, value=value)
-        ansible_helper.add_vars(host=host, var_name=AmConstants.VM_PROV_OP, value=AmConstants.VM_PROV_OP_DELETE)
-        ansible_helper.add_vars(host=host, var_name=Constants.VM_NAME, value=vm_name)
+    def __attach_fip(self, *, playbook_path: str, inventory_path: str, host: str, vm_name: str) -> dict:
+        """
+        Invoke ansible playbook to attach a floating IP to a provisioned VM
+        :param playbook_path: playbook location
+        :param inventory_path: inventory location
+        :param host: host
+        :param vm_name: VM Name
+        :return: dictionary containing created floating ip details
+        """
+        ansible_helper = None
+        try:
+            ansible_helper = AnsibleHelper(inventory_path=inventory_path, logger=self.logger)
+            ansible_helper.add_vars(host=host, var_name=AmConstants.VM_PROV_OP, value=AmConstants.VM_PROV_OP_ATTACH_FIP)
+            ansible_helper.add_vars(host=host, var_name=Constants.VM_NAME, value=vm_name)
 
-        self.logger.debug(f"Executing playbook {playbook_path}")
-        ansible_helper.run_playbook(playbook_path=playbook_path)
-        return True
+            self.logger.debug(f"Executing playbook {playbook_path}")
+            ansible_helper.run_playbook(playbook_path=playbook_path)
 
-    def attach_fip(self, *, playbook_path: str, inventory_path: str, auth_vars: dict, host: str, vm_name: str) -> dict:
-        ansible_helper = AnsibleHelper(inventory_path=inventory_path, logger=self.logger)
-        for key, value in auth_vars.items():
-            ansible_helper.add_vars(host=host, var_name=key, value=value)
-        ansible_helper.add_vars(host=host, var_name=AmConstants.VM_PROV_OP, value=AmConstants.VM_PROV_OP_ATTACH_FIP)
-        ansible_helper.add_vars(host=host, var_name=Constants.VM_NAME, value=vm_name)
+            ok = ansible_helper.get_result_callback().get_json_result_ok(host=host)
 
-        self.logger.debug(f"Executing playbook {playbook_path}")
-        ansible_helper.run_playbook(playbook_path=playbook_path)
-        # TODO process properties and return a dict
-        return {}
+            result = {}
+            self.logger.debug(f"Returning properties {result}")
+            return result
+        finally:
+            if ansible_helper is not None:
+                self.logger.debug(f"OK: {ansible_helper.get_result_callback().get_json_result_ok(host=host)}")
+                self.logger.error(f"Failed: {ansible_helper.get_result_callback().get_json_result_failed(host=host)}")
+                self.logger.error(f"Unreachable: "
+                                  f"{ansible_helper.get_result_callback().get_json_result_unreachable(host=host)}")
+

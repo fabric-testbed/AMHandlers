@@ -1,16 +1,4 @@
-auth:
-  auth_url:
-  password:
-  project_name: admin
-  username: admin
-
-ec2:
-  net_name: management-2004
-  security_group: custom-permissive
-  key_name: default
-  ext_network: public
-
 playbooks:
   location: fabric_am/playbooks
   inventory_location: fabric_am/playbooks/inventory
-  vm_provisioning: head_create_vm.yml
+  vm_provisioning: head_vm_provisioning.yml

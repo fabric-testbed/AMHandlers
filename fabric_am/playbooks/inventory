@@ -7,6 +7,14 @@ renc-w3.fabric-testbed.net ansible_host=192.168.11.13
 
 [fabric_site_head]
 renc-hn.fabric-testbed.net ansible_host=192.168.11.10
+renc-hn.fabric-testbed.net auth_url=
+renc-hn.fabric-testbed.net password=
+renc-hn.fabric-testbed.net project_name=admin
+renc-hn.fabric-testbed.net username=admin
+renc-hn.fabric-testbed.net net_name=management-2004
+renc-hn.fabric-testbed.net security_group=fully-permissive
+renc-hn.fabric-testbed.net key_name=default
+renc-hn.fabric-testbed.net ext_network=public
 
 [fabric_worker:children]
 fabric_site_worker

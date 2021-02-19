@@ -27,17 +27,7 @@
 
 class AmConstants:
     CONFIG_PROPERTIES_FILE = 'config.properties.file'
-    AUTH_SECTION = 'auth'
-    AUTH_URL = 'auth_url'
-    AUTH_PASSWORD = 'password'
-    AUTH_PROJECT_NAME = 'project_name'
-    AUTH_USER_NAME = 'username'
 
-    EC2_SECTION = 'ec2'
-    EC2_MGMT_NETWORK_NAME = 'net_name'
-    EC2_SECURITY_GROUP = 'security_group'
-    EC2_KEY_NAME = 'key_name'
-    EC2_EXTERNAL_NETWORK = 'ext_network'
     EC2_AVAILABILITY_ZONE = 'availability_zone'
 
     PLAYBOOK_SECTION = 'playbooks'
@@ -50,3 +40,7 @@ class AmConstants:
     VM_PROV_OP_DELETE = "delete"
     VM_PROV_OP_ATTACH_FIP = "attach_fip"
 
+    SERVER = 'server'
+    SERVER_VM_STATE = 'vm_state'
+    SERVER_INSTANCE_NAME = 'instance_name'
+    SERVER_ACCESS_IPv4 = 'accessIPv4'

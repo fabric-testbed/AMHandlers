@@ -40,6 +40,7 @@ from ansible.vars.manager import VariableManager
 class PlaybookException(Exception):
     pass
 
+
 class ResultsCollectorJSONCallback(CallbackBase):
     """A callback plugin used for performing an action as results come in.
 
@@ -78,7 +79,7 @@ class ResultsCollectorJSONCallback(CallbackBase):
         host = result._host
         self.host_failed[host.get_name()] = result
 
-    def get_json_result(self, host: str, host_result_map: dict):
+    def __get_json_result(self, host: str, host_result_map: dict):
         """
         Get Json Result for a host
         @param host host
@@ -93,21 +94,21 @@ class ResultsCollectorJSONCallback(CallbackBase):
         Get Json OK Result for a host
         @param host host
         """
-        return self.get_json_result(host=host, host_result_map=self.host_ok)
+        return self.__get_json_result(host=host, host_result_map=self.host_ok)
 
     def get_json_result_unreachable(self, host: str):
         """
         Get Json Unreachable Result for a host
         @param host host
         """
-        return self.get_json_result(host=host, host_result_map=self.host_unreachable)
+        return self.__get_json_result(host=host, host_result_map=self.host_unreachable)
 
     def get_json_result_failed(self, host: str):
         """
         Get Json Failed Result for a host
         @param host host
         """
-        return self.get_json_result(host=host, host_result_map=self.host_failed)
+        return self.__get_json_result(host=host, host_result_map=self.host_failed)
 
     def is_failed_or_unreachable(self) -> bool:
         if len(self.host_failed) > 0 or len(self.host_unreachable) > 0:
