@@ -87,7 +87,7 @@ class ResultsCollectorJSONCallback(CallbackBase):
         """
         result = host_result_map.get(host, None)
         if result is not None:
-            return json.dumps(result._result)
+            return result._result
 
     def get_json_result_ok(self, host: str):
         """

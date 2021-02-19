@@ -90,12 +90,15 @@ class VMHandler(HandlerBase):
 
             # create VM
             playbook_path = f"{pb_location}/{pb_vm_prov}"
-            props = self.__create_vm(playbook_path=playbook_path, inventory_path=inventory_path, host=head_node,
-                                     vm_name=vmname, image=image, flavor=flavor, avail_zone=az)
+            instance_props = self.__create_vm(playbook_path=playbook_path, inventory_path=inventory_path, host=head_node,
+                                              vm_name=vmname, image=image, flavor=flavor, avail_zone=az)
 
             # Attach FIP
-            props2 = self.__attach_fip(playbook_path=playbook_path, inventory_path=inventory_path, host=head_node,
-                                       vm_name=vmname)
+            fip_props = self.__attach_fip(playbook_path=playbook_path, inventory_path=inventory_path, host=head_node,
+                                          vm_name=vmname)
+
+            for x, y in fip_props.items():
+                instance_props[x] = y
 
         except Exception as e:
             # Delete VM in case of failure
@@ -201,7 +204,7 @@ class VMHandler(HandlerBase):
             ansible_helper.add_vars(host=host, var_name=Constants.FLAVOR, value=flavor)
             ansible_helper.add_vars(host=host, var_name=Constants.IMAGE, value=image)
 
-            self.logger.debug(f"Executing playbook {playbook_path}")
+            self.logger.debug(f"Executing playbook {playbook_path} to create VM")
             ansible_helper.run_playbook(playbook_path=playbook_path)
             ok = ansible_helper.get_result_callback().get_json_result_ok(host=host)
 
@@ -236,7 +239,7 @@ class VMHandler(HandlerBase):
             ansible_helper.add_vars(host=host, var_name=AmConstants.VM_PROV_OP, value=AmConstants.VM_PROV_OP_DELETE)
             ansible_helper.add_vars(host=host, var_name=Constants.VM_NAME, value=vm_name)
 
-            self.logger.debug(f"Executing playbook {playbook_path}")
+            self.logger.debug(f"Executing playbook {playbook_path} to delete VM")
             ansible_helper.run_playbook(playbook_path=playbook_path)
             return True
         finally:
@@ -261,12 +264,13 @@ class VMHandler(HandlerBase):
             ansible_helper.add_vars(host=host, var_name=AmConstants.VM_PROV_OP, value=AmConstants.VM_PROV_OP_ATTACH_FIP)
             ansible_helper.add_vars(host=host, var_name=Constants.VM_NAME, value=vm_name)
 
-            self.logger.debug(f"Executing playbook {playbook_path}")
+            self.logger.debug(f"Executing playbook {playbook_path} to attach FIP")
             ansible_helper.run_playbook(playbook_path=playbook_path)
 
             ok = ansible_helper.get_result_callback().get_json_result_ok(host=host)
 
-            result = {}
+            result = {AmConstants.FLOATING_IP: ok[AmConstants.FLOATING_IP][AmConstants.FLOATING_IP_ADDRESS],
+                      AmConstants.FLOATING_IP_MAC_ADDRESS: ok[AmConstants.FLOATING_IP][AmConstants.FLOATING_IP_PROPERTIES][AmConstants.FLOATING_IP_PORT_DETAILS][AmConstants.FLOATING_IP_MAC_ADDRESS]}
             self.logger.debug(f"Returning properties {result}")
             return result
         finally:

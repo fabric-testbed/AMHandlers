@@ -44,3 +44,9 @@ class AmConstants:
     SERVER_VM_STATE = 'vm_state'
     SERVER_INSTANCE_NAME = 'instance_name'
     SERVER_ACCESS_IPv4 = 'accessIPv4'
+
+    FLOATING_IP = 'floating_ip'
+    FLOATING_IP_ADDRESS = 'floating_ip_address'
+    FLOATING_IP_PROPERTIES = 'properties'
+    FLOATING_IP_PORT_DETAILS = 'port_details'
+    FLOATING_IP_MAC_ADDRESS = 'mac_address'
