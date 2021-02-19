@@ -16,5 +16,6 @@ if __name__ == '__main__':
     prop = {AmConstants.CONFIG_PROPERTIES_FILE: 'fabric_am/config/vm_handler_config.yml'}
     handler = VMHandler(logger=logger, properties=prop)
     prop2 = {Constants.VM_NAME: "vm1", Constants.WORKER_NODE: "uky-w2.fabric-testbed.net",
-             Constants.HEAD_NODE: "uky-hn.fabric-testbed.net", Constants.FLAVOR: "fabric.large"}
+             Constants.HEAD_NODE: "uky-hn.fabric-testbed.net", Constants.FLAVOR: "fabric.large",
+             Constants.IMAGE: "default_centos_8"}
     handler.create(unit=u, properties=prop2)
