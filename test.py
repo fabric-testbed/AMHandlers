@@ -26,14 +26,15 @@ if __name__ == '__main__':
         prop2 = {Constants.VM_NAME: "vm1", Constants.WORKER_NODE: "renc-w2.fabric-testbed.net",
                  Constants.HEAD_NODE: "renc-hn.fabric-testbed.net", Constants.FLAVOR: "fabric.large",
                  Constants.IMAGE: "default_centos_8", Constants.PCI_DEVICES: ['[0, 1, 0, 1]']}
-        handler.create(unit=u, properties=prop2)
+        r, u = handler.create(unit=u, properties=prop2)
+        print(f"instance_name: {r[AmConstants.SERVER_INSTANCE_NAME]}")
     elif args.command == 'delete':
         u = Unit(uid=ID(uid='u1'))
         prop = {AmConstants.CONFIG_PROPERTIES_FILE: 'fabric_am/config/vm_handler_config.yml'}
         handler = VMHandler(logger=logger, properties=prop)
         prop2 = {Constants.VM_NAME: "vm1", Constants.WORKER_NODE: "renc-w2.fabric-testbed.net",
                  Constants.HEAD_NODE: "renc-hn.fabric-testbed.net", Constants.FLAVOR: "fabric.large",
-                 Constants.IMAGE: "default_centos_8", Constants.PCI_DEVICES: ['[0, 1, 0, 1]']}
+                 Constants.IMAGE: "default_centos_8", Constants.PCI_DEVICES: ['[0, 1, 0, 1]'], 'instance_name': 'instance-0000006f'}
         handler.delete(unit=u, properties=prop2)
     else:
         print(f"Unsupported command: {args.command}")

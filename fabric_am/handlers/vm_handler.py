@@ -101,9 +101,6 @@ class VMHandler(HandlerBase):
             fip_props = self.__attach_fip(playbook_path=vm_playbook_path, inventory_path=inventory_path, host=head_node,
                                           vm_name=vmname)
 
-            for x, y in fip_props.items():
-                instance_props[x] = y
-
             pb_vm_prov = self.config[AmConstants.PLAYBOOK_SECTION][AmConstants.PB_VM_PROVISIONING]
 
             if pb_vm_prov is None or inventory_path is None:
@@ -124,6 +121,11 @@ class VMHandler(HandlerBase):
                     self.__attach_detach_pci(playbook_path=pci_playbook_path, inventory_path=inventory_path,
                                              host=worker_node, instance_name=instance_name, pci_device=p)
 
+            for x, y in fip_props.items():
+                result[x] = y
+
+            for x, y in instance_props.items():
+                result[x] = y
         except Exception as e:
             # Delete VM in case of failure
             if vm_playbook_path is not None and inventory_path is not None and head_node is not None \
