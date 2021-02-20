@@ -1,11 +1,6 @@
 ---
 # /tasks/main.yml
 #
-- name: Set the operation
-  ansible.builtin.set_fact:
-    operation: "{{ vm_prov_op }}"
-  when: operation is not defined
-  # this task sets a value for operation
 
 - name: Create a VM
   os_server:
@@ -24,7 +19,7 @@
     nics:
       - net-name: "{{ net_name }}"
     security_groups: "{{ security_group }}"
-  when: operation == 'create'
+  when: vm_prov_op == 'create'
 
 - name: Attach a floating IP to the instance
   os_floating_ip:
@@ -39,7 +34,7 @@
     wait: true
     timeout: 200
     network: "{{ ext_network }}"
-  when: operation == 'attach_fip'
+  when: vm_prov_op == 'attach_fip'
 
 - name: Delete a VM
   os_server:
@@ -50,5 +45,5 @@
       project_name: "{{ project_name }}"
       username: "{{ username }}"
     name: "{{ vmname }}"
-  when: operation == 'delete'
+  when: vm_prov_op == 'delete'
 

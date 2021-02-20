@@ -24,7 +24,6 @@
 #
 # Author: Komal Thareja (kthare10@renci.org)
 # Create a callback plugin so we can capture the output
-import json
 import os
 import traceback
 
@@ -148,7 +147,7 @@ class AnsibleHelper:
         context.CLIARGS = ImmutableDict(connection='smart', tags={}, listtags=False, listtasks=False, listhosts=False,
                                         syntax=False,
                                         module_path=None, forks=100, private_key_file=None,
-                                        ssh_common_args=None, ssh_extra_args=None, sftp_extra_args=None,
+                                        ssh_common_args=None, ssh_extra_args='-o StrictHostKeyChecking=no', sftp_extra_args=None,
                                         scp_extra_args=None, become=False,
                                         become_method='sudo', become_user='root', verbosity=True, check=False,
                                         start_at_task=None)
@@ -179,3 +178,11 @@ class AnsibleHelper:
         @return result callback
         """
         return self.results_callback
+
+    def set_extra_vars(self, extra_vars: dict):
+        """
+        Set Extra Variables
+        :param extra_vars: Extra variable dict
+        :return:
+        """
+        self.variable_manager._extra_vars = extra_vars

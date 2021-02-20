@@ -24,7 +24,7 @@
 #
 # Author: Komal Thareja (kthare10@renci.org)
 import traceback
-from typing import Tuple
+from typing import Tuple, List
 
 from fabric_cf.actor.core.common.constants import Constants
 from fabric_cf.actor.core.plugins.handlers.config_token import ConfigToken
@@ -61,10 +61,14 @@ class VMHandler(HandlerBase):
                   Constants.PROPERTY_TARGET_RESULT_CODE: Constants.RESULT_CODE_OK,
                   Constants.PROPERTY_ACTION_SEQUENCE_NUMBER: 0}
 
-        playbook_path = None
+        vm_playbook_path = None
+        pci_playbook_path = None
         inventory_path = None
         head_node = None
         vmname = None
+        pci_devices = None
+        worker_node = None
+        instance_name = None
 
         try:
             self.logger.info(f"Create invoked for unit: {unit} properties: {properties}")
@@ -89,36 +93,44 @@ class VMHandler(HandlerBase):
                                          f"pb_location: {pb_location} inventory_path: {inventory_path}")
 
             # create VM
-            playbook_path = f"{pb_location}/{pb_vm_prov}"
-            instance_props = self.__create_vm(playbook_path=playbook_path, inventory_path=inventory_path, host=head_node,
+            vm_playbook_path = f"{pb_location}/{pb_vm_prov}"
+            instance_props = self.__create_vm(playbook_path=vm_playbook_path, inventory_path=inventory_path, host=head_node,
                                               vm_name=vmname, image=image, flavor=flavor, avail_zone=az)
 
             # Attach FIP
-            fip_props = self.__attach_fip(playbook_path=playbook_path, inventory_path=inventory_path, host=head_node,
+            fip_props = self.__attach_fip(playbook_path=vm_playbook_path, inventory_path=inventory_path, host=head_node,
                                           vm_name=vmname)
 
             for x, y in fip_props.items():
                 instance_props[x] = y
 
+            pb_vm_prov = self.config[AmConstants.PLAYBOOK_SECTION][AmConstants.PB_VM_PROVISIONING]
+
+            if pb_vm_prov is None or inventory_path is None:
+                raise VmHandlerException(f"Missing config parameters pb_vm_prov: {pb_vm_prov} "
+                                         f"pb_location: {pb_location} inventory_path: {inventory_path}")
+
+            # Attach any attached PCI Devices
+            instance_name = instance_props.get(AmConstants.SERVER_INSTANCE_NAME, None)
             pci_devices = properties.get(Constants.PCI_DEVICES, None)
-            instance_name = instance_props[AmConstants.SERVER_INSTANCE_NAME]
             if pci_devices is not None and len(pci_devices) > 0:
                 pb_pci_prov = self.config[AmConstants.PLAYBOOK_SECTION][AmConstants.PB_PCI_PROVISIONING]
                 if pb_pci_prov is None or instance_name is None:
                     raise VmHandlerException(f"Missing parameters pb_pci_prov: {pb_pci_prov} "
                                              f"instance_name: {instance_name}")
 
-                playbook_path = f"{pb_location}/{pb_pci_prov}"
+                pci_playbook_path = f"{pb_location}/{pb_pci_prov}"
                 for p in pci_devices:
-                    self.__attach_detach_pci(playbook_path=playbook_path, inventory_path=inventory_path,
+                    self.__attach_detach_pci(playbook_path=pci_playbook_path, inventory_path=inventory_path,
                                              host=worker_node, instance_name=instance_name, pci_device=p)
 
         except Exception as e:
             # Delete VM in case of failure
-            if playbook_path is not None and inventory_path is not None and head_node is not None \
+            if vm_playbook_path is not None and inventory_path is not None and head_node is not None \
                     and vmname is not None:
-                self.__delete_vm(playbook_path=playbook_path, inventory_path=inventory_path, host=head_node,
-                                 vm_name=vmname)
+                self.__cleanup(vm_playbook_path=vm_playbook_path, inventory_path=inventory_path, head_node=head_node,
+                               vm_name=vmname, pci_playbook_path=pci_playbook_path, worker_node=worker_node,
+                               pci_devices=pci_devices, instance_name=instance_name)
 
             result = {Constants.PROPERTY_TARGET_NAME: Constants.TARGET_CREATE,
                       Constants.PROPERTY_TARGET_RESULT_CODE: Constants.RESULT_CODE_EXCEPTION,
@@ -153,29 +165,21 @@ class VMHandler(HandlerBase):
 
             pb_location = self.config[AmConstants.PLAYBOOK_SECTION][AmConstants.PB_LOCATION]
             pb_vm_prov = self.config[AmConstants.PLAYBOOK_SECTION][AmConstants.PB_VM_PROVISIONING]
+            pb_pci_prov = self.config[AmConstants.PLAYBOOK_SECTION][AmConstants.PB_PCI_PROVISIONING]
             inventory_path = self.config[AmConstants.PLAYBOOK_SECTION][AmConstants.PB_INVENTORY]
 
             if pb_vm_prov is None or inventory_path is None:
                 raise VmHandlerException(f"Missing config parameters pb_vm_prov: {pb_vm_prov} "
                                          f"pb_location: {pb_location} inventory_path: {inventory_path}")
 
-            # Detach any attached PCI Devices
-            pci_devices = properties.get(Constants.PCI_DEVICES, None)
-            if pci_devices is not None and len(pci_devices) > 0:
-                pb_pci_prov = self.config[AmConstants.PLAYBOOK_SECTION][AmConstants.PB_PCI_PROVISIONING]
-                if pb_pci_prov is None or instance_name is None:
-                    raise VmHandlerException(f"Missing parameters pb_pci_prov: {pb_pci_prov} "
-                                             f"instance_name: {instance_name}")
+            vm_playbook_path = f"{pb_location}/{pb_vm_prov}"
+            pci_playbook_path = f"{pb_location}/{pb_pci_prov}"
 
-                playbook_path = f"{pb_location}/{pb_pci_prov}"
-                for p in pci_devices:
-                    self.__attach_detach_pci(playbook_path=playbook_path, inventory_path=inventory_path,
-                                             host=worker_node, instance_name=instance_name, pci_device=p,
-                                             attach=False)
-            # Delete VM
-            playbook_path = f"{pb_location}/{pb_vm_prov}"
-            props = self.__delete_vm(playbook_path=playbook_path, inventory_path=inventory_path, host=head_node,
-                                     vm_name=vmname)
+            pci_devices = properties.get(Constants.PCI_DEVICES, None)
+
+            self.__cleanup(vm_playbook_path=vm_playbook_path, inventory_path=inventory_path, head_node=head_node,
+                           vm_name=vmname, pci_playbook_path=pci_playbook_path, worker_node=worker_node,
+                           pci_devices=pci_devices, instance_name=instance_name)
 
         except Exception as e:
             result = {Constants.PROPERTY_TARGET_NAME: Constants.TARGET_DELETE,
@@ -195,17 +199,57 @@ class VMHandler(HandlerBase):
         :param properties: properties
         :return: tuple of result status and the unit
         """
-        result = None
+        result = {Constants.PROPERTY_TARGET_NAME: Constants.TARGET_DELETE,
+                  Constants.PROPERTY_TARGET_RESULT_CODE: Constants.RESULT_CODE_OK,
+                  Constants.PROPERTY_ACTION_SEQUENCE_NUMBER: 0}
+
+        playbook_path = None
+        inventory_path = None
+        head_node = None
+        vmname = None
+
         try:
             self.logger.info(f"Modify invoked for unit: {unit} properties: {properties}")
 
+            head_node = properties.get(Constants.HEAD_NODE, None)
+            worker_node = properties.get(Constants.WORKER_NODE, None)
+            vmname = properties.get(Constants.VM_NAME, None)
+            instance_name = properties[AmConstants.SERVER_INSTANCE_NAME]
+
+            if head_node is None or worker_node is None or vmname is None or instance_name is None:
+                raise VmHandlerException(f"Missing required parameters headnode: {head_node} workernode: {worker_node} "
+                                         f"vmname: {vmname} instance_name: {instance_name}")
+
+            pb_location = self.config[AmConstants.PLAYBOOK_SECTION][AmConstants.PB_LOCATION]
+            inventory_path = self.config[AmConstants.PLAYBOOK_SECTION][AmConstants.PB_INVENTORY]
+
+            pci_devices = properties.get(Constants.PCI_DEVICES, None)
+
+            if pci_devices is not None and len(pci_devices) > 0:
+                pb_pci_prov = self.config[AmConstants.PLAYBOOK_SECTION][AmConstants.PB_PCI_PROVISIONING]
+                if pb_location is None or inventory_path is None or pb_pci_prov is None:
+                    raise VmHandlerException(f"Missing parameters pb_location: {pb_location} "
+                                             f"inventory_path: {inventory_path} pb_pci_prov: {pb_pci_prov}")
+
+                playbook_path = f"{pb_location}/{pb_pci_prov}"
+                for p in pci_devices:
+                    self.__attach_detach_pci(playbook_path=playbook_path, inventory_path=inventory_path,
+                                             host=worker_node, instance_name=instance_name, pci_device=p)
+
         except Exception as e:
-            self.logger.error(e)
-            self.logger.error(traceback.format_exc())
-            result = {Constants.PROPERTY_TARGET_NAME: Constants.TARGET_MODIFY,
+            # Delete VM in case of failure
+            if playbook_path is not None and inventory_path is not None and head_node is not None \
+                    and vmname is not None:
+                self.__delete_vm(playbook_path=playbook_path, inventory_path=inventory_path, host=head_node,
+                                 vm_name=vmname)
+
+            result = {Constants.PROPERTY_TARGET_NAME: Constants.TARGET_CREATE,
                       Constants.PROPERTY_TARGET_RESULT_CODE: Constants.RESULT_CODE_EXCEPTION,
                       Constants.PROPERTY_ACTION_SEQUENCE_NUMBER: 0}
+            self.logger.error(e)
+            self.logger.error(traceback.format_exc())
         finally:
+
             self.logger.info(f"Modify completed")
         return result, unit
 
@@ -226,7 +270,7 @@ class VMHandler(HandlerBase):
         try:
             ansible_helper = AnsibleHelper(inventory_path=inventory_path, logger=self.logger)
 
-            ansible_helper.add_vars(host=host, var_name=AmConstants.VM_PROV_OP, value=AmConstants.VM_PROV_OP_CREATE)
+            ansible_helper.set_extra_vars(extra_vars={AmConstants.VM_PROV_OP: AmConstants.VM_PROV_OP_CREATE})
             ansible_helper.add_vars(host=host, var_name=AmConstants.EC2_AVAILABILITY_ZONE, value=avail_zone)
             ansible_helper.add_vars(host=host, var_name=Constants.VM_NAME, value=vm_name)
             ansible_helper.add_vars(host=host, var_name=Constants.FLAVOR, value=flavor)
@@ -264,7 +308,7 @@ class VMHandler(HandlerBase):
         try:
             ansible_helper = AnsibleHelper(inventory_path=inventory_path, logger=self.logger)
 
-            ansible_helper.add_vars(host=host, var_name=AmConstants.VM_PROV_OP, value=AmConstants.VM_PROV_OP_DELETE)
+            ansible_helper.set_extra_vars(extra_vars={AmConstants.VM_PROV_OP: AmConstants.VM_PROV_OP_DELETE})
             ansible_helper.add_vars(host=host, var_name=Constants.VM_NAME, value=vm_name)
 
             self.logger.debug(f"Executing playbook {playbook_path} to delete VM")
@@ -289,7 +333,8 @@ class VMHandler(HandlerBase):
         ansible_helper = None
         try:
             ansible_helper = AnsibleHelper(inventory_path=inventory_path, logger=self.logger)
-            ansible_helper.add_vars(host=host, var_name=AmConstants.VM_PROV_OP, value=AmConstants.VM_PROV_OP_ATTACH_FIP)
+
+            ansible_helper.set_extra_vars(extra_vars={AmConstants.VM_PROV_OP: AmConstants.VM_PROV_OP_ATTACH_FIP})
             ansible_helper.add_vars(host=host, var_name=Constants.VM_NAME, value=vm_name)
 
             self.logger.debug(f"Executing playbook {playbook_path} to attach FIP")
@@ -324,10 +369,17 @@ class VMHandler(HandlerBase):
         try:
             ansible_helper = AnsibleHelper(inventory_path=inventory_path, logger=self.logger)
 
+            ansible_helper.set_extra_vars(extra_vars={AmConstants.WORKER_NODE_NAME: host,
+                                                      AmConstants.ADD_PCI_DEVICE: attach})
+
             ansible_helper.add_vars(host=host, var_name=AmConstants.KVM_GUEST_NAME, value=instance_name)
             ansible_helper.add_vars(host=host, var_name=AmConstants.PCI_ADDRESS, value=pci_device)
 
-            self.logger.debug(f"Executing playbook {playbook_path} to attach PCI Address")
+            if attach:
+                self.logger.debug(f"Executing playbook {playbook_path} to attach PCI Address")
+            else:
+                self.logger.debug(f"Executing playbook {playbook_path} to detach PCI Address")
+
             ansible_helper.run_playbook(playbook_path=playbook_path)
 
             ok = ansible_helper.get_result_callback().get_json_result_ok(host=host)
@@ -341,3 +393,33 @@ class VMHandler(HandlerBase):
                 self.logger.error(f"Failed: {ansible_helper.get_result_callback().get_json_result_failed(host=host)}")
                 self.logger.error(f"Unreachable: "
                                   f"{ansible_helper.get_result_callback().get_json_result_unreachable(host=host)}")
+
+    def __cleanup(self, *, vm_playbook_path: str, inventory_path: str, head_node: str, vm_name: str,
+                  pci_playbook_path: str, worker_node: str, instance_name: str, pci_devices: List[str]) -> bool:
+        """
+        Cleanup VM and detach PCI devices
+        :param vm_playbook_path: VM provisioning playbook location
+        :param inventory_path: Inventory path
+        :param head_node: Head Node
+        :param vm_name: VM Name
+        :param pci_playbook_path: PCI provisioning playbook location
+        :param worker_node: worker Node
+        :param instance_name: Instance Name
+        :param pci_devices: List of PCI devices
+        :return: True or False for success or failure
+        """
+        try:
+            if pci_devices is not None and len(pci_devices) > 0:
+                if pci_playbook_path is not None and worker_node is not None and instance_name is not None:
+                    for p in pci_devices:
+                        self.__attach_detach_pci(playbook_path=pci_playbook_path, inventory_path=inventory_path,
+                                                 instance_name=instance_name, host=worker_node, pci_device=p,
+                                                 attach=False)
+
+            self.__delete_vm(playbook_path=vm_playbook_path, inventory_path=inventory_path, host=head_node,
+                             vm_name=vm_name)
+            return True
+        except Exception as e:
+            self.logger.error(f"Exception occurred in cleanup {e}")
+            self.logger.error(traceback.format_exc())
+        return False

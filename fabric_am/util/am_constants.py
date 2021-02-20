@@ -55,3 +55,4 @@ class AmConstants:
     KVM_GUEST_NAME = 'kvmguest_name'
     PCI_ADDRESS = 'pcidevice_address'
     ADD_PCI_DEVICE = 'add_pcidevice'
+    WORKER_NODE_NAME = 'workernode_name'
