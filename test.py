@@ -31,7 +31,9 @@ if __name__ == '__main__':
         u = Unit(uid=ID(uid='u1'))
         prop = {AmConstants.CONFIG_PROPERTIES_FILE: 'fabric_am/config/vm_handler_config.yml'}
         handler = VMHandler(logger=logger, properties=prop)
-        prop2 = {Constants.VM_NAME: "vm1", Constants.HEAD_NODE: "renc-hn.fabric-testbed.net"}
+        prop2 = {Constants.VM_NAME: "vm1", Constants.WORKER_NODE: "renc-w2.fabric-testbed.net",
+                 Constants.HEAD_NODE: "renc-hn.fabric-testbed.net", Constants.FLAVOR: "fabric.large",
+                 Constants.IMAGE: "default_centos_8", Constants.PCI_DEVICES: ['[0, 1, 0, 1]']}
         handler.delete(unit=u, properties=prop2)
     else:
         print(f"Unsupported command: {args.command}")
