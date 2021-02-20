@@ -53,7 +53,7 @@ is running the openstack KVM-based (i.e. virtual) instance we are interested on.
 Attach a PCI Device to a VM
 
 ### Using playbooks
-1. VM Provisioning
+#### VM Provisioning
 - Create a VM instance
 ```bash
 ansible-playbook -i inventory head_vm_provisioning.yml --extra-vars 'vm_prov_op=create vm_name=vm1 image=default_centos_8 flavor=fabric.large availability_zone=nova:renc-w1.fabric-testbed.net'
@@ -66,7 +66,7 @@ ansible-playbook -i inventory head_vm_provisioning.yml --extra-vars 'vm_prov_op=
 ```bash
 ansible-playbook -i inventory head_vm_provisioning.yml --extra-vars 'vm_prov_op=delete vm_name=vm1'
 ```
-2. Ask openstack running in `fabric_site1_head` which worker node has the instance `testinstance`:
+#### Ask openstack running in `fabric_site1_head` which worker node has the instance `testinstance`:
 
 ```bash
 ansible-playbook -i inventory head_get_worker_node_for_vm.yml --extra-vars 'headnode_name=fabric-site1-head instance_name=testinstance'
@@ -83,7 +83,7 @@ where
 - `kvmguest_status`: Current status of the instance. In this case it is running (`ACTIVE`)
 - `workernode_name`: The name of the worker node running the instance. 
 
-3. Add the PCI card, with address 0000:01:0.1, to  `kvmguest_name`. Note that we have to make `kvmguest_name` match its name in the inventory.
+#### Add the PCI card, with address 0000:01:0.1, to  `kvmguest_name`. Note that we have to make `kvmguest_name` match its name in the inventory.
 
 ```bash
 ansible-playbook -i inventory worker_pci_card_provisioning.yml --extra-vars 'kvmguest_name=instance-00000040 workernode_name=fabric-site1-w3 add_pcidevice=True' --extra-vars '{"pcidevice_address": "[0, 1, 0, 1]"}'
@@ -98,7 +98,7 @@ Returns (for successful run):
                                 "Device attached successfully"
                             ]
 ```
-3. Remove the PCI card
+#### Remove the PCI card
 
 ```bash
 ansible-playbook -i inventory worker_pci_provisioning.yml --extra-vars 'kvmguest_name=instance-00000040 workernode_name=fabric-site1-w3 add_pcidevice=False' --extra-vars '{"pcidevice_address": "[0,1,0,1]"}'
