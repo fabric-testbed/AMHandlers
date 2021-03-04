@@ -25,7 +25,7 @@
 # Author: Komal Thareja (kthare10@renci.org)
 import json
 import traceback
-from typing import Tuple, List
+from typing import Tuple
 
 from fabric_cf.actor.core.common.constants import Constants
 from fabric_cf.actor.core.plugins.handlers.config_token import ConfigToken

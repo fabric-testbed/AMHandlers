@@ -31,8 +31,6 @@ class AmConstants:
     EC2_AVAILABILITY_ZONE = 'availability_zone'
 
     PLAYBOOK_SECTION = 'playbooks'
-    PB_VM_PROVISIONING = 'vm_provisioning'
-    PB_PCI_PROVISIONING = 'pci_provisioning'
     PB_LOCATION = "location"
     PB_INVENTORY = "inventory_location"
 

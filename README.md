@@ -41,7 +41,11 @@ It describes the Playbook location and names for specific operations.
 playbooks:
   location: fabric_am/playbooks
   inventory_location: fabric_am/playbooks/inventory
-  vm_provisioning: head_vm_provisioning.yml
-  pci_provisioning: worker_pci_provisioning.yml
+  VM: head_vm_provisioning.yml
+  GPU: worker_pci_provisioning.yml
+  SmartNIC: worker_pci_provisioning.yml
+  SharedNIC: worker_pci_provisioning.yml
+  FPGA: worker_pci_provisioning.yml
+  NVME: worker_pci_provisioning.yml
 ```
 
