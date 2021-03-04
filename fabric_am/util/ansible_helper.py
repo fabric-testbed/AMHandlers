@@ -78,31 +78,36 @@ class ResultsCollectorJSONCallback(CallbackBase):
         host = result._host
         self.host_failed[host.get_name()] = result
 
-    def __get_json_result(self, host: str, host_result_map: dict):
+    def __get_json_result(self, host_result_map: dict, host: str = None):
         """
         Get Json Result for a host
         @param host host
         @param host_result_map map containing host results
         """
-        result = host_result_map.get(host, None)
-        if result is not None:
-            return result._result
+        if host is None:
+            if host_result_map is not None and len(host_result_map) > 0:
+                result = next(iter(host_result_map.values()))
+                return result._result
+        else:
+            result = host_result_map.get(host, None)
+            if result is not None:
+                return result._result
 
-    def get_json_result_ok(self, host: str):
+    def get_json_result_ok(self, host: str = None):
         """
         Get Json OK Result for a host
         @param host host
         """
         return self.__get_json_result(host=host, host_result_map=self.host_ok)
 
-    def get_json_result_unreachable(self, host: str):
+    def get_json_result_unreachable(self, host: str = None):
         """
         Get Json Unreachable Result for a host
         @param host host
         """
         return self.__get_json_result(host=host, host_result_map=self.host_unreachable)
 
-    def get_json_result_failed(self, host: str):
+    def get_json_result_failed(self, host: str = None):
         """
         Get Json Failed Result for a host
         @param host host

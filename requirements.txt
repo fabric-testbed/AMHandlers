@@ -1,2 +1,3 @@
 ansible
-fabric-cf
+fabric-fim==0.25
+fabric-cf==0.9
