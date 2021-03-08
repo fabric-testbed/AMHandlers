@@ -42,8 +42,17 @@ class TestVmHandler(unittest.TestCase):
     logging.basicConfig(level=logging.DEBUG, format="%(asctime)s [%(levelname)s] %(message)s",
                         handlers=[logging.StreamHandler()])
 
-    def create_unit(self, include_pci: bool = True, include_image: bool = True, include_name: bool = True,
+    @staticmethod
+    def create_unit(include_pci: bool = True, include_image: bool = True, include_name: bool = True,
                     include_instance_name: bool = False) -> Unit:
+        """
+        Create a unit
+        :param include_pci:
+        :param include_image:
+        :param include_name:
+        :param include_instance_name:
+        :return:
+        """
         u = Unit(uid=ID(uid='u1'))
         sliver = NodeSliver()
         cap = Capacities()
@@ -55,13 +64,14 @@ class TestVmHandler(unittest.TestCase):
             sliver.set_properties(name="n1")
 
         if include_image:
-            sliver.set_properties(image_type='qcow2',image_ref='default_centos_8')
+            sliver.set_properties(image_type='qcow2', image_ref='default_centos_8')
 
         if include_pci:
             component = ComponentSliver()
             labels = Labels()
             labels.set_fields(bdf='0,0,85')
-            component.set_properties(resource_type=ComponentType.SmartNIC, model='ConnectX-6', name='nic1', labels=labels)
+            component.set_properties(resource_type=ComponentType.SmartNIC, model='ConnectX-6', name='nic1',
+                                     labels=labels)
             sliver.attached_components_info = AttachedComponentsInfo()
             sliver.attached_components_info.add_device(device_info=component)
 
@@ -72,6 +82,10 @@ class TestVmHandler(unittest.TestCase):
         return u
 
     def test_create_vm_success(self):
+        """
+        Test successful creation of VM with PCI devices
+        :return:
+        """
         u = self.create_unit()
 
         prop = {AmConstants.CONFIG_PROPERTIES_FILE: 'config/vm_handler_config.yml'}
@@ -87,6 +101,10 @@ class TestVmHandler(unittest.TestCase):
         self.assertEqual(u.sliver.state, "active")
 
     def test_create_vm_success_no_pci(self):
+        """
+        Test successful creation of VM without PCI devices
+        :return:
+        """
         u = self.create_unit(include_pci=False)
 
         prop = {AmConstants.CONFIG_PROPERTIES_FILE: 'config/vm_handler_config.yml'}
@@ -102,6 +120,10 @@ class TestVmHandler(unittest.TestCase):
         self.assertEqual(u.sliver.state, "active")
 
     def test_create_vm_fail_no_image(self):
+        """
+        Test failure to create VM when no image is specified
+        :return:
+        """
         u = self.create_unit(include_image=False)
 
         prop = {AmConstants.CONFIG_PROPERTIES_FILE: 'config/vm_handler_config.yml'}
@@ -117,6 +139,10 @@ class TestVmHandler(unittest.TestCase):
         self.assertIsNone(u.sliver.state)
 
     def test_create_vm_fail_no_config(self):
+        """
+        Test failure to create VM when no handler config is specified
+        :return:
+        """
         u = self.create_unit()
 
         prop = {}
@@ -132,6 +158,10 @@ class TestVmHandler(unittest.TestCase):
         self.assertIsNone(u.sliver.state)
 
     def test_delete_vm_success(self):
+        """
+        Test successful deletion of a VM
+        :return:
+        """
         u = self.create_unit()
 
         prop = {AmConstants.CONFIG_PROPERTIES_FILE: 'config/vm_handler_config.yml'}
@@ -143,6 +173,10 @@ class TestVmHandler(unittest.TestCase):
         self.assertEqual(r[Constants.PROPERTY_TARGET_RESULT_CODE], Constants.RESULT_CODE_OK)
 
     def test_delete_vm_success_no_pci(self):
+        """
+        Test successful deletion of a VM without PCI devices
+        :return:
+        """
         u = self.create_unit(include_pci=False)
 
         prop = {AmConstants.CONFIG_PROPERTIES_FILE: 'config/vm_handler_config.yml'}
@@ -154,6 +188,10 @@ class TestVmHandler(unittest.TestCase):
         self.assertEqual(r[Constants.PROPERTY_TARGET_RESULT_CODE], Constants.RESULT_CODE_OK)
 
     def test_delete_vm_fail_no_config(self):
+        """
+        Test failure to delete VM when no handler config is specified
+        :return:
+        """
         u = self.create_unit()
 
         prop = {}
@@ -165,6 +203,10 @@ class TestVmHandler(unittest.TestCase):
         self.assertEqual(r[Constants.PROPERTY_TARGET_RESULT_CODE], Constants.RESULT_CODE_EXCEPTION)
 
     def test_delete_vm_fail_no_vm_name(self):
+        """
+        Test failure to delete VM when no VM Name is specified
+        :return:
+        """
         u = self.create_unit(include_name=False)
 
         prop = {AmConstants.CONFIG_PROPERTIES_FILE: 'config/vm_handler_config.yml'}
@@ -176,6 +218,10 @@ class TestVmHandler(unittest.TestCase):
         self.assertEqual(r[Constants.PROPERTY_TARGET_RESULT_CODE], Constants.RESULT_CODE_EXCEPTION)
 
     def test_modify_fail_no_instance_name(self):
+        """
+        Test failure to modify VM when no instance name is specified
+        :return:
+        """
         u = self.create_unit()
 
         prop = {AmConstants.CONFIG_PROPERTIES_FILE: 'config/vm_handler_config.yml'}
@@ -187,6 +233,10 @@ class TestVmHandler(unittest.TestCase):
         self.assertEqual(r[Constants.PROPERTY_TARGET_RESULT_CODE], Constants.RESULT_CODE_EXCEPTION)
 
     def test_modify_vm_fail_no_config(self):
+        """
+        Test failure to modify VM when no handler config is specified
+        :return:
+        """
         u = self.create_unit()
 
         prop = {}
@@ -199,6 +249,10 @@ class TestVmHandler(unittest.TestCase):
         self.assertIsNotNone(r[Constants.PROPERTY_EXCEPTION_MESSAGE])
 
     def test_modify_vm_success(self):
+        """
+        Test successfully modify VM
+        :return:
+        """
         u = self.create_unit(include_instance_name=True)
 
         prop = {AmConstants.CONFIG_PROPERTIES_FILE: 'config/vm_handler_config.yml'}

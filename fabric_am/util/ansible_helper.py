@@ -37,6 +37,9 @@ from ansible.vars.manager import VariableManager
 
 
 class PlaybookException(Exception):
+    """
+    Playbook Exception
+    """
     pass
 
 
@@ -92,6 +95,7 @@ class ResultsCollectorJSONCallback(CallbackBase):
             result = host_result_map.get(host, None)
             if result is not None:
                 return result._result
+        return None
 
     def get_json_result_ok(self, host: str = None):
         """

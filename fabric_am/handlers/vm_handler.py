@@ -37,10 +37,16 @@ from fabric_am.util.ansible_helper import AnsibleHelper
 
 
 class VmHandlerException(Exception):
+    """
+    VM Handler Exception
+    """
     pass
 
 
 class VMHandler(HandlerBase):
+    """
+    VM Handler
+    """
     def __init__(self, logger, properties: dict):
         self.logger = logger
         self.properties = properties
