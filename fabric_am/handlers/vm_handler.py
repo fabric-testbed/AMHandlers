@@ -271,7 +271,7 @@ class VMHandler(HandlerBase):
             result = {
                 AmConstants.SERVER_VM_STATE: server[AmConstants.SERVER_VM_STATE],
                 AmConstants.SERVER_INSTANCE_NAME: server[AmConstants.SERVER_INSTANCE_NAME],
-                AmConstants.SERVER_ACCESS_IPv4: server[AmConstants.SERVER_ACCESS_IPv4]
+                AmConstants.SERVER_ACCESS_IPV4: server[AmConstants.SERVER_ACCESS_IPV4]
             }
             self.logger.debug(f"Returning properties {result}")
 
@@ -375,8 +375,6 @@ class VMHandler(HandlerBase):
                 self.logger.debug(f"Executing playbook {playbook_path} to detach PCI Address")
 
             ansible_helper.run_playbook(playbook_path=playbook_path)
-
-            ok = ansible_helper.get_result_callback().get_json_result_ok(host=host)
 
             result = {}
             self.logger.debug(f"Returning properties {result}")

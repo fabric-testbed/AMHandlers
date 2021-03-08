@@ -42,7 +42,7 @@ class AmConstants:
     SERVER = 'server'
     SERVER_VM_STATE = 'vm_state'
     SERVER_INSTANCE_NAME = 'instance_name'
-    SERVER_ACCESS_IPv4 = 'accessIPv4'
+    SERVER_ACCESS_IPV4 = 'accessIPv4'
 
     FLOATING_IP = 'floating_ip'
     FLOATING_IP_ADDRESS = 'floating_ip_address'

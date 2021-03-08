@@ -147,7 +147,7 @@ class AnsibleHelper:
         @raises Exception in case of failure
         """
         if not os.path.exists(playbook_path):
-            raise Exception("Playbook not found")
+            raise PlaybookException("Playbook not found")
 
         context.CLIARGS = ImmutableDict(connection='smart', tags={}, listtags=False, listtasks=False, listhosts=False,
                                         syntax=False,
