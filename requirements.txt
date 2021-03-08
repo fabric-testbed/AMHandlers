@@ -1,2 +1,3 @@
 ansible
+fabric-fim
 fabric-cf

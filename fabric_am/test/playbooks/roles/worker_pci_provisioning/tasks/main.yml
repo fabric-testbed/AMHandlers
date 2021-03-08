@@ -1,0 +1,14 @@
+---
+# /tasks/main.yml
+#
+
+- name: Add PCI Card to VM
+  debug:
+    msg: "Add PCI Card to VM"
+  when: add_pcidevice == "True"
+
+- name: Remove PCI Card from VM
+  debug:
+    msg: "Remove PCI Card from VM"
+  when: add_pcidevice == "False"
+

@@ -1,0 +1,21 @@
+# file: fabric
+
+[fabric_site_worker]
+localhost
+
+[fabric_site_head]
+localhost
+localhost auth_url=http://localhost
+localhost password=dummypassword
+localhost project_name=admin
+localhost username=admin
+localhost net_name=management-2004
+localhost security_group=fully-permissive
+localhost key_name=default
+localhost ext_network=public
+
+[fabric_worker:children]
+fabric_site_worker
+
+[fabric_head:children]
+fabric_site_head

@@ -1,0 +1,10 @@
+---
+# file: worker_pci_provisioning.yml
+
+- hosts: 
+    - "{{ workernode_name }}"
+
+  vars:
+
+  roles:
+    - worker_pci_provisioning

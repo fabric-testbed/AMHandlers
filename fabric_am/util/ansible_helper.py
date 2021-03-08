@@ -24,10 +24,8 @@
 #
 # Author: Komal Thareja (kthare10@renci.org)
 # Create a callback plugin so we can capture the output
-import json
 import os
 import traceback
-from typing import List
 
 from ansible import context
 from ansible.executor.playbook_executor import PlaybookExecutor
@@ -36,6 +34,13 @@ from ansible.module_utils.common.collections import ImmutableDict
 from ansible.parsing.dataloader import DataLoader
 from ansible.plugins.callback import CallbackBase
 from ansible.vars.manager import VariableManager
+
+
+class PlaybookException(Exception):
+    """
+    Playbook Exception
+    """
+    pass
 
 
 class ResultsCollectorJSONCallback(CallbackBase):
@@ -76,46 +81,57 @@ class ResultsCollectorJSONCallback(CallbackBase):
         host = result._host
         self.host_failed[host.get_name()] = result
 
-    def get_json_result(self, host: str, host_result_map: dict):
+    def __get_json_result(self, host_result_map: dict, host: str = None):
         """
         Get Json Result for a host
         @param host host
         @param host_result_map map containing host results
         """
-        result = host_result_map.get(host, None)
-        if result is not None:
-            return json.dumps(result._result)
+        if host is None:
+            if host_result_map is not None and len(host_result_map) > 0:
+                result = next(iter(host_result_map.values()))
+                return result._result
+        else:
+            result = host_result_map.get(host, None)
+            if result is not None:
+                return result._result
+        return None
 
-    def get_json_result_ok(self, host: str):
+    def get_json_result_ok(self, host: str = None):
         """
         Get Json OK Result for a host
         @param host host
         """
-        return self.get_json_result(host=host, host_result_map=self.host_ok)
+        return self.__get_json_result(host=host, host_result_map=self.host_ok)
 
-    def get_json_result_unreachable(self, host: str):
+    def get_json_result_unreachable(self, host: str = None):
         """
         Get Json Unreachable Result for a host
         @param host host
         """
-        return self.get_json_result(host=host, host_result_map=self.host_unreachable)
+        return self.__get_json_result(host=host, host_result_map=self.host_unreachable)
 
-    def get_json_result_failed(self, host: str):
+    def get_json_result_failed(self, host: str = None):
         """
         Get Json Failed Result for a host
         @param host host
         """
-        return self.get_json_result(host=host, host_result_map=self.host_failed)
+        return self.__get_json_result(host=host, host_result_map=self.host_failed)
+
+    def is_failed_or_unreachable(self) -> bool:
+        if len(self.host_failed) > 0 or len(self.host_unreachable) > 0:
+            return True
+        return False
 
 
 class AnsibleHelper:
     """
     Helper class to invoke the Ansible Playbook
     """
-    def __init__(self, hosts: List[str], logger):
+    def __init__(self, inventory_path: str, logger):
         self.results_callback = ResultsCollectorJSONCallback()
         self.loader = DataLoader()
-        self.inventory = InventoryManager(loader=self.loader, sources=hosts)
+        self.inventory = InventoryManager(loader=self.loader, sources=[inventory_path])
         self.variable_manager = VariableManager(loader=self.loader, inventory=self.inventory)
         self.logger = logger
 
@@ -128,19 +144,19 @@ class AnsibleHelper:
         """
         self.variable_manager.set_host_variable(host=host, varname=var_name, value=value)
 
-    def run_playbook(self, playbook_path: str) -> bool:
+    def run_playbook(self, playbook_path: str):
         """
         Run a playbook
         @param playbook_path path for the playbook
-        @return True if playbook ran and false otherwise
+        @raises Exception in case of failure
         """
         if not os.path.exists(playbook_path):
-            raise Exception("Playbook not found")
+            raise PlaybookException("Playbook not found")
 
         context.CLIARGS = ImmutableDict(connection='smart', tags={}, listtags=False, listtasks=False, listhosts=False,
                                         syntax=False,
                                         module_path=None, forks=100, private_key_file=None,
-                                        ssh_common_args=None, ssh_extra_args=None, sftp_extra_args=None,
+                                        ssh_common_args=None, ssh_extra_args='-o StrictHostKeyChecking=no', sftp_extra_args=None,
                                         scp_extra_args=None, become=False,
                                         become_method='sudo', become_user='root', verbosity=True, check=False,
                                         start_at_task=None)
@@ -153,14 +169,17 @@ class AnsibleHelper:
         pbex._tqm._stdout_callback = self.results_callback
         try:
             results = pbex.run()
-            return True
+            self.logger.debug(f"Playbook result: {results}")
+
+            if self.results_callback.is_failed_or_unreachable():
+                raise PlaybookException("Playbook has failed tasks")
         except Exception as e:
             self.logger.error(f"Exception occurred while executing playbook {playbook_path} e: {e}")
             self.logger.error(traceback.format_exc())
+            raise e
         finally:
             if self.loader is not None:
                 self.loader.cleanup_all_tmp_files()
-        return False
 
     def get_result_callback(self):
         """
@@ -168,3 +187,11 @@ class AnsibleHelper:
         @return result callback
         """
         return self.results_callback
+
+    def set_extra_vars(self, extra_vars: dict):
+        """
+        Set Extra Variables
+        :param extra_vars: Extra variable dict
+        :return:
+        """
+        self.variable_manager._extra_vars = extra_vars
