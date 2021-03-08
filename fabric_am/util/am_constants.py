@@ -56,3 +56,7 @@ class AmConstants:
     WORKER_NODE_NAME = 'workernode_name'
 
     ANSIBLE_FACTS = 'ansible_facts'
+
+    VM_NAME = "vmname"
+    FLAVOR = "flavor"
+    IMAGE = "image"

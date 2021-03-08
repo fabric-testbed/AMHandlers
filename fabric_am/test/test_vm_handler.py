@@ -162,7 +162,7 @@ class TestVmHandler(unittest.TestCase):
         Test successful deletion of a VM
         :return:
         """
-        u = self.create_unit()
+        u = self.create_unit(include_instance_name=True, include_name=True)
 
         prop = {AmConstants.CONFIG_PROPERTIES_FILE: 'config/vm_handler_config.yml'}
         handler = VMHandler(logger=self.logger, properties=prop)

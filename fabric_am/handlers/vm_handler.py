@@ -258,9 +258,9 @@ class VMHandler(HandlerBase):
             extra_vars = {
                 AmConstants.VM_PROV_OP: AmConstants.VM_PROV_OP_CREATE,
                 AmConstants.EC2_AVAILABILITY_ZONE: avail_zone,
-                Constants.VM_NAME: vm_name,
-                Constants.FLAVOR: flavor,
-                Constants.IMAGE: image
+                AmConstants.VM_NAME: vm_name,
+                AmConstants.FLAVOR: flavor,
+                AmConstants.IMAGE: image
             }
             ansible_helper.set_extra_vars(extra_vars=extra_vars)
 
@@ -302,7 +302,7 @@ class VMHandler(HandlerBase):
             ansible_helper = AnsibleHelper(inventory_path=inventory_path, logger=self.logger)
 
             extra_vars = {AmConstants.VM_PROV_OP: AmConstants.VM_PROV_OP_DELETE,
-                          Constants.VM_NAME: vm_name}
+                          AmConstants.VM_NAME: vm_name}
             ansible_helper.set_extra_vars(extra_vars=extra_vars)
 
             self.logger.debug(f"Executing playbook {playbook_path} to delete VM")
@@ -328,7 +328,7 @@ class VMHandler(HandlerBase):
         try:
             ansible_helper = AnsibleHelper(inventory_path=inventory_path, logger=self.logger)
             extra_vars = {AmConstants.VM_PROV_OP: AmConstants.VM_PROV_OP_ATTACH_FIP,
-                          Constants.VM_NAME:vm_name}
+                          AmConstants.VM_NAME: vm_name}
             ansible_helper.set_extra_vars(extra_vars=extra_vars)
 
             self.logger.debug(f"Executing playbook {playbook_path} to attach FIP")
