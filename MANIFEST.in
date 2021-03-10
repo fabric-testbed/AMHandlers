@@ -1,0 +1,5 @@
+include README.md
+include LICENSE
+include fabric_am/config/*.yml
+include fabric_am/playbooks/*
+include images

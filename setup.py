@@ -4,7 +4,7 @@ from setuptools import setup, find_packages
 
 
 NAME = "fabric-am-handlers"
-VERSION = "0.1"
+VERSION = "0.2"
 # To install the library, run the following
 #
 # python setup.py install
@@ -25,7 +25,7 @@ setup(
     author="Komal Thareja, Mauricio Tavares",
     author_email="kthare10@renci.org, mtavares@renci.org",
     url="https://github.com/fabric-testbed/AMHandlers",
-    keywords=["Swagger", "Fabric Control Framework", "Aggregate Manager Handlers"],
+    keywords=["Fabric Control Framework", "Aggregate Manager Handlers"],
     install_requires=requirements,
     setup_requires=requirements,
     packages=find_packages(),
