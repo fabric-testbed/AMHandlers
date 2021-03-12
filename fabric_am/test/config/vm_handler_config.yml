@@ -25,6 +25,7 @@
 playbooks:
   location: ./playbooks
   inventory_location: ./playbooks/inventory
+  hostname_suffix: .fabric-testbed.net
   VM: head_vm_provisioning.yml
   GPU: worker_pci_provisioning.yml
   SmartNIC: worker_pci_provisioning.yml

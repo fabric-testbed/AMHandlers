@@ -123,6 +123,21 @@ class ResultsCollectorJSONCallback(CallbackBase):
             return True
         return False
 
+    def dump_all(self, host_result_map: dict):
+        if host_result_map is None or len(host_result_map) == 0:
+            return
+        for result in host_result_map.values():
+            self._dump_results(result=result._result)
+
+    def dump_all_failed(self):
+        self.dump_all(host_result_map=self.host_failed)
+
+    def dump_all_ok(self):
+        self.dump_all(host_result_map=self.host_ok)
+
+    def dump_all_unreachable(self):
+        self.dump_all(host_result_map=self.host_unreachable)
+
 
 class AnsibleHelper:
     """
@@ -178,6 +193,9 @@ class AnsibleHelper:
             self.logger.error(traceback.format_exc())
             raise e
         finally:
+            self.logger.debug(f"OK: {self.results_callback.dump_all_ok()}")
+            self.logger.debug(f"Failed: {self.results_callback.dump_all_failed()}")
+            self.logger.debug(f"Unreachable: {self.results_callback.dump_all_unreachable()}")
             if self.loader is not None:
                 self.loader.cleanup_all_tmp_files()
 
