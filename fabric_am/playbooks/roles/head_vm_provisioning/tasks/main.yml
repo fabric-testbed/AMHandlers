@@ -71,3 +71,14 @@
     name: "{{ vmname }}"
   when: vm_prov_op == 'delete'
 
+- name: Get a VM
+  os_server_info:
+    auth:
+      auth_url: "{{ auth_url }}"
+      password: "{{ password }}"
+      project_name: "{{ project_name }}"
+      username: "{{ username }}"
+    filters:
+      name: "{{ vmname }}"
+  register: result
+  when: vm_prov_op == 'get'

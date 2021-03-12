@@ -452,6 +452,11 @@ class VMHandler(HandlerBase):
             if sliver.resource_name is None:
                 raise VmHandlerException(f"Missing required parameters vm_name: {sliver.resource_name}")
 
+            # Get VM Details
+            self.__get_vm(playbook_path=full_playbook_path, inventory_path=inventory_path,
+                          vm_name=sliver.resource_name, unit_id=unit_id)
+
+            # Delete VM
             self.__delete_vm(playbook_path=full_playbook_path, inventory_path=inventory_path,
                              vm_name=sliver.resource_name, unit_id=unit_id)
         except Exception as e:
@@ -473,3 +478,31 @@ class VMHandler(HandlerBase):
                 octet = '0'
             result.append(octet)
         return str(result)
+
+    def __get_vm(self, *, playbook_path: str, inventory_path: str, vm_name: str, unit_id: str) -> bool:
+        """
+        Invoke ansible playbook to get a provisioned VM
+        :param playbook_path: playbook location
+        :param inventory_path: inventory location
+        :param vm_name: VM Name
+        :param unit_id: Unit Id
+        :return: True or False representing success/failure
+        """
+        ansible_helper = None
+        try:
+            ansible_helper = AnsibleHelper(inventory_path=inventory_path, logger=self.logger)
+            vm_name = f"{unit_id}-{vm_name}"
+
+            extra_vars = {AmConstants.VM_PROV_OP: AmConstants.VM_PROV_OP_GET,
+                          AmConstants.VM_NAME: vm_name}
+            ansible_helper.set_extra_vars(extra_vars=extra_vars)
+
+            self.logger.debug(f"Executing playbook {playbook_path} to get VM")
+            ansible_helper.run_playbook(playbook_path=playbook_path)
+            return True
+        finally:
+            if ansible_helper is not None:
+                self.logger.debug(f"OK: {ansible_helper.get_result_callback().get_json_result_ok()}")
+                self.logger.error(f"Failed: {ansible_helper.get_result_callback().get_json_result_failed()}")
+                self.logger.error(f"Unreachable: "
+                                  f"{ansible_helper.get_result_callback().get_json_result_unreachable()}")

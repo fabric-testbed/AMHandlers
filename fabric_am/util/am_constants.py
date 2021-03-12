@@ -39,6 +39,7 @@ class AmConstants:
     VM_PROV_OP_CREATE = "create"
     VM_PROV_OP_DELETE = "delete"
     VM_PROV_OP_ATTACH_FIP = "attach_fip"
+    VM_PROV_OP_GET = "get"
 
     SERVER = 'server'
     SERVER_VM_STATE = 'vm_state'
