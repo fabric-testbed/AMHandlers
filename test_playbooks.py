@@ -36,10 +36,12 @@ from fim.slivers.network_node import NodeSliver, NodeType
 from fabric_am.handlers.vm_handler import VMHandler
 from fabric_am.util.am_constants import AmConstants
 
+import pickle
+
 
 class TestPlaybooks:
     logger = logging.getLogger(__name__)
-    logging.basicConfig(level=logging.DEBUG, format="%(asctime)s [%(levelname)s] %(message)s",
+    logging.basicConfig(level=logging.DEBUG, format="%(asctime)s [%(filename)s:%(lineno)d] [%(levelname)s] %(message)s",
                         handlers=[logging.StreamHandler()])
 
     @staticmethod
@@ -53,7 +55,7 @@ class TestPlaybooks:
         :param include_instance_name:
         :return:
         """
-        u = Unit(uid=ID(uid='u1'))
+        u = Unit(uid=ID(uid='fc820986-d5eb-4177-92b2-907e9e617820'))
         sliver = NodeSliver()
         cap = Capacities()
         cap.set_fields(core=4, ram=64, disk=500)
@@ -61,7 +63,7 @@ class TestPlaybooks:
         sliver.worker_node_name = "renc-w1"
 
         if include_name:
-            sliver.set_properties(name="n1")
+            sliver.set_properties(name="n2")
 
         if include_image:
             sliver.set_properties(image_type='qcow2', image_ref='default_centos_8')
@@ -69,14 +71,14 @@ class TestPlaybooks:
         if include_pci:
             component = ComponentSliver()
             labels = Labels()
-            labels.set_fields(bdf='0,0,85')
+            labels.set_fields(bdf=["0000:41:00.0", "0000:41:00.1"])
             component.set_properties(resource_type=ComponentType.SmartNIC, model='ConnectX-6', name='nic1',
                                      labels=labels)
             sliver.attached_components_info = AttachedComponentsInfo()
             sliver.attached_components_info.add_device(device_info=component)
 
         if include_instance_name:
-            sliver.instance_name = "instance-001"
+            sliver.instance_name = "instance-00000077"
 
         u.set_sliver(sliver=sliver)
         return u
@@ -88,12 +90,13 @@ class TestPlaybooks:
         """
         u = self.create_unit()
 
-        prop = {AmConstants.CONFIG_PROPERTIES_FILE: 'config/vm_handler_config.yml'}
+        prop = {AmConstants.CONFIG_PROPERTIES_FILE: 'fabric_am/config/vm_handler_config.yml'}
         handler = VMHandler(logger=self.logger, properties=prop)
 
         r, u = handler.create(unit=u)
         print(r)
         print(u.sliver)
+        return u
 
     def test_create_vm_success_no_pci(self):
         """
@@ -102,21 +105,28 @@ class TestPlaybooks:
         """
         u = self.create_unit(include_pci=False)
 
-        prop = {AmConstants.CONFIG_PROPERTIES_FILE: 'config/vm_handler_config.yml'}
+        prop = {AmConstants.CONFIG_PROPERTIES_FILE: 'fabric_am/config/vm_handler_config.yml'}
         handler = VMHandler(logger=self.logger, properties=prop)
 
         r, u = handler.create(unit=u)
         print(r)
         print(u.sliver)
+        enc = pickle.dumps(u.sliver)
+        print(enc)
+        dec = pickle.loads(enc)
+        print(dec)
+        print(type(u.sliver.instance_name))
+        print(type(u.sliver.state))
+        print(type(u.sliver.management_ip))
 
-    def test_delete_vm_success(self):
+    def test_delete_vm_success(self, u):
         """
         Test successful deletion of a VM
         :return:
         """
-        u = self.create_unit(include_instance_name=True, include_name=True)
+        #u = self.create_unit(include_instance_name=True, include_name=True)
 
-        prop = {AmConstants.CONFIG_PROPERTIES_FILE: 'config/vm_handler_config.yml'}
+        prop = {AmConstants.CONFIG_PROPERTIES_FILE: 'fabric_am/config/vm_handler_config.yml'}
         handler = VMHandler(logger=self.logger, properties=prop)
 
         r, u = handler.delete(unit=u)
@@ -130,9 +140,22 @@ class TestPlaybooks:
         """
         u = self.create_unit(include_pci=False)
 
-        prop = {AmConstants.CONFIG_PROPERTIES_FILE: 'config/vm_handler_config.yml'}
+        prop = {AmConstants.CONFIG_PROPERTIES_FILE: 'fabric_am/config/vm_handler_config.yml'}
         handler = VMHandler(logger=self.logger, properties=prop)
 
         r, u = handler.delete(unit=u)
         print(r)
         print(u.sliver)
+
+if __name__ == "__main__":
+    import time
+    tpb = TestPlaybooks()
+    #tpb.test_create_vm_success_no_pci()
+
+    #time.sleep(10)
+    tpb.test_delete_vm_success_no_pci()
+    #time.sleep(10)
+    u = tpb.test_create_vm_success()
+
+    #time.sleep(10)
+    #tpb.test_delete_vm_success(u=u)

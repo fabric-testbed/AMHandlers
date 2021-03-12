@@ -24,6 +24,7 @@
 #
 # Author: Komal Thareja (kthare10@renci.org)
 import json
+import re
 import traceback
 from typing import Tuple
 
@@ -103,13 +104,9 @@ class VMHandler(HandlerBase):
                                               vm_name=vmname, image=image, flavor=flavor, worker_node=worker_node,
                                               unit_id=unit_id)
 
-            sliver.instance_name = instance_props.get(AmConstants.SERVER_INSTANCE_NAME, None)
-            sliver.state = instance_props.get(AmConstants.SERVER_VM_STATE, None)
-
             # Attach FIP
             fip_props = self.__attach_fip(playbook_path=playbook_path_full, inventory_path=inventory_path,
                                           vm_name=vmname, unit_id=unit_id)
-            sliver.management_ip = fip_props.get(AmConstants.FLOATING_IP, None)
 
             # Attach any attached PCI Devices
 
@@ -125,7 +122,11 @@ class VMHandler(HandlerBase):
                     playbook_path_full = f"{playbook_path}/{playbook}"
                     self.__attach_detach_pci(playbook_path=playbook_path_full, inventory_path=inventory_path,
                                              host=worker_node, instance_name=sliver.instance_name,
-                                             pci_device=component.labels.bdf)
+                                             pci_devices=component.labels.bdf)
+
+            sliver.instance_name = instance_props.get(AmConstants.SERVER_INSTANCE_NAME, None)
+            sliver.state = instance_props.get(AmConstants.SERVER_VM_STATE, None)
+            sliver.management_ip = fip_props.get(AmConstants.FLOATING_IP, None)
 
         except Exception as e:
             # Delete VM in case of failure
@@ -214,7 +215,7 @@ class VMHandler(HandlerBase):
                     full_playbook_path = f"{playbook_path}/{playbook}"
                     self.__attach_detach_pci(playbook_path=full_playbook_path, inventory_path=inventory_path,
                                              instance_name=sliver.instance_name, host=sliver.worker_node_name,
-                                             pci_device=device.labels.bdf)
+                                             pci_devices=device.labels.bdf)
 
         except Exception as e:
             if sliver is not None and sliver.attached_components_info is not None and inventory_path is not None and \
@@ -228,7 +229,7 @@ class VMHandler(HandlerBase):
                     full_playbook_path = f"{playbook_path}/{playbook}"
                     self.__attach_detach_pci(playbook_path=full_playbook_path, inventory_path=inventory_path,
                                              instance_name=sliver.instance_name, host=sliver.worker_node_name,
-                                             pci_device=device.labels.bdf, attach=False)
+                                             pci_devices=device.labels.bdf, attach=False)
 
             result = {Constants.PROPERTY_TARGET_NAME: Constants.TARGET_MODIFY,
                       Constants.PROPERTY_TARGET_RESULT_CODE: Constants.RESULT_CODE_EXCEPTION,
@@ -282,9 +283,9 @@ class VMHandler(HandlerBase):
                 server = json.loads(server)
 
             result = {
-                AmConstants.SERVER_VM_STATE: server[AmConstants.SERVER_VM_STATE],
-                AmConstants.SERVER_INSTANCE_NAME: server[AmConstants.SERVER_INSTANCE_NAME],
-                AmConstants.SERVER_ACCESS_IPV4: server[AmConstants.SERVER_ACCESS_IPV4]
+                AmConstants.SERVER_VM_STATE: str(server[AmConstants.SERVER_VM_STATE]),
+                AmConstants.SERVER_INSTANCE_NAME: str(server[AmConstants.SERVER_INSTANCE_NAME]),
+                AmConstants.SERVER_ACCESS_IPV4: str(server[AmConstants.SERVER_ACCESS_IPV4])
             }
             self.logger.debug(f"Returning properties {result}")
 
@@ -353,8 +354,7 @@ class VMHandler(HandlerBase):
                 floating_ip = ok[AmConstants.ANSIBLE_FACTS][AmConstants.FLOATING_IP]
                 floating_ip = json.loads(floating_ip)
 
-            result = {AmConstants.FLOATING_IP: floating_ip[AmConstants.FLOATING_IP_ADDRESS],
-                      AmConstants.FLOATING_IP_MAC_ADDRESS: floating_ip[AmConstants.FLOATING_IP_PROPERTIES][AmConstants.FLOATING_IP_PORT_DETAILS][AmConstants.FLOATING_IP_MAC_ADDRESS]}
+            result = {AmConstants.FLOATING_IP: str(floating_ip[AmConstants.FLOATING_IP_ADDRESS])}
             self.logger.debug(f"Returning properties {result}")
             return result
         finally:
@@ -365,17 +365,23 @@ class VMHandler(HandlerBase):
                                   f"{ansible_helper.get_result_callback().get_json_result_unreachable()}")
 
     def __attach_detach_pci(self, *, playbook_path: str, inventory_path: str, host: str, instance_name: str,
-                            pci_device: str, attach: bool = True):
+                            pci_devices: str, attach: bool = True):
         """
         Invoke ansible playbook to attach/detach a PCI device to a provisioned VM
         :param playbook_path: playbook location
         :param inventory_path: inventory location
         :param host: host
         :param instance_name: Instance Name
-        :param pci_device: PCI Device
+        :param pci_devices: PCI Device
         :param attach: True for attach and False for detach
         :return:
         """
+        pci_device_list = None
+        if isinstance(pci_devices, str):
+            pci_device_list = [pci_devices]
+        else:
+            pci_device_list = pci_devices
+
         ansible_helper = None
         try:
             ansible_helper = AnsibleHelper(inventory_path=inventory_path, logger=self.logger)
@@ -386,19 +392,18 @@ class VMHandler(HandlerBase):
             ansible_helper.set_extra_vars(extra_vars={AmConstants.WORKER_NODE_NAME: worker_node,
                                                       AmConstants.ADD_PCI_DEVICE: attach})
 
-            ansible_helper.add_vars(host=host, var_name=AmConstants.KVM_GUEST_NAME, value=instance_name)
-            ansible_helper.add_vars(host=host, var_name=AmConstants.PCI_ADDRESS, value=pci_device)
+            for device in pci_device_list:
+                device_char_arr = self.__extract_device_addr_octets(device_address=device)
+                ansible_helper.add_vars(host=host, var_name=AmConstants.KVM_GUEST_NAME, value=instance_name)
+                ansible_helper.add_vars(host=host, var_name=AmConstants.PCI_ADDRESS, value=device_char_arr)
 
-            if attach:
-                self.logger.debug(f"Executing playbook {playbook_path} to attach PCI Address")
-            else:
-                self.logger.debug(f"Executing playbook {playbook_path} to detach PCI Address")
+                if attach:
+                    self.logger.debug(f"Executing playbook {playbook_path} to attach PCI Address")
+                else:
+                    self.logger.debug(f"Executing playbook {playbook_path} to detach PCI Address")
 
-            ansible_helper.run_playbook(playbook_path=playbook_path)
+                ansible_helper.run_playbook(playbook_path=playbook_path)
 
-            result = {}
-            self.logger.debug(f"Returning properties {result}")
-            return result
         finally:
             if ansible_helper is not None:
                 self.logger.debug(f"OK: {ansible_helper.get_result_callback().get_json_result_ok(host=host)}")
@@ -437,7 +442,7 @@ class VMHandler(HandlerBase):
                                                  f"instance_name: {sliver.instance_name} bdf: {device.labels.bdf}")
                     self.__attach_detach_pci(playbook_path=full_playbook_path, inventory_path=inventory_path,
                                              instance_name=sliver.instance_name, host=sliver.worker_node_name,
-                                             pci_device=device.labels.bdf,
+                                             pci_devices=device.labels.bdf,
                                              attach=False)
 
             resource_type = str(sliver.get_resource_type())
@@ -457,3 +462,14 @@ class VMHandler(HandlerBase):
 
     def __compute_flavor(self, *, core: int, ram: int, disk: int) -> str:
         return "fabric.large"
+
+    def __extract_device_addr_octets(self, *, device_address: str) -> str:
+        match = re.split('(.*):(.*):(.*)\.(.*)', device_address)
+        result = []
+        match = match[1:-1]
+        for octet in match:
+            octet = octet.lstrip("0")
+            if octet == "":
+                octet = '0'
+            result.append(octet)
+        return str(result)
