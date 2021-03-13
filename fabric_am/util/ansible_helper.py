@@ -135,23 +135,23 @@ class ResultsCollectorJSONCallback(CallbackBase):
             return True
         return False
 
-    def dump_all(self, host_result_map: dict, result_list: list):
+    def dump_all(self, host_result_map: dict, result_list: list, logger):
         if host_result_map is not None and len(host_result_map) > 0:
             for result in host_result_map.values():
-                self._dump_results(result=result._result)
+                logger.info(self._dump_results(result=result._result))
 
         if result_list is not None and len(result_list) > 0:
             for result in result_list:
-                self._dump_results(result=result._result)
+                logger.info(self._dump_results(result=result._result))
 
-    def dump_all_failed(self):
-        self.dump_all(host_result_map=self.host_failed, result_list=self.failed)
+    def dump_all_failed(self, logger):
+        self.dump_all(host_result_map=self.host_failed, result_list=self.failed, logger=logger)
 
-    def dump_all_ok(self):
-        self.dump_all(host_result_map=self.host_ok, result_list=self.ok)
+    def dump_all_ok(self, logger):
+        self.dump_all(host_result_map=self.host_ok, result_list=self.ok, logger=logger)
 
-    def dump_all_unreachable(self):
-        self.dump_all(host_result_map=self.host_unreachable, result_list=self.unreachable)
+    def dump_all_unreachable(self, logger):
+        self.dump_all(host_result_map=self.host_unreachable, result_list=self.unreachable, logger=logger)
 
 
 class AnsibleHelper:
@@ -173,7 +173,6 @@ class AnsibleHelper:
         @param value value
         """
         self.variable_manager.set_host_variable(host=host, varname=var_name, value=value)
-        self.logger.debug(f"KOMAL {self.variable_manager._vars_cache}")
 
     def run_playbook(self, playbook_path: str):
         """
@@ -210,9 +209,12 @@ class AnsibleHelper:
             self.logger.error(traceback.format_exc())
             raise e
         finally:
-            self.logger.debug(f"OK: {self.results_callback.dump_all_ok()}")
-            self.logger.error(f"Failed: {self.results_callback.dump_all_failed()}")
-            self.logger.error(f"Unreachable: {self.results_callback.dump_all_unreachable()}")
+            self.logger.debug("OK:")
+            self.results_callback.dump_all_ok(logger=self.logger)
+            self.logger.debug("Failed:")
+            self.results_callback.dump_all_ok(logger=self.logger)
+            self.logger.debug("Unreachable:")
+            self.results_callback.dump_all_ok(logger=self.logger)
             if self.loader is not None:
                 self.loader.cleanup_all_tmp_files()
 

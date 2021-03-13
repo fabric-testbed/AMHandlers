@@ -369,8 +369,8 @@ class VMHandler(HandlerBase):
 
         for device in pci_device_list:
             device_char_arr = self.__extract_device_addr_octets(device_address=device)
-            ansible_helper.add_vars(host=host, var_name=AmConstants.KVM_GUEST_NAME, value=instance_name)
-            ansible_helper.add_vars(host=host, var_name=AmConstants.PCI_ADDRESS, value=device_char_arr)
+            ansible_helper.add_vars(host=worker_node, var_name=AmConstants.KVM_GUEST_NAME, value=instance_name)
+            ansible_helper.add_vars(host=worker_node, var_name=AmConstants.PCI_ADDRESS, value=device_char_arr)
 
             if attach:
                 self.logger.debug(f"Executing playbook {playbook_path} to attach PCI Address")

@@ -124,7 +124,8 @@ class TestPlaybooks:
         Test successful deletion of a VM
         :return:
         """
-        #u = self.create_unit(include_instance_name=True, include_name=True)
+        if u is None:
+            u = self.create_unit(include_instance_name=True, include_name=True)
 
         prop = {AmConstants.CONFIG_PROPERTIES_FILE: 'fabric_am/config/vm_handler_config.yml'}
         handler = VMHandler(logger=self.logger, properties=prop)
@@ -146,6 +147,7 @@ class TestPlaybooks:
         r, u = handler.delete(unit=u)
         print(r)
         print(u.sliver)
+
 
 if __name__ == "__main__":
     import time
