@@ -108,8 +108,9 @@ class VMHandler(HandlerBase):
             fip_props = self.__attach_fip(playbook_path=playbook_path_full, inventory_path=inventory_path,
                                           vm_name=vmname, unit_id=unit_id)
 
-            # Attach any attached PCI Devices
+            sliver.instance_name = instance_props.get(AmConstants.SERVER_INSTANCE_NAME, None)
 
+            # Attach any attached PCI Devices
             if sliver.attached_components_info is not None:
                 for component in sliver.attached_components_info.devices.values():
                     resource_type = str(component.get_resource_type())
@@ -124,7 +125,6 @@ class VMHandler(HandlerBase):
                                              host=worker_node, instance_name=sliver.instance_name,
                                              pci_devices=component.labels.bdf)
 
-            sliver.instance_name = instance_props.get(AmConstants.SERVER_INSTANCE_NAME, None)
             sliver.state = instance_props.get(AmConstants.SERVER_VM_STATE, None)
             sliver.management_ip = fip_props.get(AmConstants.FLOATING_IP, None)
 
@@ -132,6 +132,7 @@ class VMHandler(HandlerBase):
             # Delete VM in case of failure
             if sliver is not None and unit_id is not None:
                 self.__cleanup(sliver=sliver, unit_id=unit_id)
+                unit.sliver.instance_name = None
 
             result = {Constants.PROPERTY_TARGET_NAME: Constants.TARGET_CREATE,
                       Constants.PROPERTY_TARGET_RESULT_CODE: Constants.RESULT_CODE_EXCEPTION,

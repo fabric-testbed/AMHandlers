@@ -136,11 +136,11 @@ class ResultsCollectorJSONCallback(CallbackBase):
         return False
 
     def dump_all(self, host_result_map: dict, result_list: list):
-        if host_result_map is not None and len(host_result_map) != 0:
+        if host_result_map is not None and len(host_result_map) > 0:
             for result in host_result_map.values():
                 self._dump_results(result=result._result)
 
-        if result_list is not None and len(result_list) != 0:
+        if result_list is not None and len(result_list) > 0:
             for result in result_list:
                 self._dump_results(result=result._result)
 
@@ -187,7 +187,8 @@ class AnsibleHelper:
         context.CLIARGS = ImmutableDict(connection='smart', tags={}, listtags=False, listtasks=False, listhosts=False,
                                         syntax=False,
                                         module_path=None, forks=100, private_key_file=None,
-                                        ssh_common_args=None, ssh_extra_args='-o StrictHostKeyChecking=no', sftp_extra_args=None,
+                                        ssh_common_args=None, ssh_extra_args='-o StrictHostKeyChecking=no',
+                                        sftp_extra_args=None,
                                         scp_extra_args=None, become=False,
                                         become_method='sudo', become_user='root', verbosity=True, check=False,
                                         start_at_task=None)
@@ -210,8 +211,8 @@ class AnsibleHelper:
             raise e
         finally:
             self.logger.debug(f"OK: {self.results_callback.dump_all_ok()}")
-            self.logger.debug(f"Failed: {self.results_callback.dump_all_failed()}")
-            self.logger.debug(f"Unreachable: {self.results_callback.dump_all_unreachable()}")
+            self.logger.error(f"Failed: {self.results_callback.dump_all_failed()}")
+            self.logger.error(f"Unreachable: {self.results_callback.dump_all_unreachable()}")
             if self.loader is not None:
                 self.loader.cleanup_all_tmp_files()
 
