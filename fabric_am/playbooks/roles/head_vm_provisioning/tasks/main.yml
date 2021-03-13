@@ -69,6 +69,7 @@
       project_name: "{{ project_name }}"
       username: "{{ username }}"
     name: "{{ vmname }}"
+    delete_fip: yes
   when: vm_prov_op == 'delete'
 
 - name: Get a VM

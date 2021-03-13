@@ -56,6 +56,9 @@ class ResultsCollectorJSONCallback(CallbackBase):
         self.host_ok = {}
         self.host_unreachable = {}
         self.host_failed = {}
+        self.ok = []
+        self.unreachable = []
+        self.failed = []
 
     def v2_runner_on_unreachable(self, result):
         """
@@ -63,7 +66,10 @@ class ResultsCollectorJSONCallback(CallbackBase):
         @param result result
         """
         host = result._host
-        self.host_unreachable[host.get_name()] = result
+        if host is not None:
+            self.host_unreachable[host.get_name()] = result
+        else:
+            self.unreachable.append(result)
 
     def v2_runner_on_ok(self, result, *args, **kwargs):
         """
@@ -71,7 +77,10 @@ class ResultsCollectorJSONCallback(CallbackBase):
         @param result result
         """
         host = result._host
-        self.host_ok[host.get_name()] = result
+        if host is not None:
+            self.host_ok[host.get_name()] = result
+        else:
+            self.ok.append(result)
 
     def v2_runner_on_failed(self, result, *args, **kwargs):
         """
@@ -79,7 +88,10 @@ class ResultsCollectorJSONCallback(CallbackBase):
         @param result result
         """
         host = result._host
-        self.host_failed[host.get_name()] = result
+        if host is not None:
+            self.host_failed[host.get_name()] = result
+        else:
+            self.failed.append(result)
 
     def __get_json_result(self, host_result_map: dict, host: str = None):
         """
@@ -123,20 +135,23 @@ class ResultsCollectorJSONCallback(CallbackBase):
             return True
         return False
 
-    def dump_all(self, host_result_map: dict):
-        if host_result_map is None or len(host_result_map) == 0:
-            return
-        for result in host_result_map.values():
-            self._dump_results(result=result._result)
+    def dump_all(self, host_result_map: dict, result_list: list):
+        if host_result_map is not None and len(host_result_map) != 0:
+            for result in host_result_map.values():
+                self._dump_results(result=result._result)
+
+        if result_list is not None and len(result_list) != 0:
+            for result in result_list:
+                self._dump_results(result=result._result)
 
     def dump_all_failed(self):
-        self.dump_all(host_result_map=self.host_failed)
+        self.dump_all(host_result_map=self.host_failed, result_list=self.failed)
 
     def dump_all_ok(self):
-        self.dump_all(host_result_map=self.host_ok)
+        self.dump_all(host_result_map=self.host_ok, result_list=self.ok)
 
     def dump_all_unreachable(self):
-        self.dump_all(host_result_map=self.host_unreachable)
+        self.dump_all(host_result_map=self.host_unreachable, result_list=self.unreachable)
 
 
 class AnsibleHelper:
@@ -158,6 +173,7 @@ class AnsibleHelper:
         @param value value
         """
         self.variable_manager.set_host_variable(host=host, varname=var_name, value=value)
+        self.logger.debug(f"KOMAL {self.variable_manager._vars_cache}")
 
     def run_playbook(self, playbook_path: str):
         """

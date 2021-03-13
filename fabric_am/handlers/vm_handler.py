@@ -255,47 +255,39 @@ class VMHandler(HandlerBase):
         :param unit_id: Unit Id
         :return: dictionary containing created instance details
         """
-        ansible_helper = None
-        try:
-            ansible_helper = AnsibleHelper(inventory_path=inventory_path, logger=self.logger)
-            vm_name = f"{unit_id}-{vm_name}"
+        ansible_helper = AnsibleHelper(inventory_path=inventory_path, logger=self.logger)
+        vm_name = f"{unit_id}-{vm_name}"
 
-            hostname_suffix = self.config[AmConstants.PLAYBOOK_SECTION][AmConstants.PB_HOSTNAME_SUFFIX]
-            avail_zone = f"nova:{worker_node}{hostname_suffix}"
+        hostname_suffix = self.config[AmConstants.PLAYBOOK_SECTION][AmConstants.PB_HOSTNAME_SUFFIX]
+        avail_zone = f"nova:{worker_node}{hostname_suffix}"
 
-            extra_vars = {
-                AmConstants.VM_PROV_OP: AmConstants.VM_PROV_OP_CREATE,
-                AmConstants.EC2_AVAILABILITY_ZONE: avail_zone,
-                AmConstants.VM_NAME: vm_name,
-                AmConstants.FLAVOR: flavor,
-                AmConstants.IMAGE: image
-            }
-            ansible_helper.set_extra_vars(extra_vars=extra_vars)
+        extra_vars = {
+            AmConstants.VM_PROV_OP: AmConstants.VM_PROV_OP_CREATE,
+            AmConstants.EC2_AVAILABILITY_ZONE: avail_zone,
+            AmConstants.VM_NAME: vm_name,
+            AmConstants.FLAVOR: flavor,
+            AmConstants.IMAGE: image
+        }
+        ansible_helper.set_extra_vars(extra_vars=extra_vars)
 
-            self.logger.debug(f"Executing playbook {playbook_path} to create VM")
-            ansible_helper.run_playbook(playbook_path=playbook_path)
-            ok = ansible_helper.get_result_callback().get_json_result_ok()
+        self.logger.debug(f"Executing playbook {playbook_path} to create VM")
+        ansible_helper.run_playbook(playbook_path=playbook_path)
+        ok = ansible_helper.get_result_callback().get_json_result_ok()
 
-            server = ok.get(AmConstants.SERVER, None)
-            # Added this code for enabling test suite
-            if server is None:
-                server = ok[AmConstants.ANSIBLE_FACTS][AmConstants.SERVER]
-                server = json.loads(server)
+        server = ok.get(AmConstants.SERVER, None)
+        # Added this code for enabling test suite
+        if server is None:
+            server = ok[AmConstants.ANSIBLE_FACTS][AmConstants.SERVER]
+            server = json.loads(server)
 
-            result = {
-                AmConstants.SERVER_VM_STATE: str(server[AmConstants.SERVER_VM_STATE]),
-                AmConstants.SERVER_INSTANCE_NAME: str(server[AmConstants.SERVER_INSTANCE_NAME]),
-                AmConstants.SERVER_ACCESS_IPV4: str(server[AmConstants.SERVER_ACCESS_IPV4])
-            }
-            self.logger.debug(f"Returning properties {result}")
+        result = {
+            AmConstants.SERVER_VM_STATE: str(server[AmConstants.SERVER_VM_STATE]),
+            AmConstants.SERVER_INSTANCE_NAME: str(server[AmConstants.SERVER_INSTANCE_NAME]),
+            AmConstants.SERVER_ACCESS_IPV4: str(server[AmConstants.SERVER_ACCESS_IPV4])
+        }
+        self.logger.debug(f"Returning properties {result}")
 
-            return result
-        finally:
-            if ansible_helper is not None:
-                self.logger.debug(f"OK: {ansible_helper.get_result_callback().get_json_result_ok()}")
-                self.logger.error(f"Failed: {ansible_helper.get_result_callback().get_json_result_failed()}")
-                self.logger.error(f"Unreachable: "
-                                  f"{ansible_helper.get_result_callback().get_json_result_unreachable()}")
+        return result
 
     def __delete_vm(self, *, playbook_path: str, inventory_path: str, vm_name: str, unit_id: str) -> bool:
         """
@@ -306,24 +298,16 @@ class VMHandler(HandlerBase):
         :param unit_id: Unit Id
         :return: True or False representing success/failure
         """
-        ansible_helper = None
-        try:
-            ansible_helper = AnsibleHelper(inventory_path=inventory_path, logger=self.logger)
-            vm_name = f"{unit_id}-{vm_name}"
+        ansible_helper = AnsibleHelper(inventory_path=inventory_path, logger=self.logger)
+        vm_name = f"{unit_id}-{vm_name}"
 
-            extra_vars = {AmConstants.VM_PROV_OP: AmConstants.VM_PROV_OP_DELETE,
-                          AmConstants.VM_NAME: vm_name}
-            ansible_helper.set_extra_vars(extra_vars=extra_vars)
+        extra_vars = {AmConstants.VM_PROV_OP: AmConstants.VM_PROV_OP_DELETE,
+                      AmConstants.VM_NAME: vm_name}
+        ansible_helper.set_extra_vars(extra_vars=extra_vars)
 
-            self.logger.debug(f"Executing playbook {playbook_path} to delete VM")
-            ansible_helper.run_playbook(playbook_path=playbook_path)
-            return True
-        finally:
-            if ansible_helper is not None:
-                self.logger.debug(f"OK: {ansible_helper.get_result_callback().get_json_result_ok()}")
-                self.logger.error(f"Failed: {ansible_helper.get_result_callback().get_json_result_failed()}")
-                self.logger.error(f"Unreachable: "
-                                  f"{ansible_helper.get_result_callback().get_json_result_unreachable()}")
+        self.logger.debug(f"Executing playbook {playbook_path} to delete VM")
+        ansible_helper.run_playbook(playbook_path=playbook_path)
+        return True
 
     def __attach_fip(self, *, playbook_path: str, inventory_path: str, vm_name: str, unit_id: str) -> dict:
         """
@@ -335,34 +319,26 @@ class VMHandler(HandlerBase):
         :param unit_id: Unit Id
         :return: dictionary containing created floating ip details
         """
-        ansible_helper = None
-        try:
-            vm_name = f"{unit_id}-{vm_name}"
-            ansible_helper = AnsibleHelper(inventory_path=inventory_path, logger=self.logger)
-            extra_vars = {AmConstants.VM_PROV_OP: AmConstants.VM_PROV_OP_ATTACH_FIP,
-                          AmConstants.VM_NAME: vm_name}
-            ansible_helper.set_extra_vars(extra_vars=extra_vars)
+        vm_name = f"{unit_id}-{vm_name}"
+        ansible_helper = AnsibleHelper(inventory_path=inventory_path, logger=self.logger)
+        extra_vars = {AmConstants.VM_PROV_OP: AmConstants.VM_PROV_OP_ATTACH_FIP,
+                      AmConstants.VM_NAME: vm_name}
+        ansible_helper.set_extra_vars(extra_vars=extra_vars)
 
-            self.logger.debug(f"Executing playbook {playbook_path} to attach FIP")
-            ansible_helper.run_playbook(playbook_path=playbook_path)
+        self.logger.debug(f"Executing playbook {playbook_path} to attach FIP")
+        ansible_helper.run_playbook(playbook_path=playbook_path)
 
-            ok = ansible_helper.get_result_callback().get_json_result_ok()
+        ok = ansible_helper.get_result_callback().get_json_result_ok()
 
-            floating_ip = ok.get(AmConstants.FLOATING_IP, None)
-            # Added this code for enabling test suite
-            if floating_ip is None:
-                floating_ip = ok[AmConstants.ANSIBLE_FACTS][AmConstants.FLOATING_IP]
-                floating_ip = json.loads(floating_ip)
+        floating_ip = ok.get(AmConstants.FLOATING_IP, None)
+        # Added this code for enabling test suite
+        if floating_ip is None:
+            floating_ip = ok[AmConstants.ANSIBLE_FACTS][AmConstants.FLOATING_IP]
+            floating_ip = json.loads(floating_ip)
 
-            result = {AmConstants.FLOATING_IP: str(floating_ip[AmConstants.FLOATING_IP_ADDRESS])}
-            self.logger.debug(f"Returning properties {result}")
-            return result
-        finally:
-            if ansible_helper is not None:
-                self.logger.debug(f"OK: {ansible_helper.get_result_callback().get_json_result_ok()}")
-                self.logger.error(f"Failed: {ansible_helper.get_result_callback().get_json_result_failed()}")
-                self.logger.error(f"Unreachable: "
-                                  f"{ansible_helper.get_result_callback().get_json_result_unreachable()}")
+        result = {AmConstants.FLOATING_IP: str(floating_ip[AmConstants.FLOATING_IP_ADDRESS])}
+        self.logger.debug(f"Returning properties {result}")
+        return result
 
     def __attach_detach_pci(self, *, playbook_path: str, inventory_path: str, host: str, instance_name: str,
                             pci_devices: str, attach: bool = True):
@@ -382,34 +358,25 @@ class VMHandler(HandlerBase):
         else:
             pci_device_list = pci_devices
 
-        ansible_helper = None
-        try:
-            ansible_helper = AnsibleHelper(inventory_path=inventory_path, logger=self.logger)
+        ansible_helper = AnsibleHelper(inventory_path=inventory_path, logger=self.logger)
 
-            hostname_suffix = self.config[AmConstants.PLAYBOOK_SECTION][AmConstants.PB_HOSTNAME_SUFFIX]
-            worker_node = f"{host}{hostname_suffix}"
+        hostname_suffix = self.config[AmConstants.PLAYBOOK_SECTION][AmConstants.PB_HOSTNAME_SUFFIX]
+        worker_node = f"{host}{hostname_suffix}"
 
-            ansible_helper.set_extra_vars(extra_vars={AmConstants.WORKER_NODE_NAME: worker_node,
-                                                      AmConstants.ADD_PCI_DEVICE: attach})
+        ansible_helper.set_extra_vars(extra_vars={AmConstants.WORKER_NODE_NAME: worker_node,
+                                                  AmConstants.ADD_PCI_DEVICE: attach})
 
-            for device in pci_device_list:
-                device_char_arr = self.__extract_device_addr_octets(device_address=device)
-                ansible_helper.add_vars(host=host, var_name=AmConstants.KVM_GUEST_NAME, value=instance_name)
-                ansible_helper.add_vars(host=host, var_name=AmConstants.PCI_ADDRESS, value=device_char_arr)
+        for device in pci_device_list:
+            device_char_arr = self.__extract_device_addr_octets(device_address=device)
+            ansible_helper.add_vars(host=host, var_name=AmConstants.KVM_GUEST_NAME, value=instance_name)
+            ansible_helper.add_vars(host=host, var_name=AmConstants.PCI_ADDRESS, value=device_char_arr)
 
-                if attach:
-                    self.logger.debug(f"Executing playbook {playbook_path} to attach PCI Address")
-                else:
-                    self.logger.debug(f"Executing playbook {playbook_path} to detach PCI Address")
+            if attach:
+                self.logger.debug(f"Executing playbook {playbook_path} to attach PCI Address")
+            else:
+                self.logger.debug(f"Executing playbook {playbook_path} to detach PCI Address")
 
-                ansible_helper.run_playbook(playbook_path=playbook_path)
-
-        finally:
-            if ansible_helper is not None:
-                self.logger.debug(f"OK: {ansible_helper.get_result_callback().get_json_result_ok(host=host)}")
-                self.logger.error(f"Failed: {ansible_helper.get_result_callback().get_json_result_failed(host=host)}")
-                self.logger.error(f"Unreachable: "
-                                  f"{ansible_helper.get_result_callback().get_json_result_unreachable(host=host)}")
+            ansible_helper.run_playbook(playbook_path=playbook_path)
 
     def __cleanup(self, *, sliver: NodeSliver, unit_id: str, raise_exception: bool = False):
         """
@@ -452,10 +419,6 @@ class VMHandler(HandlerBase):
             if sliver.resource_name is None:
                 raise VmHandlerException(f"Missing required parameters vm_name: {sliver.resource_name}")
 
-            # Get VM Details
-            self.__get_vm(playbook_path=full_playbook_path, inventory_path=inventory_path,
-                          vm_name=sliver.resource_name, unit_id=unit_id)
-
             # Delete VM
             self.__delete_vm(playbook_path=full_playbook_path, inventory_path=inventory_path,
                              vm_name=sliver.resource_name, unit_id=unit_id)
@@ -488,21 +451,13 @@ class VMHandler(HandlerBase):
         :param unit_id: Unit Id
         :return: True or False representing success/failure
         """
-        ansible_helper = None
-        try:
-            ansible_helper = AnsibleHelper(inventory_path=inventory_path, logger=self.logger)
-            vm_name = f"{unit_id}-{vm_name}"
+        ansible_helper = AnsibleHelper(inventory_path=inventory_path, logger=self.logger)
+        vm_name = f"{unit_id}-{vm_name}"
 
-            extra_vars = {AmConstants.VM_PROV_OP: AmConstants.VM_PROV_OP_GET,
-                          AmConstants.VM_NAME: vm_name}
-            ansible_helper.set_extra_vars(extra_vars=extra_vars)
+        extra_vars = {AmConstants.VM_PROV_OP: AmConstants.VM_PROV_OP_GET,
+                      AmConstants.VM_NAME: vm_name}
+        ansible_helper.set_extra_vars(extra_vars=extra_vars)
 
-            self.logger.debug(f"Executing playbook {playbook_path} to get VM")
-            ansible_helper.run_playbook(playbook_path=playbook_path)
-            return True
-        finally:
-            if ansible_helper is not None:
-                self.logger.debug(f"OK: {ansible_helper.get_result_callback().get_json_result_ok()}")
-                self.logger.error(f"Failed: {ansible_helper.get_result_callback().get_json_result_failed()}")
-                self.logger.error(f"Unreachable: "
-                                  f"{ansible_helper.get_result_callback().get_json_result_unreachable()}")
+        self.logger.debug(f"Executing playbook {playbook_path} to get VM")
+        ansible_helper.run_playbook(playbook_path=playbook_path)
+        return True
