@@ -212,9 +212,9 @@ class AnsibleHelper:
             self.logger.debug("OK:")
             self.results_callback.dump_all_ok(logger=self.logger)
             self.logger.debug("Failed:")
-            self.results_callback.dump_all_ok(logger=self.logger)
+            self.results_callback.dump_all_failed(logger=self.logger)
             self.logger.debug("Unreachable:")
-            self.results_callback.dump_all_ok(logger=self.logger)
+            self.results_callback.dump_all_unreachable(logger=self.logger)
             if self.loader is not None:
                 self.loader.cleanup_all_tmp_files()
 
