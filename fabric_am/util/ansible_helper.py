@@ -56,6 +56,9 @@ class ResultsCollectorJSONCallback(CallbackBase):
         self.host_ok = {}
         self.host_unreachable = {}
         self.host_failed = {}
+        self.ok = []
+        self.unreachable = []
+        self.failed = []
 
     def v2_runner_on_unreachable(self, result):
         """
@@ -63,7 +66,10 @@ class ResultsCollectorJSONCallback(CallbackBase):
         @param result result
         """
         host = result._host
-        self.host_unreachable[host.get_name()] = result
+        if host is not None:
+            self.host_unreachable[host.get_name()] = result
+        else:
+            self.unreachable.append(result)
 
     def v2_runner_on_ok(self, result, *args, **kwargs):
         """
@@ -71,7 +77,10 @@ class ResultsCollectorJSONCallback(CallbackBase):
         @param result result
         """
         host = result._host
-        self.host_ok[host.get_name()] = result
+        if host is not None:
+            self.host_ok[host.get_name()] = result
+        else:
+            self.ok.append(result)
 
     def v2_runner_on_failed(self, result, *args, **kwargs):
         """
@@ -79,7 +88,10 @@ class ResultsCollectorJSONCallback(CallbackBase):
         @param result result
         """
         host = result._host
-        self.host_failed[host.get_name()] = result
+        if host is not None:
+            self.host_failed[host.get_name()] = result
+        else:
+            self.failed.append(result)
 
     def __get_json_result(self, host_result_map: dict, host: str = None):
         """
@@ -123,6 +135,24 @@ class ResultsCollectorJSONCallback(CallbackBase):
             return True
         return False
 
+    def dump_all(self, host_result_map: dict, result_list: list, logger):
+        if host_result_map is not None and len(host_result_map) > 0:
+            for result in host_result_map.values():
+                logger.info(self._dump_results(result=result._result))
+
+        if result_list is not None and len(result_list) > 0:
+            for result in result_list:
+                logger.info(self._dump_results(result=result._result))
+
+    def dump_all_failed(self, logger):
+        self.dump_all(host_result_map=self.host_failed, result_list=self.failed, logger=logger)
+
+    def dump_all_ok(self, logger):
+        self.dump_all(host_result_map=self.host_ok, result_list=self.ok, logger=logger)
+
+    def dump_all_unreachable(self, logger):
+        self.dump_all(host_result_map=self.host_unreachable, result_list=self.unreachable, logger=logger)
+
 
 class AnsibleHelper:
     """
@@ -156,7 +186,8 @@ class AnsibleHelper:
         context.CLIARGS = ImmutableDict(connection='smart', tags={}, listtags=False, listtasks=False, listhosts=False,
                                         syntax=False,
                                         module_path=None, forks=100, private_key_file=None,
-                                        ssh_common_args=None, ssh_extra_args='-o StrictHostKeyChecking=no', sftp_extra_args=None,
+                                        ssh_common_args=None, ssh_extra_args='-o StrictHostKeyChecking=no',
+                                        sftp_extra_args=None,
                                         scp_extra_args=None, become=False,
                                         become_method='sudo', become_user='root', verbosity=True, check=False,
                                         start_at_task=None)
@@ -178,6 +209,12 @@ class AnsibleHelper:
             self.logger.error(traceback.format_exc())
             raise e
         finally:
+            self.logger.debug("OK:")
+            self.results_callback.dump_all_ok(logger=self.logger)
+            self.logger.debug("Failed:")
+            self.results_callback.dump_all_failed(logger=self.logger)
+            self.logger.debug("Unreachable:")
+            self.results_callback.dump_all_unreachable(logger=self.logger)
             if self.loader is not None:
                 self.loader.cleanup_all_tmp_files()
 

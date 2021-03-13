@@ -33,11 +33,13 @@ class AmConstants:
     PLAYBOOK_SECTION = 'playbooks'
     PB_LOCATION = "location"
     PB_INVENTORY = "inventory_location"
+    PB_HOSTNAME_SUFFIX = "hostname_suffix"
 
     VM_PROV_OP = "vm_prov_op"
     VM_PROV_OP_CREATE = "create"
     VM_PROV_OP_DELETE = "delete"
     VM_PROV_OP_ATTACH_FIP = "attach_fip"
+    VM_PROV_OP_GET = "get"
 
     SERVER = 'server'
     SERVER_VM_STATE = 'vm_state'
