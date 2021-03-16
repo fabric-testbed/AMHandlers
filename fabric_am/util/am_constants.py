@@ -62,3 +62,5 @@ class AmConstants:
     VM_NAME = "vmname"
     FLAVOR = "flavor"
     IMAGE = "image"
+    HOSTNAME = "hostname"
+    SSH_KEY = "sshkey"

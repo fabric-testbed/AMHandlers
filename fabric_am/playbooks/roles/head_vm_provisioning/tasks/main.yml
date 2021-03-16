@@ -43,6 +43,12 @@
     nics:
       - net-name: "{{ net_name }}"
     security_groups: "{{ security_group }}"
+    meta:
+      hostname: "{{ hostname }}"
+    userdata: |
+      {%- raw -%}#!/bin/bash
+      echo "{{ sshkey }}" >> /root/.ssh/.ssh/authorized_keys
+      {% endraw %}
   when: vm_prov_op == 'create'
 
 - name: Attach a floating IP to the instance
