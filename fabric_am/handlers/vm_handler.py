@@ -83,8 +83,8 @@ class VMHandler(HandlerBase):
             ssh_key = unit_properties.get(Constants.USER_SSH_KEY, None)
 
             worker_node = sliver.label_allocations.instance_parent
-            flavor = self.__compute_flavor(core=sliver.capacities.core, ram=sliver.capacities.ram,
-                                           disk=sliver.capacities.disk)
+            flavor = self.__compute_flavor(core=sliver.capacity_allocations.core, ram=sliver.capacity_allocations.ram,
+                                           disk=sliver.capacity_allocations.disk)
             vmname = sliver.get_name()
             image = sliver.get_image_ref()
 
@@ -116,7 +116,7 @@ class VMHandler(HandlerBase):
             # Attach any attached PCI Devices
             if sliver.attached_components_info is not None:
                 for component in sliver.attached_components_info.devices.values():
-                    resource_type = str(component.get_resource_type())
+                    resource_type = str(component.get_type())
                     playbook = self.config[AmConstants.PLAYBOOK_SECTION][resource_type]
                     if playbook is None:
                         raise VmHandlerException(f"Missing parameters playbook: {playbook} "
@@ -125,8 +125,8 @@ class VMHandler(HandlerBase):
 
                     playbook_path_full = f"{playbook_path}/{playbook}"
                     self.__attach_detach_pci(playbook_path=playbook_path_full, inventory_path=inventory_path,
-                                             host=worker_node, instance_name=sliver.instance_name,
-                                             pci_devices=component.labels.bdf)
+                                             host=worker_node, instance_name=sliver.label_allocations.instance,
+                                             pci_devices=component.label_allocations.bdf)
 
             sliver.management_ip = fip_props.get(AmConstants.FLOATING_IP, None)
             sliver.management_interface_mac_address = fip_props.get(AmConstants.FLOATING_IP_MAC_ADDRESS, None)
@@ -192,15 +192,17 @@ class VMHandler(HandlerBase):
         sliver = None
         playbook_path = None
         inventory_path = None
+        worker_node = None
+        instance_name = None
         try:
             self.logger.info(f"Modify invoked for unit: {unit}")
             sliver = unit.get_sliver()
             if sliver is None:
                 raise VmHandlerException(f"Unit # {unit} has no assigned slivers")
 
-            worker_node = sliver.worker_node_name
-            vmname = sliver.resource_name
-            instance_name = sliver.instance_name
+            worker_node = sliver.label_allocations.instance_parent
+            vmname = sliver.get_name()
+            instance_name = sliver.label_allocations.instance
 
             if worker_node is None or vmname is None or instance_name is None:
                 raise VmHandlerException(f"Missing required parameters workernode: {worker_node} "
@@ -211,29 +213,29 @@ class VMHandler(HandlerBase):
 
             if sliver.attached_components_info is not None:
                 for device in sliver.attached_components_info.devices.values():
-                    resource_type = str(device.get_resource_type())
+                    resource_type = str(device.get_type())
                     playbook = self.config[AmConstants.PLAYBOOK_SECTION][resource_type]
                     if playbook is None or inventory_path is None:
                         raise VmHandlerException(f"Missing config parameters playbook: {playbook} "
                                                  f"playbook_path: {playbook_path} inventory_path: {inventory_path}")
                     full_playbook_path = f"{playbook_path}/{playbook}"
                     self.__attach_detach_pci(playbook_path=full_playbook_path, inventory_path=inventory_path,
-                                             instance_name=sliver.instance_name, host=sliver.worker_node_name,
-                                             pci_devices=device.labels.bdf)
+                                             instance_name=instance_name, host=worker_node,
+                                             pci_devices=device.label_allocations.bdf)
 
         except Exception as e:
             if sliver is not None and sliver.attached_components_info is not None and inventory_path is not None and \
                     playbook_path is not None:
                 for device in sliver.attached_components_info.devices.values():
-                    resource_type = str(device.get_resource_type())
+                    resource_type = str(device.get_type())
                     playbook = self.config[AmConstants.PLAYBOOK_SECTION][resource_type]
                     if playbook is None or inventory_path is None:
                         raise VmHandlerException(f"Missing config parameters playbook: {playbook} "
                                                  f"playbook_path: {playbook_path} inventory_path: {inventory_path}")
                     full_playbook_path = f"{playbook_path}/{playbook}"
                     self.__attach_detach_pci(playbook_path=full_playbook_path, inventory_path=inventory_path,
-                                             instance_name=sliver.instance_name, host=sliver.worker_node_name,
-                                             pci_devices=device.labels.bdf, attach=False)
+                                             instance_name=instance_name, host=worker_node,
+                                             pci_devices=device.label_allocations.bdf, attach=False)
 
             result = {Constants.PROPERTY_TARGET_NAME: Constants.TARGET_MODIFY,
                       Constants.PROPERTY_TARGET_RESULT_CODE: Constants.RESULT_CODE_EXCEPTION,
@@ -416,11 +418,11 @@ class VMHandler(HandlerBase):
                                                  f"playbook_path: {playbook_path} inventory_path: {inventory_path}")
                     full_playbook_path = f"{playbook_path}/{playbook}"
 
-                    if device.labels.bdf is None:
-                        raise VmHandlerException(f"Missing required parameters bdf: {device.labels.bdf}")
+                    if device.label_allocations.bdf is None:
+                        raise VmHandlerException(f"Missing required parameters bdf: {device.label_allocations.bdf}")
                     self.__attach_detach_pci(playbook_path=full_playbook_path, inventory_path=inventory_path,
                                              instance_name=instance_name, host=worker_node,
-                                             pci_devices=device.labels.bdf,
+                                             pci_devices=device.label_allocations.bdf,
                                              attach=False)
 
             resource_type = str(sliver.get_type())
