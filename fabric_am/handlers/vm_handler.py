@@ -263,7 +263,7 @@ class VMHandler(HandlerBase):
         :return: dictionary containing created instance details
         """
         ansible_helper = AnsibleHelper(inventory_path=inventory_path, logger=self.logger)
-        vm_name = f"{unit_id}-{vm_name}"
+        vm_name_combined = f"{unit_id}-{vm_name}"
 
         hostname_suffix = self.config[AmConstants.PLAYBOOK_SECTION][AmConstants.PB_HOSTNAME_SUFFIX]
         avail_zone = f"nova:{worker_node}{hostname_suffix}"
@@ -271,7 +271,7 @@ class VMHandler(HandlerBase):
         extra_vars = {
             AmConstants.VM_PROV_OP: AmConstants.VM_PROV_OP_CREATE,
             AmConstants.EC2_AVAILABILITY_ZONE: avail_zone,
-            AmConstants.VM_NAME: vm_name,
+            AmConstants.VM_NAME: vm_name_combined,
             AmConstants.FLAVOR: flavor,
             AmConstants.IMAGE: image,
             AmConstants.HOSTNAME: vm_name,

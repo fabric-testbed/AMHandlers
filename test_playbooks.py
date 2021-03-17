@@ -60,7 +60,7 @@ class TestPlaybooks:
         cap = Capacities()
         cap.set_fields(core=4, ram=64, disk=500)
         sliver.set_properties(type=NodeType.VM, site="RENC", capacity_allocations=cap)
-        sliver.label_allocations = Labels().set_fields(instance_parent="renc-w1.fabric-testbed.net")
+        sliver.label_allocations = Labels().set_fields(instance_parent="renc-w1")
 
         if include_name:
             sliver.set_properties(name="n2")
@@ -72,7 +72,7 @@ class TestPlaybooks:
             component = ComponentSliver()
             labels = Labels()
             labels.set_fields(bdf=["0000:41:00.0", "0000:41:00.1"])
-            component.set_properties(resource_type=ComponentType.SmartNIC, model='ConnectX-6', name='nic1',
+            component.set_properties(type=ComponentType.SmartNIC, model='ConnectX-6', name='nic1',
                                      labels=labels)
             sliver.attached_components_info = AttachedComponentsInfo()
             sliver.attached_components_info.add_device(device_info=component)
