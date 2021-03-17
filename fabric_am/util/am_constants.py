@@ -62,3 +62,10 @@ class AmConstants:
     VM_NAME = "vmname"
     FLAVOR = "flavor"
     IMAGE = "image"
+    HOSTNAME = "hostname"
+    SSH_KEY = "sshkey"
+    DEFAULT_USER = "default_user"
+
+    CENTOS_DEFAULT_USER = "centos"
+    UBUNTU_DEFAULT_USER = "ubuntu"
+    ROOT_USER = "root"

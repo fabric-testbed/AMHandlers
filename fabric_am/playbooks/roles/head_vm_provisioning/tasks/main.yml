@@ -27,7 +27,7 @@
 #
 
 - name: Create a VM
-  os_server:
+  openstack.cloud.server:
     state: present
     auth:
       auth_url: "{{ auth_url }}"
@@ -43,10 +43,16 @@
     nics:
       - net-name: "{{ net_name }}"
     security_groups: "{{ security_group }}"
+    meta:
+      hostname: "{{ hostname }}"
+    userdata: |
+      {%- raw -%}#!/bin/bash
+      echo {% endraw -%}"{{ sshkey }}"{%- raw -%} >> /home/{% endraw -%}"{{ default_user }}"{%- raw -%}/.ssh/authorized_keys
+      {% endraw %}
   when: vm_prov_op == 'create'
 
 - name: Attach a floating IP to the instance
-  os_floating_ip:
+  openstack.cloud.floating_ip:
     auth:
       auth_url: "{{ auth_url }}"
       password: "{{ password }}"
@@ -73,7 +79,7 @@
   when: vm_prov_op == 'delete'
 
 - name: Get a VM
-  os_server_info:
+  openstack.cloud.server_info:
     auth:
       auth_url: "{{ auth_url }}"
       password: "{{ password }}"

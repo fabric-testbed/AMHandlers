@@ -59,8 +59,8 @@ class TestPlaybooks:
         sliver = NodeSliver()
         cap = Capacities()
         cap.set_fields(core=4, ram=64, disk=500)
-        sliver.set_properties(resource_type=NodeType.VM, site="RENC", capacities=cap)
-        sliver.worker_node_name = "renc-w1"
+        sliver.set_properties(type=NodeType.VM, site="RENC", capacity_allocations=cap)
+        sliver.label_allocations = Labels().set_fields(instance_parent="renc-w1")
 
         if include_name:
             sliver.set_properties(name="n2")
@@ -72,13 +72,13 @@ class TestPlaybooks:
             component = ComponentSliver()
             labels = Labels()
             labels.set_fields(bdf=["0000:41:00.0", "0000:41:00.1"])
-            component.set_properties(resource_type=ComponentType.SmartNIC, model='ConnectX-6', name='nic1',
+            component.set_properties(type=ComponentType.SmartNIC, model='ConnectX-6', name='nic1',
                                      labels=labels)
             sliver.attached_components_info = AttachedComponentsInfo()
             sliver.attached_components_info.add_device(device_info=component)
 
         if include_instance_name:
-            sliver.instance_name = "instance-00000077"
+            sliver.label_allocations.set_fields(instance="instance-001")
 
         u.set_sliver(sliver=sliver)
         return u
@@ -111,13 +111,6 @@ class TestPlaybooks:
         r, u = handler.create(unit=u)
         print(r)
         print(u.sliver)
-        enc = pickle.dumps(u.sliver)
-        print(enc)
-        dec = pickle.loads(enc)
-        print(dec)
-        print(type(u.sliver.instance_name))
-        print(type(u.sliver.state))
-        print(type(u.sliver.management_ip))
 
     def test_delete_vm_success(self, u):
         """

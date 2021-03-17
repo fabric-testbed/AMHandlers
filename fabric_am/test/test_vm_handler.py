@@ -57,8 +57,8 @@ class TestVmHandler(unittest.TestCase):
         sliver = NodeSliver()
         cap = Capacities()
         cap.set_fields(core=4, ram=64, disk=500)
-        sliver.set_properties(resource_type=NodeType.VM, site="RENC", capacities=cap)
-        sliver.worker_node_name = "renc-w1.fabric-testbed.net"
+        sliver.set_properties(type=NodeType.VM, site="RENC", capacity_allocations=cap)
+        sliver.label_allocations = Labels().set_fields(instance_parent="renc-w1.fabric-testbed.net")
 
         if include_name:
             sliver.set_properties(name="n1")
@@ -70,13 +70,13 @@ class TestVmHandler(unittest.TestCase):
             component = ComponentSliver()
             labels = Labels()
             labels.set_fields(bdf='0,0,85')
-            component.set_properties(resource_type=ComponentType.SmartNIC, model='ConnectX-6', name='nic1',
-                                     labels=labels)
+            component.set_properties(type=ComponentType.SmartNIC, model='ConnectX-6', name='nic1',
+                                     label_allocations=labels)
             sliver.attached_components_info = AttachedComponentsInfo()
             sliver.attached_components_info.add_device(device_info=component)
 
         if include_instance_name:
-            sliver.instance_name = "instance-001"
+            sliver.label_allocations.set_fields(instance="instance-001")
 
         u.set_sliver(sliver=sliver)
         return u
@@ -95,10 +95,8 @@ class TestVmHandler(unittest.TestCase):
         self.assertEqual(r[Constants.PROPERTY_TARGET_NAME], Constants.TARGET_CREATE)
         self.assertEqual(r[Constants.PROPERTY_ACTION_SEQUENCE_NUMBER], 0)
         self.assertEqual(r[Constants.PROPERTY_TARGET_RESULT_CODE], Constants.RESULT_CODE_OK)
-        self.assertIsNotNone(u.sliver.instance_name)
+        self.assertIsNotNone(u.sliver.label_allocations.instance)
         self.assertIsNotNone(u.sliver.management_ip)
-        self.assertIsNotNone(u.sliver.management_interface_mac_address)
-        self.assertEqual(u.sliver.state, "active")
 
     def test_create_vm_success_no_pci(self):
         """
@@ -114,10 +112,9 @@ class TestVmHandler(unittest.TestCase):
         self.assertEqual(r[Constants.PROPERTY_TARGET_NAME], Constants.TARGET_CREATE)
         self.assertEqual(r[Constants.PROPERTY_ACTION_SEQUENCE_NUMBER], 0)
         self.assertEqual(r[Constants.PROPERTY_TARGET_RESULT_CODE], Constants.RESULT_CODE_OK)
-        self.assertIsNotNone(u.sliver.instance_name)
+        self.assertIsNotNone(u.sliver.label_allocations.instance)
         self.assertIsNotNone(u.sliver.management_ip)
-        self.assertIsNotNone(u.sliver.management_interface_mac_address)
-        self.assertEqual(u.sliver.state, "active")
+
 
     def test_create_vm_fail_no_image(self):
         """
@@ -133,10 +130,8 @@ class TestVmHandler(unittest.TestCase):
         self.assertEqual(r[Constants.PROPERTY_TARGET_NAME], Constants.TARGET_CREATE)
         self.assertEqual(r[Constants.PROPERTY_ACTION_SEQUENCE_NUMBER], 0)
         self.assertEqual(r[Constants.PROPERTY_TARGET_RESULT_CODE], Constants.RESULT_CODE_EXCEPTION)
-        self.assertIsNone(u.sliver.instance_name)
+        self.assertIsNone(u.sliver.label_allocations.instance)
         self.assertIsNone(u.sliver.management_ip)
-        self.assertIsNone(u.sliver.management_interface_mac_address)
-        self.assertIsNone(u.sliver.state)
 
     def test_create_vm_fail_no_config(self):
         """
@@ -152,10 +147,8 @@ class TestVmHandler(unittest.TestCase):
         self.assertEqual(r[Constants.PROPERTY_TARGET_NAME], Constants.TARGET_CREATE)
         self.assertEqual(r[Constants.PROPERTY_ACTION_SEQUENCE_NUMBER], 0)
         self.assertEqual(r[Constants.PROPERTY_TARGET_RESULT_CODE], Constants.RESULT_CODE_EXCEPTION)
-        self.assertIsNone(u.sliver.instance_name)
+        self.assertIsNone(u.sliver.label_allocations.instance)
         self.assertIsNone(u.sliver.management_ip)
-        self.assertIsNone(u.sliver.management_interface_mac_address)
-        self.assertIsNone(u.sliver.state)
 
     def test_delete_vm_success(self):
         """
