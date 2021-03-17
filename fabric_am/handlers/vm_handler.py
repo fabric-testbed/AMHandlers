@@ -268,6 +268,8 @@ class VMHandler(HandlerBase):
         hostname_suffix = self.config[AmConstants.PLAYBOOK_SECTION][AmConstants.PB_HOSTNAME_SUFFIX]
         avail_zone = f"nova:{worker_node}{hostname_suffix}"
 
+        default_user = self.__get_default_user(image=image)
+
         extra_vars = {
             AmConstants.VM_PROV_OP: AmConstants.VM_PROV_OP_CREATE,
             AmConstants.EC2_AVAILABILITY_ZONE: avail_zone,
@@ -275,7 +277,8 @@ class VMHandler(HandlerBase):
             AmConstants.FLAVOR: flavor,
             AmConstants.IMAGE: image,
             AmConstants.HOSTNAME: vm_name,
-            AmConstants.SSH_KEY: ssh_key
+            AmConstants.SSH_KEY: ssh_key,
+            AmConstants.DEFAULT_USER: default_user
         }
         ansible_helper.set_extra_vars(extra_vars=extra_vars)
 
@@ -474,3 +477,11 @@ class VMHandler(HandlerBase):
         self.logger.debug(f"Executing playbook {playbook_path} to get VM")
         ansible_helper.run_playbook(playbook_path=playbook_path)
         return True
+
+    def __get_default_user(self, image: str) -> str:
+        if AmConstants.CENTOS_DEFAULT_USER in image:
+            return AmConstants.CENTOS_DEFAULT_USER
+        elif AmConstants.UBUNTU_DEFAULT_USER in image:
+            return AmConstants.UBUNTU_DEFAULT_USER
+        else:
+            return AmConstants.ROOT_USER
