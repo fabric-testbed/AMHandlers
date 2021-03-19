@@ -112,8 +112,6 @@ class VMHandler(HandlerBase):
                                           vm_name=vmname, unit_id=unit_id)
 
             sliver.label_allocations.instance = instance_props.get(AmConstants.SERVER_INSTANCE_NAME, None)
-            import time
-            time.sleep(15)
 
             # Attach any attached PCI Devices
             if sliver.attached_components_info is not None:

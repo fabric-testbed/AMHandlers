@@ -53,7 +53,7 @@ class TestVmHandler(unittest.TestCase):
         :param include_instance_name:
         :return:
         """
-        u = Unit(uid=ID(uid='u1'))
+        u = Unit(uid=ID(uid='u1'), rid=ID(uid="rid-1"))
         sliver = NodeSliver()
         cap = Capacities()
         cap.set_fields(core=4, ram=64, disk=500)
@@ -69,7 +69,7 @@ class TestVmHandler(unittest.TestCase):
         if include_pci:
             component = ComponentSliver()
             labels = Labels()
-            labels.set_fields(bdf='0,0,85')
+            labels.set_fields(bdf="0000:81:00.0")
             component.set_properties(type=ComponentType.SmartNIC, model='ConnectX-6', name='nic1',
                                      label_allocations=labels)
             sliver.attached_components_info = AttachedComponentsInfo()
