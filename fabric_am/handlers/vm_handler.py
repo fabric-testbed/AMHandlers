@@ -75,7 +75,7 @@ class VMHandler(HandlerBase):
         try:
             self.logger.info(f"Create invoked for unit: {unit}")
             sliver = unit.get_sliver()
-            unit_id = str(unit.get_id())
+            unit_id = str(unit.get_reservation_id())
             if sliver is None:
                 raise VmHandlerException(f"Unit # {unit} has no assigned slivers")
 
@@ -112,6 +112,8 @@ class VMHandler(HandlerBase):
                                           vm_name=vmname, unit_id=unit_id)
 
             sliver.label_allocations.instance = instance_props.get(AmConstants.SERVER_INSTANCE_NAME, None)
+            import time
+            time.sleep(15)
 
             # Attach any attached PCI Devices
             if sliver.attached_components_info is not None:
@@ -164,7 +166,7 @@ class VMHandler(HandlerBase):
             if sliver is None:
                 raise VmHandlerException(f"Unit # {unit} has no assigned slivers")
 
-            unit_id = str(unit.get_id())
+            unit_id = str(unit.get_reservation_id())
             self.__cleanup(sliver=sliver, raise_exception=True, unit_id=unit_id)
         except Exception as e:
             result = {Constants.PROPERTY_TARGET_NAME: Constants.TARGET_DELETE,
@@ -490,7 +492,12 @@ class VMHandler(HandlerBase):
         ansible_helper.run_playbook(playbook_path=playbook_path)
         return True
 
-    def __get_default_user(self, image: str) -> str:
+    @staticmethod
+    def __get_default_user(image: str) -> str:
+        """
+        Return default SSH user name
+        :return default ssh user name
+        """
         if AmConstants.CENTOS_DEFAULT_USER in image:
             return AmConstants.CENTOS_DEFAULT_USER
         elif AmConstants.UBUNTU_DEFAULT_USER in image:

@@ -55,7 +55,7 @@ class TestPlaybooks:
         :param include_instance_name:
         :return:
         """
-        u = Unit(uid=ID(uid='fc820986-d5eb-4177-92b2-907e9e617820'))
+        u = Unit(uid=ID(uid='fc820986-d5eb-4177-92b2-907e9e617820'), rid=ID(uid='rid-1'))
         sliver = NodeSliver()
         cap = Capacities()
         cap.set_fields(core=4, ram=64, disk=500)
@@ -71,9 +71,11 @@ class TestPlaybooks:
         if include_pci:
             component = ComponentSliver()
             labels = Labels()
-            labels.set_fields(bdf=["0000:41:00.0", "0000:41:00.1"])
-            component.set_properties(type=ComponentType.SmartNIC, model='ConnectX-6', name='nic1',
-                                     labels=labels)
+            #labels.set_fields(bdf=["0000:41:00.0", "0000:41:00.1"])
+            #component.set_properties(type=ComponentType.SmartNIC, model='ConnectX-6', name='nic1',
+            #                         label_allocations=labels)
+            labels.set_fields(bdf="0000:81:00.0")
+            component.set_properties(type=ComponentType.GPU, model='Tesla T4', name='nic12', label_allocations=labels)
             sliver.attached_components_info = AttachedComponentsInfo()
             sliver.attached_components_info.add_device(device_info=component)
 
