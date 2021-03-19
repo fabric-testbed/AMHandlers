@@ -26,7 +26,7 @@
 import json
 import re
 import traceback
-from typing import Tuple
+from typing import Tuple, List
 
 from fabric_cf.actor.core.common.constants import Constants
 from fabric_cf.actor.core.plugins.handlers.config_token import ConfigToken
@@ -384,7 +384,10 @@ class VMHandler(HandlerBase):
         for device in pci_device_list:
             device_char_arr = self.__extract_device_addr_octets(device_address=device)
             ansible_helper.add_vars(host=worker_node, var_name=AmConstants.KVM_GUEST_NAME, value=instance_name)
-            ansible_helper.add_vars(host=worker_node, var_name=AmConstants.PCI_ADDRESS, value=device_char_arr)
+            ansible_helper.add_vars(host=worker_node, var_name=AmConstants.PCI_DOMAIN, value=device_char_arr[0])
+            ansible_helper.add_vars(host=worker_node, var_name=AmConstants.PCI_BUS, value=device_char_arr[1])
+            ansible_helper.add_vars(host=worker_node, var_name=AmConstants.PCI_SLOT, value=device_char_arr[2])
+            ansible_helper.add_vars(host=worker_node, var_name=AmConstants.PCI_FUNCTION, value=device_char_arr[3])
 
             if attach:
                 self.logger.debug(f"Executing playbook {playbook_path} to attach PCI Address")
@@ -447,16 +450,25 @@ class VMHandler(HandlerBase):
     def __compute_flavor(self, *, core: int, ram: int, disk: int) -> str:
         return "fabric.large"
 
-    def __extract_device_addr_octets(self, *, device_address: str) -> str:
+    @staticmethod
+    def __extract_device_addr_octets(*, device_address: str) -> List[str]:
+        """
+        Function to extract PCI domain, bus, slot and function from BDF
+        :param device_address BDF
+        :return list containing PCI domain, bus, slot and function from BDF
+        """
         match = re.split('(.*):(.*):(.*)\.(.*)', device_address)
         result = []
         match = match[1:-1]
         for octet in match:
             octet = octet.lstrip("0")
             if octet == "":
-                octet = '0'
+                octet = '0x0'
+            else:
+                octet = f"0x{octet}"
+
             result.append(octet)
-        return str(result)
+        return result
 
     def __get_vm(self, *, playbook_path: str, inventory_path: str, vm_name: str, unit_id: str) -> bool:
         """

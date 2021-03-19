@@ -26,11 +26,11 @@
 
 
 class AmConstants:
-    CONFIG_PROPERTIES_FILE = 'config.properties.file'
+    CONFIG_PROPERTIES_FILE = "config.properties.file"
 
-    EC2_AVAILABILITY_ZONE = 'availability_zone'
+    EC2_AVAILABILITY_ZONE = "availability_zone"
 
-    PLAYBOOK_SECTION = 'playbooks'
+    PLAYBOOK_SECTION = "playbooks"
     PB_LOCATION = "location"
     PB_INVENTORY = "inventory_location"
     PB_HOSTNAME_SUFFIX = "hostname_suffix"
@@ -41,23 +41,27 @@ class AmConstants:
     VM_PROV_OP_ATTACH_FIP = "attach_fip"
     VM_PROV_OP_GET = "get"
 
-    SERVER = 'server'
-    SERVER_VM_STATE = 'vm_state'
-    SERVER_INSTANCE_NAME = 'instance_name'
-    SERVER_ACCESS_IPV4 = 'accessIPv4'
+    SERVER = "server"
+    SERVER_VM_STATE = "vm_state"
+    SERVER_INSTANCE_NAME = "instance_name"
+    SERVER_ACCESS_IPV4 = "accessIPv4"
 
-    FLOATING_IP = 'floating_ip'
-    FLOATING_IP_ADDRESS = 'floating_ip_address'
-    FLOATING_IP_PROPERTIES = 'properties'
-    FLOATING_IP_PORT_DETAILS = 'port_details'
-    FLOATING_IP_MAC_ADDRESS = 'mac_address'
+    FLOATING_IP = "floating_ip"
+    FLOATING_IP_ADDRESS = "floating_ip_address"
+    FLOATING_IP_PROPERTIES = "properties"
+    FLOATING_IP_PORT_DETAILS = "port_details"
+    FLOATING_IP_MAC_ADDRESS = "mac_address"
 
-    KVM_GUEST_NAME = 'kvmguest_name'
-    PCI_ADDRESS = 'pcidevice_address'
-    ADD_PCI_DEVICE = 'add_pcidevice'
-    WORKER_NODE_NAME = 'workernode_name'
+    KVM_GUEST_NAME = "kvmguest_name"
+    PCI_ADDRESS = "pcidevice_address"
+    PCI_DOMAIN = "domain"
+    PCI_BUS = "bus"
+    PCI_SLOT = "slot"
+    PCI_FUNCTION = "function"
+    ADD_PCI_DEVICE = "add_pcidevice"
+    WORKER_NODE_NAME = "workernode_name"
 
-    ANSIBLE_FACTS = 'ansible_facts'
+    ANSIBLE_FACTS = "ansible_facts"
 
     VM_NAME = "vmname"
     FLAVOR = "flavor"
