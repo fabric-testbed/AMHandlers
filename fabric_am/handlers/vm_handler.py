@@ -381,7 +381,7 @@ class VMHandler(HandlerBase):
         worker_node = f"{host}{hostname_suffix}"
 
         ansible_helper.set_extra_vars(extra_vars={AmConstants.WORKER_NODE_NAME: worker_node,
-                                                  AmConstants.ADD_PCI_DEVICE: attach})
+                                                  AmConstants.ADD_PCI_DEVICE: str(attach)})
 
         for device in pci_device_list:
             device_char_arr = self.__extract_device_addr_octets(device_address=device)
