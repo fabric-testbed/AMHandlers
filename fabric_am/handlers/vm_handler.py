@@ -125,6 +125,7 @@ class VMHandler(HandlerBase):
                     playbook_path_full = f"{playbook_path}/{playbook}"
                     self.__attach_detach_pci(playbook_path=playbook_path_full, inventory_path=inventory_path,
                                              host=worker_node, instance_name=sliver.label_allocations.instance,
+                                             device_name=unit_id,
                                              pci_devices=component.label_allocations.bdf)
 
             sliver.management_ip = fip_props.get(AmConstants.FLOATING_IP, None)
@@ -220,6 +221,7 @@ class VMHandler(HandlerBase):
                     full_playbook_path = f"{playbook_path}/{playbook}"
                     self.__attach_detach_pci(playbook_path=full_playbook_path, inventory_path=inventory_path,
                                              instance_name=instance_name, host=worker_node,
+                                             device_name=str(unit.get_reservation_id()),
                                              pci_devices=device.label_allocations.bdf)
 
         except Exception as e:
@@ -234,6 +236,7 @@ class VMHandler(HandlerBase):
                     full_playbook_path = f"{playbook_path}/{playbook}"
                     self.__attach_detach_pci(playbook_path=full_playbook_path, inventory_path=inventory_path,
                                              instance_name=instance_name, host=worker_node,
+                                             device_name=str(unit.get_reservation_id()),
                                              pci_devices=device.label_allocations.bdf, attach=False)
 
             result = {Constants.PROPERTY_TARGET_NAME: Constants.TARGET_MODIFY,
@@ -355,13 +358,14 @@ class VMHandler(HandlerBase):
         return result
 
     def __attach_detach_pci(self, *, playbook_path: str, inventory_path: str, host: str, instance_name: str,
-                            pci_devices: str, attach: bool = True):
+                            device_name:str, pci_devices: str, attach: bool = True):
         """
         Invoke ansible playbook to attach/detach a PCI device to a provisioned VM
         :param playbook_path: playbook location
         :param inventory_path: inventory location
         :param host: host
         :param instance_name: Instance Name
+        :param device_name: Device Name
         :param pci_devices: PCI Device
         :param attach: True for attach and False for detach
         :return:
@@ -377,7 +381,8 @@ class VMHandler(HandlerBase):
         hostname_suffix = self.config[AmConstants.PLAYBOOK_SECTION][AmConstants.PB_HOSTNAME_SUFFIX]
         worker_node = f"{host}{hostname_suffix}"
 
-        extra_vars = {AmConstants.WORKER_NODE_NAME: worker_node}
+        extra_vars = {AmConstants.WORKER_NODE_NAME: worker_node,
+                      AmConstants.PCI_PROV_DEVICE: device_name}
         if attach:
             extra_vars[AmConstants.PCI_OPERATION] = AmConstants.PCI_PROV_ATTACH
         else:
@@ -433,6 +438,7 @@ class VMHandler(HandlerBase):
                             raise VmHandlerException(f"Missing required parameters bdf: {device.label_allocations.bdf}")
                         self.__attach_detach_pci(playbook_path=full_playbook_path, inventory_path=inventory_path,
                                                  instance_name=instance_name, host=worker_node,
+                                                 device_name=unit_id,
                                                  pci_devices=device.label_allocations.bdf,
                                                  attach=False)
                     except Exception as e:

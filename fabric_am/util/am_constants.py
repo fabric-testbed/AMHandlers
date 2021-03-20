@@ -61,6 +61,7 @@ class AmConstants:
     PCI_OPERATION = "pci_prov_op"
     PCI_PROV_ATTACH = "attach"
     PCI_PROV_DETACH = "detach"
+    PCI_PROV_DEVICE = "device"
     WORKER_NODE_NAME = "worker_node_name"
 
     ANSIBLE_FACTS = "ansible_facts"

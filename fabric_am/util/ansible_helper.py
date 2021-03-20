@@ -26,6 +26,7 @@
 # Create a callback plugin so we can capture the output
 import os
 import traceback
+from typing import Tuple
 
 from ansible import context
 from ansible.executor.playbook_executor import PlaybookExecutor
@@ -121,10 +122,20 @@ class ResultsCollectorJSONCallback(CallbackBase):
         """
         return self.__get_json_result(host=host, host_result_map=self.host_failed)
 
-    def is_failed_or_unreachable(self) -> bool:
+    def is_failed_or_unreachable(self) -> Tuple[bool, str]:
+        status = False
+        msg = None
         if len(self.host_failed) > 0 or len(self.host_unreachable) > 0:
-            return True
-        return False
+            status = True
+            result = self.get_json_result_failed()
+            if result is not None:
+                msg = result.get('msg', None)
+            else:
+                result = self.get_json_result_unreachable()
+                if result is not None:
+                    msg = result.get('msg', None)
+
+        return status, msg
 
     def dump_all(self, host_result_map: dict, logger):
         if host_result_map is not None and len(host_result_map) > 0:
@@ -189,12 +200,9 @@ class AnsibleHelper:
             results = pbex.run()
             self.logger.debug(f"Playbook result: {results}")
 
-            if self.results_callback.is_failed_or_unreachable():
-                raise PlaybookException("Playbook has failed tasks")
-        except Exception as e:
-            self.logger.error(f"Exception occurred while executing playbook {playbook_path} e: {e}")
-            self.logger.error(traceback.format_exc())
-            raise e
+            status, msg = self.results_callback.is_failed_or_unreachable()
+            if status:
+                raise PlaybookException(f"Playbook has failed tasks: {msg}")
         finally:
             self.logger.debug("OK:")
             self.results_callback.dump_all_ok(logger=self.logger)
