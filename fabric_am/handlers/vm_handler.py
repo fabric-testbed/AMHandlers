@@ -71,7 +71,6 @@ class VMHandler(HandlerBase):
 
         unit_id = None
 
-
         try:
             self.logger.info(f"Create invoked for unit: {unit}")
             sliver = unit.get_sliver()
@@ -417,19 +416,24 @@ class VMHandler(HandlerBase):
 
             if sliver.attached_components_info is not None and worker_node is not None and instance_name is not None:
                 for device in sliver.attached_components_info.devices.values():
-                    resource_type = str(device.get_type())
-                    playbook = self.config[AmConstants.PLAYBOOK_SECTION][resource_type]
-                    if playbook is None or inventory_path is None:
-                        raise VmHandlerException(f"Missing config parameters playbook: {playbook} "
-                                                 f"playbook_path: {playbook_path} inventory_path: {inventory_path}")
-                    full_playbook_path = f"{playbook_path}/{playbook}"
+                    try:
+                        resource_type = str(device.get_type())
+                        playbook = self.config[AmConstants.PLAYBOOK_SECTION][resource_type]
+                        if playbook is None or inventory_path is None:
+                            raise VmHandlerException(f"Missing config parameters playbook: {playbook} "
+                                                     f"playbook_path: {playbook_path} inventory_path: {inventory_path}")
+                        full_playbook_path = f"{playbook_path}/{playbook}"
 
-                    if device.label_allocations.bdf is None:
-                        raise VmHandlerException(f"Missing required parameters bdf: {device.label_allocations.bdf}")
-                    self.__attach_detach_pci(playbook_path=full_playbook_path, inventory_path=inventory_path,
-                                             instance_name=instance_name, host=worker_node,
-                                             pci_devices=device.label_allocations.bdf,
-                                             attach=False)
+                        if device.label_allocations.bdf is None:
+                            raise VmHandlerException(f"Missing required parameters bdf: {device.label_allocations.bdf}")
+                        self.__attach_detach_pci(playbook_path=full_playbook_path, inventory_path=inventory_path,
+                                                 instance_name=instance_name, host=worker_node,
+                                                 pci_devices=device.label_allocations.bdf,
+                                                 attach=False)
+                    except Exception as e:
+                        self.logger.error(f"Error occurred detaching device: {device}")
+                        if raise_exception:
+                            raise e
 
             resource_type = str(sliver.get_type())
             playbook = self.config[AmConstants.PLAYBOOK_SECTION][resource_type]
@@ -457,7 +461,7 @@ class VMHandler(HandlerBase):
         :param device_address BDF
         :return list containing PCI domain, bus, slot and function from BDF
         """
-        match = re.split('(.*):(.*):(.*)\.(.*)', device_address)
+        match = re.split("(.*):(.*):(.*)\\.(.*)", device_address)
         result = []
         match = match[1:-1]
         for octet in match:

@@ -4,7 +4,7 @@ from setuptools import setup, find_packages
 
 
 NAME = "fabric-am-handlers"
-VERSION = "0.6"
+VERSION = "0.7"
 # To install the library, run the following
 #
 # python setup.py install
