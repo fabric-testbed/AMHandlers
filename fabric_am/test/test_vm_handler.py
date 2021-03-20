@@ -115,7 +115,6 @@ class TestVmHandler(unittest.TestCase):
         self.assertIsNotNone(u.sliver.label_allocations.instance)
         self.assertIsNotNone(u.sliver.management_ip)
 
-
     def test_create_vm_fail_no_image(self):
         """
         Test failure to create VM when no image is specified

@@ -58,8 +58,10 @@ class AmConstants:
     PCI_BUS = "bus"
     PCI_SLOT = "slot"
     PCI_FUNCTION = "function"
-    ADD_PCI_DEVICE = "add_pcidevice"
-    WORKER_NODE_NAME = "workernode_name"
+    PCI_OPERATION = "pci_prov_op"
+    PCI_PROV_ATTACH = "attach"
+    PCI_PROV_DETACH = "detach"
+    WORKER_NODE_NAME = "worker_node_name"
 
     ANSIBLE_FACTS = "ansible_facts"
 

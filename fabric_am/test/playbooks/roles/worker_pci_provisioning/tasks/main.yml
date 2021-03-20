@@ -5,10 +5,10 @@
 - name: Add PCI Card to VM
   debug:
     msg: "Add PCI Card to VM"
-  when: add_pcidevice == "True"
+  when: pci_prov_op == "attach"
 
 - name: Remove PCI Card from VM
   debug:
     msg: "Remove PCI Card from VM"
-  when: add_pcidevice == "False"
+  when: pci_prov_op == "detach"
 

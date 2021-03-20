@@ -377,8 +377,13 @@ class VMHandler(HandlerBase):
         hostname_suffix = self.config[AmConstants.PLAYBOOK_SECTION][AmConstants.PB_HOSTNAME_SUFFIX]
         worker_node = f"{host}{hostname_suffix}"
 
-        ansible_helper.set_extra_vars(extra_vars={AmConstants.WORKER_NODE_NAME: worker_node,
-                                                  AmConstants.ADD_PCI_DEVICE: str(attach)})
+        extra_vars = {AmConstants.WORKER_NODE_NAME: worker_node}
+        if attach:
+            extra_vars[AmConstants.PCI_OPERATION] = AmConstants.PCI_PROV_ATTACH
+        else:
+            extra_vars[AmConstants.PCI_OPERATION] = AmConstants.PCI_PROV_DETACH
+
+        ansible_helper.set_extra_vars(extra_vars=extra_vars)
 
         for device in pci_device_list:
             device_char_arr = self.__extract_device_addr_octets(device_address=device)
