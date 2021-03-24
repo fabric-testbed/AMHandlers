@@ -44,14 +44,18 @@ Supports following operations:
   - Parameters: vm_prov_op: 'attach_fip', vm_name
 - Delete a VM
   - Parameters: vm_prov_op: 'delete', vm_name
-
+- Get a VM
+  - Parameters: vm_prov_op: 'get', vm_name
 ### `head_get_worker_node_for_vm.yml`
 Finds (and returns the name of) which worker node
 is running the openstack KVM-based (i.e. virtual) instance we are interested on.
 
 ### `worker_pci_provisioning.yml`
-Attach a PCI Device to a VM
-
+Supports following operations:
+- Attach a PCI Device to a VM
+  - Parameters:  pci_prov_op: 'attach', device, kvmguest_name, worker_node_name, domain, bus, slot, function
+- Detach a PCI Device from a VM
+  - Parameters:  pci_prov_op: 'detach', device, kvmguest_name, worker_node_name, domain, bus, slot, function
 ### Using playbooks
 #### VM Provisioning
 - Create a VM instance
@@ -66,6 +70,11 @@ ansible-playbook -i inventory head_vm_provisioning.yml --extra-vars 'vm_prov_op=
 ```bash
 ansible-playbook -i inventory head_vm_provisioning.yml --extra-vars 'vm_prov_op=delete vm_name=vm1'
 ```
+- Get a VM instance
+```bash
+ansible-playbook -i inventory head_vm_provisioning.yml --extra-vars 'vm_prov_op=get vm_name=vm1'
+```
+
 #### Ask openstack running in `fabric_site1_head` which worker node has the instance `testinstance`:
 
 ```bash
@@ -84,11 +93,10 @@ where
 - `workernode_name`: The name of the worker node running the instance. 
 
 #### Add the PCI card, with address 0000:01:0.1, to  `kvmguest_name`. Note that we have to make `kvmguest_name` match its name in the inventory.
-
 ```bash
-ansible-playbook -i inventory worker_pci_card_provisioning.yml --extra-vars 'kvmguest_name=instance-00000040 workernode_name=fabric-site1-w3 add_pcidevice=True' --extra-vars '{"pcidevice_address": "[0, 1, 0, 1]"}'
+ansible-playbook -i inventory worker_pci_provisioning.yml --extra-vars 'pci_prov_op=attach device=device1 \
+kvmguest_name=instance-00000040 worker_node_name=fabric-site1-w3 domain=0x00 bus=0x1 slot=0x0 function=0x01'
 ```
-Note the number of zeros on the left of each number in `pcidevice_address` are not important.
 
 Returns (for successful run):
 ```bash
@@ -101,10 +109,9 @@ Returns (for successful run):
 #### Remove the PCI card
 
 ```bash
-ansible-playbook -i inventory worker_pci_provisioning.yml --extra-vars 'kvmguest_name=instance-00000040 workernode_name=fabric-site1-w3 add_pcidevice=False' --extra-vars '{"pcidevice_address": "[0,1,0,1]"}'
+ansible-playbook -i inventory worker_pci_provisioning.yml --extra-vars 'pci_prov_op=detach device=device1 \
+kvmguest_name=instance-00000040 worker_node_name=fabric-site1-w3 domain=0x00 bus=0x1 slot=0x0 function=0x01'
 ```
-
-Note the space between the numbers in the `pcidevice_address` does not matter.
 
 Returns (for successful run):
 ```bash

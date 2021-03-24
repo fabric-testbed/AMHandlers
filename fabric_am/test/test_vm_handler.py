@@ -39,7 +39,7 @@ from fabric_am.util.am_constants import AmConstants
 
 class TestVmHandler(unittest.TestCase):
     logger = logging.getLogger(__name__)
-    logging.basicConfig(level=logging.DEBUG, format="%(asctime)s [%(levelname)s] %(message)s",
+    logging.basicConfig(level=logging.DEBUG, format="%(asctime)s [%(filename)s:%(lineno)d] [%(levelname)s] %(message)s",
                         handlers=[logging.StreamHandler()])
 
     @staticmethod
@@ -53,7 +53,7 @@ class TestVmHandler(unittest.TestCase):
         :param include_instance_name:
         :return:
         """
-        u = Unit(uid=ID(uid='u1'))
+        u = Unit(uid=ID(uid='u1'), rid=ID(uid="rid-1"))
         sliver = NodeSliver()
         cap = Capacities()
         cap.set_fields(core=4, ram=64, disk=500)
@@ -69,7 +69,7 @@ class TestVmHandler(unittest.TestCase):
         if include_pci:
             component = ComponentSliver()
             labels = Labels()
-            labels.set_fields(bdf='0,0,85')
+            labels.set_fields(bdf="0000:81:00.0")
             component.set_properties(type=ComponentType.SmartNIC, model='ConnectX-6', name='nic1',
                                      label_allocations=labels)
             sliver.attached_components_info = AttachedComponentsInfo()
@@ -114,7 +114,6 @@ class TestVmHandler(unittest.TestCase):
         self.assertEqual(r[Constants.PROPERTY_TARGET_RESULT_CODE], Constants.RESULT_CODE_OK)
         self.assertIsNotNone(u.sliver.label_allocations.instance)
         self.assertIsNotNone(u.sliver.management_ip)
-
 
     def test_create_vm_fail_no_image(self):
         """

@@ -26,7 +26,7 @@
 # file: worker_pci_provisioning.yml
 
 - hosts:
-    - fabric_head
+    - fabric_site_worker
 
   gather_facts: no
 

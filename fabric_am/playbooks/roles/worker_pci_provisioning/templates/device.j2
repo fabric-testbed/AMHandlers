@@ -1,5 +1,5 @@
     <hostdev mode='subsystem' type='pci' managed='yes'>
       <source>
-        <address domain='0x{{ pcidevice_address[0] }}' bus='0x{{ pcidevice_address[1] }}' slot='0x{{ pcidevice_address[2] }}' function='0x{{ pcidevice_address[3] }}'/>
+        <address domain='{{ domain }}' bus='{{ bus }}' slot='{{ slot }}' function='{{ function }}'/>
       </source>
     </hostdev>

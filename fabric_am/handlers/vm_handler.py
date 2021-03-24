@@ -26,7 +26,7 @@
 import json
 import re
 import traceback
-from typing import Tuple
+from typing import Tuple, List
 
 from fabric_cf.actor.core.common.constants import Constants
 from fabric_cf.actor.core.plugins.handlers.config_token import ConfigToken
@@ -71,11 +71,10 @@ class VMHandler(HandlerBase):
 
         unit_id = None
 
-
         try:
             self.logger.info(f"Create invoked for unit: {unit}")
             sliver = unit.get_sliver()
-            unit_id = str(unit.get_id())
+            unit_id = str(unit.get_reservation_id())
             if sliver is None:
                 raise VmHandlerException(f"Unit # {unit} has no assigned slivers")
 
@@ -126,6 +125,7 @@ class VMHandler(HandlerBase):
                     playbook_path_full = f"{playbook_path}/{playbook}"
                     self.__attach_detach_pci(playbook_path=playbook_path_full, inventory_path=inventory_path,
                                              host=worker_node, instance_name=sliver.label_allocations.instance,
+                                             device_name=unit_id,
                                              pci_devices=component.label_allocations.bdf)
 
             sliver.management_ip = fip_props.get(AmConstants.FLOATING_IP, None)
@@ -164,7 +164,7 @@ class VMHandler(HandlerBase):
             if sliver is None:
                 raise VmHandlerException(f"Unit # {unit} has no assigned slivers")
 
-            unit_id = str(unit.get_id())
+            unit_id = str(unit.get_reservation_id())
             self.__cleanup(sliver=sliver, raise_exception=True, unit_id=unit_id)
         except Exception as e:
             result = {Constants.PROPERTY_TARGET_NAME: Constants.TARGET_DELETE,
@@ -221,6 +221,7 @@ class VMHandler(HandlerBase):
                     full_playbook_path = f"{playbook_path}/{playbook}"
                     self.__attach_detach_pci(playbook_path=full_playbook_path, inventory_path=inventory_path,
                                              instance_name=instance_name, host=worker_node,
+                                             device_name=str(unit.get_reservation_id()),
                                              pci_devices=device.label_allocations.bdf)
 
         except Exception as e:
@@ -235,6 +236,7 @@ class VMHandler(HandlerBase):
                     full_playbook_path = f"{playbook_path}/{playbook}"
                     self.__attach_detach_pci(playbook_path=full_playbook_path, inventory_path=inventory_path,
                                              instance_name=instance_name, host=worker_node,
+                                             device_name=str(unit.get_reservation_id()),
                                              pci_devices=device.label_allocations.bdf, attach=False)
 
             result = {Constants.PROPERTY_TARGET_NAME: Constants.TARGET_MODIFY,
@@ -356,13 +358,14 @@ class VMHandler(HandlerBase):
         return result
 
     def __attach_detach_pci(self, *, playbook_path: str, inventory_path: str, host: str, instance_name: str,
-                            pci_devices: str, attach: bool = True):
+                            device_name:str, pci_devices: str, attach: bool = True):
         """
         Invoke ansible playbook to attach/detach a PCI device to a provisioned VM
         :param playbook_path: playbook location
         :param inventory_path: inventory location
         :param host: host
         :param instance_name: Instance Name
+        :param device_name: Device Name
         :param pci_devices: PCI Device
         :param attach: True for attach and False for detach
         :return:
@@ -378,13 +381,22 @@ class VMHandler(HandlerBase):
         hostname_suffix = self.config[AmConstants.PLAYBOOK_SECTION][AmConstants.PB_HOSTNAME_SUFFIX]
         worker_node = f"{host}{hostname_suffix}"
 
-        ansible_helper.set_extra_vars(extra_vars={AmConstants.WORKER_NODE_NAME: worker_node,
-                                                  AmConstants.ADD_PCI_DEVICE: attach})
+        extra_vars = {AmConstants.WORKER_NODE_NAME: worker_node,
+                      AmConstants.PCI_PROV_DEVICE: device_name}
+        if attach:
+            extra_vars[AmConstants.PCI_OPERATION] = AmConstants.PCI_PROV_ATTACH
+        else:
+            extra_vars[AmConstants.PCI_OPERATION] = AmConstants.PCI_PROV_DETACH
+
+        ansible_helper.set_extra_vars(extra_vars=extra_vars)
 
         for device in pci_device_list:
             device_char_arr = self.__extract_device_addr_octets(device_address=device)
             ansible_helper.add_vars(host=worker_node, var_name=AmConstants.KVM_GUEST_NAME, value=instance_name)
-            ansible_helper.add_vars(host=worker_node, var_name=AmConstants.PCI_ADDRESS, value=device_char_arr)
+            ansible_helper.add_vars(host=worker_node, var_name=AmConstants.PCI_DOMAIN, value=device_char_arr[0])
+            ansible_helper.add_vars(host=worker_node, var_name=AmConstants.PCI_BUS, value=device_char_arr[1])
+            ansible_helper.add_vars(host=worker_node, var_name=AmConstants.PCI_SLOT, value=device_char_arr[2])
+            ansible_helper.add_vars(host=worker_node, var_name=AmConstants.PCI_FUNCTION, value=device_char_arr[3])
 
             if attach:
                 self.logger.debug(f"Executing playbook {playbook_path} to attach PCI Address")
@@ -414,19 +426,25 @@ class VMHandler(HandlerBase):
 
             if sliver.attached_components_info is not None and worker_node is not None and instance_name is not None:
                 for device in sliver.attached_components_info.devices.values():
-                    resource_type = str(device.get_type())
-                    playbook = self.config[AmConstants.PLAYBOOK_SECTION][resource_type]
-                    if playbook is None or inventory_path is None:
-                        raise VmHandlerException(f"Missing config parameters playbook: {playbook} "
-                                                 f"playbook_path: {playbook_path} inventory_path: {inventory_path}")
-                    full_playbook_path = f"{playbook_path}/{playbook}"
+                    try:
+                        resource_type = str(device.get_type())
+                        playbook = self.config[AmConstants.PLAYBOOK_SECTION][resource_type]
+                        if playbook is None or inventory_path is None:
+                            raise VmHandlerException(f"Missing config parameters playbook: {playbook} "
+                                                     f"playbook_path: {playbook_path} inventory_path: {inventory_path}")
+                        full_playbook_path = f"{playbook_path}/{playbook}"
 
-                    if device.label_allocations.bdf is None:
-                        raise VmHandlerException(f"Missing required parameters bdf: {device.label_allocations.bdf}")
-                    self.__attach_detach_pci(playbook_path=full_playbook_path, inventory_path=inventory_path,
-                                             instance_name=instance_name, host=worker_node,
-                                             pci_devices=device.label_allocations.bdf,
-                                             attach=False)
+                        if device.label_allocations.bdf is None:
+                            raise VmHandlerException(f"Missing required parameters bdf: {device.label_allocations.bdf}")
+                        self.__attach_detach_pci(playbook_path=full_playbook_path, inventory_path=inventory_path,
+                                                 instance_name=instance_name, host=worker_node,
+                                                 device_name=unit_id,
+                                                 pci_devices=device.label_allocations.bdf,
+                                                 attach=False)
+                    except Exception as e:
+                        self.logger.error(f"Error occurred detaching device: {device}")
+                        if raise_exception:
+                            raise e
 
             resource_type = str(sliver.get_type())
             playbook = self.config[AmConstants.PLAYBOOK_SECTION][resource_type]
@@ -447,16 +465,25 @@ class VMHandler(HandlerBase):
     def __compute_flavor(self, *, core: int, ram: int, disk: int) -> str:
         return "fabric.large"
 
-    def __extract_device_addr_octets(self, *, device_address: str) -> str:
-        match = re.split('(.*):(.*):(.*)\.(.*)', device_address)
+    @staticmethod
+    def __extract_device_addr_octets(*, device_address: str) -> List[str]:
+        """
+        Function to extract PCI domain, bus, slot and function from BDF
+        :param device_address BDF
+        :return list containing PCI domain, bus, slot and function from BDF
+        """
+        match = re.split("(.*):(.*):(.*)\\.(.*)", device_address)
         result = []
         match = match[1:-1]
         for octet in match:
             octet = octet.lstrip("0")
             if octet == "":
-                octet = '0'
+                octet = '0x0'
+            else:
+                octet = f"0x{octet}"
+
             result.append(octet)
-        return str(result)
+        return result
 
     def __get_vm(self, *, playbook_path: str, inventory_path: str, vm_name: str, unit_id: str) -> bool:
         """
@@ -478,7 +505,12 @@ class VMHandler(HandlerBase):
         ansible_helper.run_playbook(playbook_path=playbook_path)
         return True
 
-    def __get_default_user(self, image: str) -> str:
+    @staticmethod
+    def __get_default_user(image: str) -> str:
+        """
+        Return default SSH user name
+        :return default ssh user name
+        """
         if AmConstants.CENTOS_DEFAULT_USER in image:
             return AmConstants.CENTOS_DEFAULT_USER
         elif AmConstants.UBUNTU_DEFAULT_USER in image:

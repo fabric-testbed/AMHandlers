@@ -2,7 +2,7 @@
 # file: worker_pci_provisioning.yml
 
 - hosts: 
-    - "{{ workernode_name }}"
+    - "{{ worker_node_name }}"
 
   vars:
 
