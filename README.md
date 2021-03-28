@@ -33,14 +33,17 @@ Handlers use Ansible Playbooks for provisioning.
 ![Class Diagram](./images/handlers.png)
 
 ## Configuration
-Each Handler would have a config file containing configuration parameters
+AM Handlers require following configuration to be setup:
+- [Inventory](./fabric_am/playbooks/inventory) information for the headnode 
+- Handler config file (VM Handler example depicted below)
 ### VM Handler Config File
 VM Handler config file can be found `fabric_am/config/vm_handler_config.yml`. 
 It describes the Playbook location and names for specific operations. 
 ```
 playbooks:
-  location: fabric_am/playbooks
-  inventory_location: fabric_am/playbooks/inventory
+  location: /etc/fabric/actor/playbooks
+  inventory_location: /etc/fabric/actor/playbooks/inventory
+  hostname_suffix: .fabric-testbed.net
   VM: head_vm_provisioning.yml
   GPU: worker_pci_provisioning.yml
   SmartNIC: worker_pci_provisioning.yml
