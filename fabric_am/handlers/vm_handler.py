@@ -129,7 +129,6 @@ class VMHandler(HandlerBase):
                                              pci_devices=component.label_allocations.bdf)
 
             sliver.management_ip = fip_props.get(AmConstants.FLOATING_IP, None)
-            sliver.management_interface_mac_address = fip_props.get(AmConstants.FLOATING_IP_MAC_ADDRESS, None)
 
         except Exception as e:
             # Delete VM in case of failure

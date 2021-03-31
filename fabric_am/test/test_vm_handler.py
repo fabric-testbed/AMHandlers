@@ -53,7 +53,7 @@ class TestVmHandler(unittest.TestCase):
         :param include_instance_name:
         :return:
         """
-        u = Unit(uid=ID(uid='u1'), rid=ID(uid="rid-1"))
+        u = Unit(rid=ID(uid="rid-1"))
         sliver = NodeSliver()
         cap = Capacities()
         cap.set_fields(core=4, ram=64, disk=500)
