@@ -21,9 +21,12 @@
 # SOFTWARE.
 #
 #
-# Author: Komal Thareja (kthare10@renci.org)
+# Author: Xi Yang (xiyang@es.net)
 playbooks:
   location: fabric_am/playbooks
   inventory_location: fabric_am/playbooks/inventory
   hostname_suffix: .fabric-testbed.net
-  Network: net_provisioning.yml
+  l2bridge: l2bridge.yml
+  l2ptp: l2ptp.yml
+  l2sts: l2sts.yml
+  l3rt: l2rt.yml

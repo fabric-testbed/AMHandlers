@@ -69,55 +69,68 @@ class NetHandler(HandlerBase):
                   Constants.PROPERTY_TARGET_RESULT_CODE: Constants.RESULT_CODE_OK,
                   Constants.PROPERTY_ACTION_SEQUENCE_NUMBER: 0}
 
-        unit_id = None
+        try:
+            self.logger.info(f"Create invoked for unit: {unit}")
+            sliver = unit.get_sliver()
+            unit_id = str(unit.get_reservation_id())
+            if sliver is None:
+                raise VmHandlerException(f"Unit # {unit} has no assigned slivers")
 
-        inventory_path = "/home/ezra/repos/NetworkController/nso-services/ansible/inventory"
-        playbook_path = "/home/ezra/repos/NetworkController/nso-services/ansible/l2bridge-data.yaml"
-        
-        self.logger.info(f"Create invoked for unit: {unit}")
-        ansible_helper = AnsibleHelper(inventory_path=inventory_path, logger=self.logger)
+            unit_properties = unit.get_properties() # use: TBD
 
-        service_name = "fabric-l2bridge-test-t1"
-        
-        data = {
-            "tailf-ncs:services": {
-                "l2bridge:l2bridge": [
-                    {
-                        "device": "renci-ncs55-0",
-                        "interface": [
-                            {
-                                "id": "0/0/0/13",
-                                "outervlan": "100",
-                                "type": "HundredGigE"
-                            },
-                            {
-                                "id": "0/0/0/25",
-                                "outervlan": "100",
-                                "type": "HundredGigE"
-                            }
-                        ],
-                        "name": service_name
-                    }
-                ]
+            resource_type = str(sliver.get_type())
+            playbook_path = self.config[AmConstants.PLAYBOOK_SECTION][AmConstants.PB_LOCATION]
+            inventory_path = self.config[AmConstants.PLAYBOOK_SECTION][AmConstants.PB_INVENTORY]
+
+            playbook = self.config[AmConstants.PLAYBOOK_SECTION][resource_type]
+            if playbook is None or inventory_path is None or playbook_path is None:
+                raise VmHandlerException(f"Missing config parameters playbook: {playbook} "
+                                         f"playbook_path: {playbook_path} inventory_path: {inventory_path}")
+            playbook_path_full = f"{playbook_path}/{playbook}"
+
+            service_name = f'{unit_id}-{siver.get_name()}'
+
+            # TODO: get NSO service params from sliver and assemble into `service_data`
+            service_data = {}
+            data = {
+                "tailf-ncs:services": {
+                    f'{resource_type}:{resource_type}': [service_data]
+                }
             }
-        }
-        
-        extra_vars = {
-            "service_name": service_name,
-            "data": data
-        }
-        ansible_helper.set_extra_vars(extra_vars=extra_vars)
 
-        self.logger.debug(f"Executing playbook {playbook_path} to create Network Service")
-        ansible_helper.run_playbook(playbook_path=playbook_path)
-        ok = ansible_helper.get_result_callback().get_json_result_ok()
+            extra_vars = {
+                "service_name": service_name,
+                "data": data
+            }
 
-        result = {
+            ansible_helper = AnsibleHelper(inventory_path=inventory_path, logger=self.logger)
+            ansible_helper.set_extra_vars(extra_vars=extra_vars)
+            self.logger.debug(f"Executing playbook {playbook_path_full} to create Network Service")
+            ansible_helper.run_playbook(playbook_path=playbook_path_full)
 
-        }
-        self.logger.debug(f"Returning properties {result}")
+            # TODO: handle NSO result and errors
+            ok = ansible_helper.get_result_callback().get_json_result_ok()
+            # debugging
+            ansible_helper.get_result_callback().dump_all_ok(logger=self.logger)
+            ansible_helper.get_result_callback().dump_all_failed(logger=self.logger)
+            ansible_helper.get_result_callback().dump_all_unreachable(logger=self.logger)
 
-        return result
+        except Exception as e:
+            # Delete VM in case of failure
+            if sliver is not None and unit_id is not None:
+                self.__cleanup(sliver=sliver, unit_id=unit_id)
+                unit.sliver.label_allocations.instance = None
+
+            result = {Constants.PROPERTY_TARGET_NAME: Constants.TARGET_CREATE,
+                      Constants.PROPERTY_TARGET_RESULT_CODE: Constants.RESULT_CODE_EXCEPTION,
+                      Constants.PROPERTY_ACTION_SEQUENCE_NUMBER: 0,
+                      Constants.PROPERTY_EXCEPTION_MESSAGE: e}
+            self.logger.error(e)
+            self.logger.error(traceback.format_exc())
+        finally:
+
+            self.logger.info(f"Create completed")
+        return result, unit
 
     def delete():
         pass
