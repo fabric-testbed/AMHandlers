@@ -26,7 +26,7 @@ playbooks:
   location: fabric_am/playbooks
   inventory_location: fabric_am/playbooks/inventory
   hostname_suffix: .fabric-testbed.net
-  l2bridge: l2bridge.yml
-  l2ptp: l2ptp.yml
-  l2sts: l2sts.yml
-  l3rt: l2rt.yml
+  l2bridge: l2bridge-data.yaml
+  l2ptp: l2ptp-data.yaml
+  l2sts: l2sts-data.yaml
+  l3rt: l3rt-data.yaml
