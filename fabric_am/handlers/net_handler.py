@@ -80,6 +80,8 @@ class NetHandler(HandlerBase):
             unit_properties = unit.get_properties() # use: TBD
 
             resource_type = str(sliver.get_type())
+
+            assert resource_type == 'Network'
             playbook_path = self.config[AmConstants.PLAYBOOK_SECTION][AmConstants.PB_LOCATION]
             inventory_path = self.config[AmConstants.PLAYBOOK_SECTION][AmConstants.PB_INVENTORY]
 
@@ -90,12 +92,13 @@ class NetHandler(HandlerBase):
             playbook_path_full = f"{playbook_path}/{playbook}"
 
             service_name = f'{unit_id}-{siver.get_name()}'
+            service_type = sliver.get_service_type()
 
             # TODO: get NSO service params from sliver and assemble into `service_data`
             service_data = {}
             data = {
                 "tailf-ncs:services": {
-                    f'{resource_type}:{resource_type}': [service_data]
+                    f'{service_type}:{service_type}': [service_data]
                 }
             }
 
