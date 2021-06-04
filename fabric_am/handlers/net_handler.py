@@ -33,6 +33,7 @@ from fabric_cf.actor.core.plugins.handlers.config_token import ConfigToken
 from fabric_cf.actor.handlers.handler_base import HandlerBase
 from fim.slivers.network_node import NodeSliver
 
+from fabric_am.handlers.vm_handler import VmHandlerException
 from fabric_am.util.am_constants import AmConstants
 from fabric_am.util.ansible_helper import AnsibleHelper
 
@@ -91,8 +92,8 @@ class NetHandler(HandlerBase):
                                          f"playbook_path: {playbook_path} inventory_path: {inventory_path}")
             playbook_path_full = f"{playbook_path}/{playbook}"
 
-            service_name = f'{unit_id}-{siver.get_name()}'
-            service_type = sliver.get_service_type()
+            service_name = f'{unit_id}-{sliver.get_name()}'
+            service_type = resource_type.lower()
 
             # TODO: get NSO service params from sliver and assemble into `service_data`
             service_data = {}
