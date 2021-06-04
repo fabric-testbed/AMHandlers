@@ -4,7 +4,23 @@
   connection: local
   gather_facts: no
 
+  vars:
+    service: "{{service}}"
+
   tasks:
+  - name: Use service idipa service
+    nso_config:
+      url: "{{ url }}"
+      username: "{{ username }}"
+      password: "{{ password }}"
+      data:
+        tailf-ncs:services:
+          idipa:idipa:
+          - name: "{{ service_name }}"
+            group:
+              service: service
+    when: service == 'l2ptp' or service == 'l2sts'
+
   - name: Device configuration
     nso_config:
       url: "{{ url }}"
