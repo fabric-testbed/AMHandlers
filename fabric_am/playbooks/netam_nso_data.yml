@@ -5,7 +5,7 @@
   gather_facts: no
 
   vars:
-    service: "{{service}}"
+    service: "{{service_type}}"
 
   tasks:
   - name: Use service idipa service

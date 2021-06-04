@@ -104,6 +104,7 @@ class NetHandler(HandlerBase):
 
             extra_vars = {
                 "service_name": service_name,
+                "service_type": service_type,
                 "data": data
             }
 
