@@ -1,0 +1,13 @@
+- name: Configure device
+  hosts:
+    - fabric_site_nso
+  connection: local
+  gather_facts: no
+
+  tasks:
+  - name: Device configuration
+    nso_config:
+      url: "{{ url }}"
+      username: "{{ username }}"
+      password: "{{ password }}"
+      data: "{{ data }}"

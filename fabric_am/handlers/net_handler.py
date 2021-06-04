@@ -68,6 +68,7 @@ class NetHandler(HandlerBase):
         result = {Constants.PROPERTY_TARGET_NAME: Constants.TARGET_CREATE,
                   Constants.PROPERTY_TARGET_RESULT_CODE: Constants.RESULT_CODE_OK,
                   Constants.PROPERTY_ACTION_SEQUENCE_NUMBER: 0}
+        sliver = None
 
         try:
             self.logger.info(f"Create invoked for unit: {unit}")
