@@ -82,8 +82,7 @@ class VMHandler(HandlerBase):
             ssh_key = unit_properties.get(Constants.USER_SSH_KEY, None)
 
             worker_node = sliver.label_allocations.instance_parent
-            flavor = self.__compute_flavor(core=sliver.capacity_allocations.core, ram=sliver.capacity_allocations.ram,
-                                           disk=sliver.capacity_allocations.disk)
+            flavor = sliver.get_capacity_hints().instance_type
             vmname = sliver.get_name()
             image = sliver.get_image_ref()
 
@@ -460,9 +459,6 @@ class VMHandler(HandlerBase):
             self.logger.error(traceback.format_exc())
             if raise_exception:
                 raise e
-
-    def __compute_flavor(self, *, core: int, ram: int, disk: int) -> str:
-        return "fabric.large"
 
     @staticmethod
     def __extract_device_addr_octets(*, device_address: str) -> List[str]:
