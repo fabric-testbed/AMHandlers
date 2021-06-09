@@ -30,7 +30,8 @@ from fabric_cf.actor.core.common.constants import Constants
 from fabric_cf.actor.core.core.unit import Unit
 from fabric_cf.actor.core.util.id import ID
 from fim.slivers.attached_components import ComponentSliver, ComponentType, AttachedComponentsInfo
-from fim.slivers.capacities_labels import Capacities, Labels
+from fim.slivers.capacities_labels import Capacities, Labels, CapacityHints
+from fim.slivers.instance_catalog import InstanceCatalog
 from fim.slivers.network_node import NodeSliver, NodeType
 
 from fabric_am.handlers.vm_handler import VMHandler
@@ -57,7 +58,12 @@ class TestVmHandler(unittest.TestCase):
         sliver = NodeSliver()
         cap = Capacities()
         cap.set_fields(core=4, ram=64, disk=500)
-        sliver.set_properties(type=NodeType.VM, site="RENC", capacity_allocations=cap)
+        catalog = InstanceCatalog()
+        instance_type = catalog.map_capacities_to_instance(cap=cap)
+        cap_hints = CapacityHints().set_fields(instance_type=instance_type)
+        sliver.set_properties(type=NodeType.VM, site="RENC",
+                              capacity_hints=cap_hints,
+                              capacity_allocations=catalog.get_instance_capacities(instance_type=instance_type))
         sliver.label_allocations = Labels().set_fields(instance_parent="renc-w1.fabric-testbed.net")
 
         if include_name:
