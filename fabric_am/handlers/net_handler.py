@@ -82,7 +82,6 @@ class NetHandler(HandlerBase):
 
             resource_type = str(sliver.get_type())
 
-            assert resource_type == 'Network'
             playbook_path = self.config[AmConstants.PLAYBOOK_SECTION][AmConstants.PB_LOCATION]
             inventory_path = self.config[AmConstants.PLAYBOOK_SECTION][AmConstants.PB_INVENTORY]
 
@@ -138,10 +137,10 @@ class NetHandler(HandlerBase):
             self.logger.info(f"Create completed")
         return result, unit
 
-    def delete():
+    def delete(self):
         pass
 
-    def modify():
+    def modify(self):
         pass
     
     @staticmethod

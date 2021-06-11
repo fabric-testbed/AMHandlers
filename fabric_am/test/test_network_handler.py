@@ -53,7 +53,7 @@ class TestVmHandler(unittest.TestCase):
     def test_L2Bridge(self):
         # create a NetworkService sliver for L2Bridge
         # FIXME: @xiyang properties of net handler
-        prop = {AmConstants.CONFIG_PROPERTIES_FILE: 'config/net_handler_config.yml'}
+        prop = {AmConstants.CONFIG_PROPERTIES_FILE: '../config/net_handler_config.yml'}
 
         # FIXME: @xiyang whatever the name of the net handler
         handler = NetHandler(logger=self.logger, properties=prop)
@@ -175,7 +175,7 @@ class TestVmHandler(unittest.TestCase):
 
         # add interface info object to sliver. All of this happens automagically normally
         sliver.interface_info = ifi
-        self.unit.set_sliver(sliver)
+        self.unit.set_sliver(sliver=sliver)
 
         #
         # create a service (create needs to parse out sliver information

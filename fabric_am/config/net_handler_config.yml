@@ -23,7 +23,9 @@
 #
 # Author: Xi Yang (xiyang@es.net)
 playbooks:
-  location: fabric_am/playbooks
-  inventory_location: fabric_am/playbooks/inventory
+  location: ../playbooks
+  inventory_location: ../playbooks/inventory
   hostname_suffix: .fabric-testbed.net
-  Network: netam_nso_data.yml
+  L2Bridge: netam_nso_data.yml
+  L2PTP: netam_nso_data.yml
+  L2STS: netam_nso_data.yml
