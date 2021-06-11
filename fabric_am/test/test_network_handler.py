@@ -43,7 +43,7 @@ from fabric_am.handlers.net_handler import NetHandler
 from fabric_am.util.am_constants import AmConstants
 
 
-class TestVmHandler(unittest.TestCase):
+class TestNetHandler(unittest.TestCase):
     logger = logging.getLogger(__name__)
     logging.basicConfig(level=logging.DEBUG, format="%(asctime)s [%(filename)s:%(lineno)d] [%(levelname)s] %(message)s",
                         handlers=[logging.StreamHandler()])
