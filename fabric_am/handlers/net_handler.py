@@ -114,7 +114,9 @@ class NetHandler(HandlerBase):
             ansible_helper.run_playbook(playbook_path=playbook_path_full)
 
             # TODO: handle NSO result and errors
+            callback = ansible_helper.get_result_callback()
             ok = ansible_helper.get_result_callback().get_json_result_ok()
+            failed = ansible_helper.get_result_callback().get_json_result_failed()
             # debugging
             ansible_helper.get_result_callback().dump_all_ok(logger=self.logger)
             ansible_helper.get_result_callback().dump_all_failed(logger=self.logger)

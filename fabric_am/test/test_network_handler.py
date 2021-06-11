@@ -26,6 +26,7 @@
 import logging
 import unittest
 import time
+import uuid
 
 from fabric_cf.actor.core.common.constants import Constants
 from fabric_cf.actor.core.core.unit import Unit
@@ -175,6 +176,9 @@ class TestVmHandler(unittest.TestCase):
 
         # add interface info object to sliver. All of this happens automagically normally
         sliver.interface_info = ifi
+        # set a fake unit reservation
+        uid = uuid.uuid3(uuid.NAMESPACE_DNS, 'test_L2Bridge')
+        self.unit = Unit(rid=ID(uid=str(uid)))
         self.unit.set_sliver(sliver=sliver)
 
         #
