@@ -374,8 +374,6 @@ class VMHandler(HandlerBase):
         else:
             pci_device_list = pci_devices
 
-        ansible_helper = AnsibleHelper(inventory_path=inventory_path, logger=self.logger)
-
         hostname_suffix = self.config[AmConstants.PLAYBOOK_SECTION][AmConstants.PB_HOSTNAME_SUFFIX]
         worker_node = f"{host}{hostname_suffix}"
 
@@ -386,9 +384,10 @@ class VMHandler(HandlerBase):
         else:
             extra_vars[AmConstants.PCI_OPERATION] = AmConstants.PCI_PROV_DETACH
 
-        ansible_helper.set_extra_vars(extra_vars=extra_vars)
-
         for device in pci_device_list:
+            ansible_helper = AnsibleHelper(inventory_path=inventory_path, logger=self.logger)
+            ansible_helper.set_extra_vars(extra_vars=extra_vars)
+
             device_char_arr = self.__extract_device_addr_octets(device_address=device)
             ansible_helper.add_vars(host=worker_node, var_name=AmConstants.KVM_GUEST_NAME, value=instance_name)
             ansible_helper.add_vars(host=worker_node, var_name=AmConstants.PCI_DOMAIN, value=device_char_arr[0])
@@ -396,10 +395,8 @@ class VMHandler(HandlerBase):
             ansible_helper.add_vars(host=worker_node, var_name=AmConstants.PCI_SLOT, value=device_char_arr[2])
             ansible_helper.add_vars(host=worker_node, var_name=AmConstants.PCI_FUNCTION, value=device_char_arr[3])
 
-            if attach:
-                self.logger.debug(f"Executing playbook {playbook_path} to attach PCI Address")
-            else:
-                self.logger.debug(f"Executing playbook {playbook_path} to detach PCI Address")
+            self.logger.debug(f"Executing playbook {playbook_path} to attach({attach})/detach({attach}) PCI device "
+                              f"({device})")
 
             ansible_helper.run_playbook(playbook_path=playbook_path)
 
