@@ -91,7 +91,9 @@ class NetHandler(HandlerBase):
                                          f"playbook_path: {playbook_path} inventory_path: {inventory_path}")
             playbook_path_full = f"{playbook_path}/{playbook}"
 
-            service_name = f'{unit_id}-{sliver.get_name()}'
+            service_name = sliver.get_labels().local_name
+            if service_name is None:
+                service_name = f'{unit_id}-{sliver.get_name()}'
             service_type = resource_type.lower()
 
             # TODO: get NSO service params from sliver and assemble into `service_data`
