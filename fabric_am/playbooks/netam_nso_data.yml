@@ -6,9 +6,10 @@
 
   vars:
     service: "{{service_type}}"
+    action: "{{service_action}}"
 
   tasks:
-  - name: Use service idipa service
+  - name: Create idipa service
     nso_config:
       url: "{{ url }}"
       username: "{{ username }}"
@@ -19,11 +20,32 @@
           - name: "{{ service_name }}"
             group:
               service: service
-    when: service == 'l2ptp' or service == 'l2sts'
+    when: (service == 'l2ptp' or service == 'l2sts') and acion == 'create'
 
-  - name: Device configuration
+  - name: Create network service
     nso_config:
       url: "{{ url }}"
       username: "{{ username }}"
       password: "{{ password }}"
       data: "{{ data }}"
+    when: acion == 'create'
+
+  - name: Delete network service
+    nso_config:
+      url: "{{ url }}"
+      username: "{{ username }}"
+      password: "{{ password }}"
+      data: "{{ data }}"
+    when: acion == 'delete'
+
+  - name: Delete idipa service
+    nso_config:
+      url: "{{ url }}"
+      username: "{{ username }}"
+      password: "{{ password }}"
+      data:
+        tailf-ncs:services:
+          idipa:idipa:
+          - name: "{{ service_name }}"
+            __state: absent
+    when: (service == 'l2ptp' or service == 'l2sts') and acion == 'create'

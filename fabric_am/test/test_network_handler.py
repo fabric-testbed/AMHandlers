@@ -67,7 +67,7 @@ class TestNetHandler(unittest.TestCase):
         sliver.set_name('L2BridgeServiceTest')
         # if service name global uniqueness is a requirement use Labels.local_name for that (optional)
         # e.g. concatenate name + res id (or another unique id)
-        sliver.set_labels(Labels().set_fields(local_name='unique_service_name'))
+        # sliver.set_labels(Labels().set_fields(local_name='test-l2bridge-shortname'))
         # per @xiyang he uses unit id for service name so this is not needed.
         sliver.set_type(ServiceType.L2Bridge)
         sliver.set_layer(NSLayer.L2)
@@ -115,17 +115,17 @@ class TestNetHandler(unittest.TestCase):
         # sl1labs.set_fields(outer_vlan='3')
 
         # vlan - source: (c)
-        sliver_labels.set_fields(vlan='2')
+        sliver_labels.set_fields(vlan='300')
 
         # local_name source: (a)
-        sliver_labels.set_fields(local_name='HundredGigE0/0/0/13')
+        sliver_labels.set_fields(local_name='HundredGigE0/0/0/15')
 
         # NSO device name source: (a) - need to find the owner switch of the network service in CBM
         # and take its .name or labels.local_name
-        sliver_labels.set_fields(device_name='NSO device name')
+        sliver_labels.set_fields(device_name='uky-data-sw')
 
         # capacities (bw in Gbps, burst size is in Mbits) source: (b)
-        sliver_capacities.set_fields(bw=10, burst_size=100)
+        sliver_capacities.set_fields(bw=1000)
 
         # assign labels and capacities
         isl1.set_labels(sliver_labels)
@@ -141,38 +141,19 @@ class TestNetHandler(unittest.TestCase):
         sliver_labels = Labels()
         sliver_capacities = Capacities()
 
-        sliver_labels.set_fields(vlan='2')
-        sliver_labels.set_fields(local_name='HundredGigE0/0/0/13')
-        sliver_labels.set_fields(device_name='NSO device name')
+        # sliver_labels.set_fields(vlan='2')
+        sliver_labels.set_fields(local_name='HundredGigE0/0/0/19')
+        sliver_labels.set_fields(device_name='uky-data-sw')
 
-        sliver_capacities.set_fields(bw=10, burst_size=100)
+        sliver_capacities.set_fields(bw=1000)
 
         isl2.set_labels(sliver_labels)
         isl2.set_capacities(sliver_capacities)
-
-        #
-        # Third interface
-        isl3 = InterfaceSliver()
-        isl3.set_name('Interface3')
-        isl3.set_type(InterfaceType.ServicePort)
-
-        sliver_labels = Labels()
-        sliver_capacities = Capacities()
-
-        sliver_labels.set_fields(vlan='2')
-        sliver_labels.set_fields(local_name='HundredGigE0/0/0/13')
-        sliver_labels.set_fields(device_name='NSO device name')
-
-        sliver_capacities.set_fields(bw=10, burst_size=100)
-
-        isl3.set_labels(sliver_labels)
-        isl3.set_capacities(sliver_capacities)
 
         # create interface info object, add populated interfaces to it
         ifi = InterfaceInfo()
         ifi.add_interface(isl1)
         ifi.add_interface(isl2)
-        ifi.add_interface(isl3)
 
         # add interface info object to sliver. All of this happens automagically normally
         sliver.interface_info = ifi
@@ -187,10 +168,9 @@ class TestNetHandler(unittest.TestCase):
         #
         r, updated_unit = handler.create(unit=self.unit)
         # some assertions go here to test the outcome
-        # FIXME: add assertion checks
-
-        # wait for whatever time makes sense
-        time.sleep(10)
+        self.assertEqual(r[Constants.PROPERTY_TARGET_NAME], Constants.TARGET_CREATE)
+        self.assertEqual(r[Constants.PROPERTY_ACTION_SEQUENCE_NUMBER], 0)
+        self.assertEqual(r[Constants.PROPERTY_TARGET_RESULT_CODE], Constants.RESULT_CODE_OK)
 
         #
         # delete - need to make sure the updated unit has the right info to delete the service

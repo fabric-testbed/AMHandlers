@@ -31,7 +31,9 @@ from typing import Tuple, List
 from fabric_cf.actor.core.common.constants import Constants
 from fabric_cf.actor.core.plugins.handlers.config_token import ConfigToken
 from fabric_cf.actor.handlers.handler_base import HandlerBase
+from fim.slivers.capacities_labels import Labels, Capacities
 from fim.slivers.network_node import NodeSliver
+from fim.slivers.network_service import NetworkServiceSliver
 
 from fabric_am.handlers.vm_handler import VmHandlerException
 from fabric_am.util.am_constants import AmConstants
@@ -49,6 +51,7 @@ class NetHandler(HandlerBase):
     """
     Network Handler
     """
+
     def __init__(self, logger, properties: dict):
         self.logger = logger
         self.properties = properties
@@ -78,7 +81,7 @@ class NetHandler(HandlerBase):
             if sliver is None:
                 raise VmHandlerException(f"Unit # {unit} has no assigned slivers")
 
-            unit_properties = unit.get_properties() # use: TBD
+            unit_properties = unit.get_properties()  # use: TBD
 
             resource_type = str(sliver.get_type())
 
@@ -87,26 +90,28 @@ class NetHandler(HandlerBase):
 
             playbook = self.config[AmConstants.PLAYBOOK_SECTION][resource_type]
             if playbook is None or inventory_path is None or playbook_path is None:
-                raise VmHandlerException(f"Missing config parameters playbook: {playbook} "
-                                         f"playbook_path: {playbook_path} inventory_path: {inventory_path}")
+                raise NetHandlerException(f"Missing config parameters playbook: {playbook} "
+                                          f"playbook_path: {playbook_path} inventory_path: {inventory_path}")
             playbook_path_full = f"{playbook_path}/{playbook}"
 
-            service_name = sliver.get_labels().local_name
-            if service_name is None:
+            if sliver.get_labels() is None or sliver.get_labels().local_name is None:
                 service_name = f'{unit_id}-{sliver.get_name()}'
+            else:
+                service_name = sliver.get_labels().local_name
             service_type = resource_type.lower()
-
-            # TODO: get NSO service params from sliver and assemble into `service_data`
-            service_data = {}
+            if service_type == 'l2bridge':
+                service_data = self.__assemble_l2bridge_data(sliver, service_name)
+            else:
+                raise NetHandlerException(f'unrecognized network service type "{service_type}"')
             data = {
                 "tailf-ncs:services": {
                     f'{service_type}:{service_type}': [service_data]
                 }
             }
-
             extra_vars = {
                 "service_name": service_name,
                 "service_type": service_type,
+                "service_action": "create",
                 "data": data
             }
 
@@ -115,21 +120,25 @@ class NetHandler(HandlerBase):
             self.logger.debug(f"Executing playbook {playbook_path_full} to create Network Service")
             ansible_helper.run_playbook(playbook_path=playbook_path_full)
 
-            # TODO: handle NSO result and errors
-            callback = ansible_helper.get_result_callback()
-            ok = ansible_helper.get_result_callback().get_json_result_ok()
-            failed = ansible_helper.get_result_callback().get_json_result_failed()
-            # debugging
-            ansible_helper.get_result_callback().dump_all_ok(logger=self.logger)
-            ansible_helper.get_result_callback().dump_all_failed(logger=self.logger)
-            ansible_helper.get_result_callback().dump_all_unreachable(logger=self.logger)
+            ansible_callback = ansible_helper.get_result_callback()
+            unreachable = ansible_callback.get_json_result_unreachable()
+            if unreachable:
+                raise NetHandlerException(f'network service {service_name} was not committed due to connection error')
+
+            failed = ansible_callback.get_json_result_failed()
+            if failed:
+                ansible_callback.dump_all_failed(logger=self.logger)
+                raise NetHandlerException(f'network service {service_name} was not committed due to config error')
+
+            ok = ansible_callback.get_json_result_ok()
+            if ok:
+                if not ok['changed']:
+                    self.logger.info(f'network service {service_name} was committed ok but without change')
 
         except Exception as e:
             # Delete VM in case of failure
             if sliver is not None and unit_id is not None:
                 self.__cleanup(sliver=sliver, unit_id=unit_id)
-                unit.sliver.label_allocations.instance = None
-
             result = {Constants.PROPERTY_TARGET_NAME: Constants.TARGET_CREATE,
                       Constants.PROPERTY_TARGET_RESULT_CODE: Constants.RESULT_CODE_EXCEPTION,
                       Constants.PROPERTY_ACTION_SEQUENCE_NUMBER: 0,
@@ -137,7 +146,6 @@ class NetHandler(HandlerBase):
             self.logger.error(e)
             self.logger.error(traceback.format_exc())
         finally:
-
             self.logger.info(f"Create completed")
         return result, unit
 
@@ -146,7 +154,22 @@ class NetHandler(HandlerBase):
 
     def modify(self):
         pass
-    
+
+    def __cleanup(self, *, sliver: NodeSliver, unit_id: str, raise_exception: bool = False):
+        # delete the network service (nothing will be done for the failed)
+        # delete the idipa service which may have been commited before the net service failed
+        """
+                    data = {
+                        "tailf-ncs:services": {
+                            f'{service_type}:{service_type}': [ {
+                                "name": f'{service_name}',
+                                "__state": "absent"
+                            }]
+                        }
+                    }
+        """
+        pass
+
     @staticmethod
     def __get_default_user(image: str) -> str:
         """
@@ -159,3 +182,41 @@ class NetHandler(HandlerBase):
             return AmConstants.UBUNTU_DEFAULT_USER
         else:
             return AmConstants.ROOT_USER
+
+    @staticmethod
+    def __l2bridge_create_data(sliver: NetworkServiceSliver, service_name: str) -> dict:
+        device_name = None
+        interfaces = []
+        data = {"name": service_name, "interface": interfaces}
+        for interface_name in sliver.interface_info.interfaces:
+            interface_sliver = sliver.interface_info.interfaces[interface_name]
+            labs: Labels = interface_sliver.get_labels()
+            caps: Capacities = interface_sliver.get_capacities()
+            if labs.device_name is None:
+                raise NetHandlerException(f'l2bridge - interface "{interface_name}" has no "device_name" label')
+            if device_name is None:
+                device_name = labs.device_name
+                data['device'] = device_name
+            elif device_name != labs.device_name:
+                raise NetHandlerException(
+                    f'l2bridge - has two different device_name "{device_name}" and "{labs.device_name}"')
+            interface = {}
+            if labs.local_name is None:
+                raise NetHandlerException(f'l2bridge - interface "{interface_name}" has no "local_name" label')
+            interface_type_id = re.findall(r'(\w+)(\d.+)', labs.local_name)
+            if not interface_type_id or len(interface_type_id[0]) != 2:
+                raise NetHandlerException(f'l2bridge - interface "{interface_name}" has malformed "local_name" label')
+            interface['type'] = interface_type_id[0][0]
+            interface['id'] = interface_type_id[0][1]
+            if labs.vlan is not None:
+                interface['outervlan'] = labs.vlan
+                """
+                if labs.inner_vlan is not None:
+                    interface['innervlan'] = labs.inner_vlan
+                """
+            # TODO: add QoS params
+            interfaces.append(interface)
+        if not interfaces:
+            raise NetHandlerException(f'l2bridge - none valid interface is defined in sliver')
+        return data
+
