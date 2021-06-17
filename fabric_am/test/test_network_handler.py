@@ -67,7 +67,7 @@ class TestNetHandler(unittest.TestCase):
         sliver.set_name('L2BridgeServiceTest')
         # if service name global uniqueness is a requirement use Labels.local_name for that (optional)
         # e.g. concatenate name + res id (or another unique id)
-        # sliver.set_labels(Labels().set_fields(local_name='test-l2bridge-shortname'))
+        sliver.set_labels(Labels().set_fields(local_name='test-l2bridge-shortname'))
         # per @xiyang he uses unit id for service name so this is not needed.
         sliver.set_type(ServiceType.L2Bridge)
         sliver.set_layer(NSLayer.L2)
@@ -172,10 +172,15 @@ class TestNetHandler(unittest.TestCase):
         self.assertEqual(r[Constants.PROPERTY_ACTION_SEQUENCE_NUMBER], 0)
         self.assertEqual(r[Constants.PROPERTY_TARGET_RESULT_CODE], Constants.RESULT_CODE_OK)
 
+        time.sleep(30)
         #
         # delete - need to make sure the updated unit has the right info to delete the service
         #
-        handler.delete(updated_unit)
+
+        r, updated_unit = handler.delete(updated_unit)
+        self.assertEqual(r[Constants.PROPERTY_TARGET_NAME], Constants.TARGET_DELETE)
+        self.assertEqual(r[Constants.PROPERTY_ACTION_SEQUENCE_NUMBER], 0)
+        self.assertEqual(r[Constants.PROPERTY_TARGET_RESULT_CODE], Constants.RESULT_CODE_OK)
 
     def test_L2PTP(self):
         # create a NetworkService sliver for L2Bridge

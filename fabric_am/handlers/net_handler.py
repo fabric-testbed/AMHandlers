@@ -32,10 +32,8 @@ from fabric_cf.actor.core.common.constants import Constants
 from fabric_cf.actor.core.plugins.handlers.config_token import ConfigToken
 from fabric_cf.actor.handlers.handler_base import HandlerBase
 from fim.slivers.capacities_labels import Labels, Capacities
-from fim.slivers.network_node import NodeSliver
 from fim.slivers.network_service import NetworkServiceSliver
 
-from fabric_am.handlers.vm_handler import VmHandlerException
 from fabric_am.util.am_constants import AmConstants
 from fabric_am.util.ansible_helper import AnsibleHelper
 
@@ -79,7 +77,7 @@ class NetHandler(HandlerBase):
             sliver = unit.get_sliver()
             unit_id = str(unit.get_reservation_id())
             if sliver is None:
-                raise VmHandlerException(f"Unit # {unit} has no assigned slivers")
+                raise NetHandlerException(f"Unit # {unit} has no assigned slivers")
 
             unit_properties = unit.get_properties()  # use: TBD
 
@@ -100,7 +98,7 @@ class NetHandler(HandlerBase):
                 service_name = sliver.get_labels().local_name
             service_type = resource_type.lower()
             if service_type == 'l2bridge':
-                service_data = self.__assemble_l2bridge_data(sliver, service_name)
+                service_data = self.__l2bridge_create_data(sliver, service_name)
             else:
                 raise NetHandlerException(f'unrecognized network service type "{service_type}"')
             data = {
@@ -119,17 +117,14 @@ class NetHandler(HandlerBase):
             ansible_helper.set_extra_vars(extra_vars=extra_vars)
             self.logger.debug(f"Executing playbook {playbook_path_full} to create Network Service")
             ansible_helper.run_playbook(playbook_path=playbook_path_full)
-
             ansible_callback = ansible_helper.get_result_callback()
             unreachable = ansible_callback.get_json_result_unreachable()
             if unreachable:
                 raise NetHandlerException(f'network service {service_name} was not committed due to connection error')
-
             failed = ansible_callback.get_json_result_failed()
             if failed:
                 ansible_callback.dump_all_failed(logger=self.logger)
                 raise NetHandlerException(f'network service {service_name} was not committed due to config error')
-
             ok = ansible_callback.get_json_result_ok()
             if ok:
                 if not ok['changed']:
@@ -149,26 +144,83 @@ class NetHandler(HandlerBase):
             self.logger.info(f"Create completed")
         return result, unit
 
-    def delete(self):
-        pass
+    def delete(self, unit: ConfigToken) -> Tuple[dict, ConfigToken]:
+        result = {Constants.PROPERTY_TARGET_NAME: Constants.TARGET_DELETE,
+                  Constants.PROPERTY_TARGET_RESULT_CODE: Constants.RESULT_CODE_OK,
+                  Constants.PROPERTY_ACTION_SEQUENCE_NUMBER: 0}
+        try:
+            self.logger.info(f"Delete invoked for unit: {unit}")
+            sliver = unit.get_sliver()
+            if sliver is None:
+                raise NetHandlerException(f"Unit # {unit} has no assigned slivers")
 
-    def modify(self):
-        pass
+            unit_id = str(unit.get_reservation_id())
+            self.__cleanup(sliver=sliver, raise_exception=True, unit_id=unit_id)
+        except Exception as e:
+            result = {Constants.PROPERTY_TARGET_NAME: Constants.TARGET_DELETE,
+                      Constants.PROPERTY_TARGET_RESULT_CODE: Constants.RESULT_CODE_EXCEPTION,
+                      Constants.PROPERTY_ACTION_SEQUENCE_NUMBER: 0,
+                      Constants.PROPERTY_EXCEPTION_MESSAGE: e}
+            self.logger.error(e)
+            self.logger.error(traceback.format_exc())
+        finally:
+            self.logger.info(f"Delete completed")
+        return result, unit
 
-    def __cleanup(self, *, sliver: NodeSliver, unit_id: str, raise_exception: bool = False):
-        # delete the network service (nothing will be done for the failed)
-        # delete the idipa service which may have been commited before the net service failed
-        """
-                    data = {
-                        "tailf-ncs:services": {
-                            f'{service_type}:{service_type}': [ {
-                                "name": f'{service_name}',
-                                "__state": "absent"
-                            }]
-                        }
-                    }
-        """
-        pass
+    def modify(self, unit: ConfigToken) -> Tuple[dict, ConfigToken]:
+        raise NetHandlerException(f"NetworkServiceSliver modify action is not supported yet...")
+
+    def __cleanup(self, *, sliver: NetworkServiceSliver, unit_id: str, raise_exception: bool = False):
+        if sliver.get_labels() is None or sliver.get_labels().local_name is None:
+            service_name = f'{unit_id}-{sliver.get_name()}'
+        else:
+            service_name = sliver.get_labels().local_name
+        resource_type = str(sliver.get_type())
+        service_type = resource_type.lower()
+        data = {
+            "tailf-ncs:services": {
+                f'{service_type}:{service_type}': [ {
+                        "name": f'{service_name}',
+                        "__state": "absent"
+                    }]
+            }
+        }
+        extra_vars = {
+            "service_name": service_name,
+            "service_type": service_type,
+            "service_action": "delete",
+            "data": data
+        }
+        try:
+            playbook_path = self.config[AmConstants.PLAYBOOK_SECTION][AmConstants.PB_LOCATION]
+            inventory_path = self.config[AmConstants.PLAYBOOK_SECTION][AmConstants.PB_INVENTORY]
+            playbook = self.config[AmConstants.PLAYBOOK_SECTION][resource_type]
+            if playbook is None or inventory_path is None or playbook_path is None:
+                raise NetHandlerException(f"Missing config parameters playbook: {playbook} "
+                                          f"playbook_path: {playbook_path} inventory_path: {inventory_path}")
+            playbook_path_full = f"{playbook_path}/{playbook}"
+            ansible_helper = AnsibleHelper(inventory_path=inventory_path, logger=self.logger)
+            ansible_helper.set_extra_vars(extra_vars=extra_vars)
+            self.logger.debug(f"Executing playbook {playbook_path_full} to delete Network Service")
+            ansible_helper.run_playbook(playbook_path=playbook_path_full)
+            ansible_callback = ansible_helper.get_result_callback()
+            unreachable = ansible_callback.get_json_result_unreachable()
+            if unreachable:
+                raise NetHandlerException(f'network service {service_name} was not cleaned up due to connection error')
+            failed = ansible_callback.get_json_result_failed()
+            if failed:
+                ansible_callback.dump_all_failed(logger=self.logger)
+                raise NetHandlerException(f'network service {service_name} was not cleaned up due to config error')
+            ok = ansible_callback.get_json_result_ok()
+            if ok:
+                if not ok['changed']:
+                    self.logger.info(f'network service {service_name} was cleaned up ok but without change')
+
+        except Exception as e:
+            self.logger.error(f"Exception occurred in cleanup {e}")
+            self.logger.error(traceback.format_exc())
+            if raise_exception:
+                raise e
 
     @staticmethod
     def __get_default_user(image: str) -> str:
@@ -214,7 +266,10 @@ class NetHandler(HandlerBase):
                 if labs.inner_vlan is not None:
                     interface['innervlan'] = labs.inner_vlan
                 """
-            # TODO: add QoS params
+            if caps.bw is not None and caps.bw != 0:
+                interface['bandwidth'] = caps.bw
+                if caps.burst_size is not None and caps.burst_size != 0:
+                    interface['burst-size'] = caps.burst_size
             interfaces.append(interface)
         if not interfaces:
             raise NetHandlerException(f'l2bridge - none valid interface is defined in sliver')

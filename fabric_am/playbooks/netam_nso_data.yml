@@ -20,7 +20,7 @@
           - name: "{{ service_name }}"
             group:
               service: service
-    when: (service == 'l2ptp' or service == 'l2sts') and acion == 'create'
+    when: (service == 'l2ptp' or service == 'l2sts') and action == 'create'
 
   - name: Create network service
     nso_config:
@@ -28,7 +28,7 @@
       username: "{{ username }}"
       password: "{{ password }}"
       data: "{{ data }}"
-    when: acion == 'create'
+    when: action == 'create'
 
   - name: Delete network service
     nso_config:
@@ -36,7 +36,7 @@
       username: "{{ username }}"
       password: "{{ password }}"
       data: "{{ data }}"
-    when: acion == 'delete'
+    when: action == 'delete'
 
   - name: Delete idipa service
     nso_config:
@@ -48,4 +48,4 @@
           idipa:idipa:
           - name: "{{ service_name }}"
             __state: absent
-    when: (service == 'l2ptp' or service == 'l2sts') and acion == 'create'
+    when: (service == 'l2ptp' or service == 'l2sts') and atcion == 'create'
