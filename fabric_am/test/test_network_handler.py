@@ -53,12 +53,9 @@ class TestNetHandler(unittest.TestCase):
 
     def test_L2Bridge(self):
         # create a NetworkService sliver for L2Bridge
-        # FIXME: @xiyang properties of net handler
         prop = {AmConstants.CONFIG_PROPERTIES_FILE: '../config/net_handler_config.yml'}
 
-        # FIXME: @xiyang whatever the name of the net handler
         handler = NetHandler(logger=self.logger, properties=prop)
-
         #
         # create a network sliver for L2Bridge and its interfaces
         #
@@ -67,7 +64,7 @@ class TestNetHandler(unittest.TestCase):
         sliver.set_name('L2BridgeServiceTest')
         # if service name global uniqueness is a requirement use Labels.local_name for that (optional)
         # e.g. concatenate name + res id (or another unique id)
-        sliver.set_labels(Labels().set_fields(local_name='test-l2bridge-shortname'))
+        # sliver.set_labels(Labels().set_fields(local_name='test-l2bridge-shortname'))
         # per @xiyang he uses unit id for service name so this is not needed.
         sliver.set_type(ServiceType.L2Bridge)
         sliver.set_layer(NSLayer.L2)
