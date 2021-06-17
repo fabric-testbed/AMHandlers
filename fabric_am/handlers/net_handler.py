@@ -93,7 +93,9 @@ class NetHandler(HandlerBase):
             playbook_path_full = f"{playbook_path}/{playbook}"
 
             if sliver.get_labels() is None or sliver.get_labels().local_name is None:
-                service_name = f'{unit_id}-{sliver.get_name()}'
+                # truncate service_name length to no greater than 53 (36+1+16)
+                sliver_name = sliver.get_name()[:16] if len(sliver.get_name()) > 16 else sliver.get_name()
+                service_name = f'{sliver_name}-{unit_id}'
             else:
                 service_name = sliver.get_labels().local_name
             service_type = resource_type.lower()
