@@ -101,6 +101,8 @@ class NetHandler(HandlerBase):
             service_type = resource_type.lower()
             if service_type == 'l2bridge':
                 service_data = self.__l2bridge_create_data(sliver, service_name)
+            if service_type == 'l2ptp':
+                service_data = self.__l2ptp_create_data(sliver, service_name)
             else:
                 raise NetHandlerException(f'unrecognized network service type "{service_type}"')
             data = {
@@ -114,7 +116,7 @@ class NetHandler(HandlerBase):
                 "service_action": "create",
                 "data": data
             }
-
+            print(json.dumps(extra_vars))
             ansible_helper = AnsibleHelper(inventory_path=inventory_path, logger=self.logger)
             ansible_helper.set_extra_vars(extra_vars=extra_vars)
             self.logger.debug(f"Executing playbook {playbook_path_full} to create Network Service")
@@ -174,7 +176,9 @@ class NetHandler(HandlerBase):
 
     def __cleanup(self, *, sliver: NetworkServiceSliver, unit_id: str, raise_exception: bool = False):
         if sliver.get_labels() is None or sliver.get_labels().local_name is None:
-            service_name = f'{unit_id}-{sliver.get_name()}'
+            # truncate service_name length to no greater than 53 (36+1+16)
+            sliver_name = sliver.get_name()[:16] if len(sliver.get_name()) > 16 else sliver.get_name()
+            service_name = f'{sliver_name}-{unit_id}'
         else:
             service_name = sliver.get_labels().local_name
         resource_type = str(sliver.get_type())
@@ -224,21 +228,7 @@ class NetHandler(HandlerBase):
             if raise_exception:
                 raise e
 
-    @staticmethod
-    def __get_default_user(image: str) -> str:
-        """
-        Return default SSH user name
-        :return default ssh user name
-        """
-        if AmConstants.CENTOS_DEFAULT_USER in image:
-            return AmConstants.CENTOS_DEFAULT_USER
-        elif AmConstants.UBUNTU_DEFAULT_USER in image:
-            return AmConstants.UBUNTU_DEFAULT_USER
-        else:
-            return AmConstants.ROOT_USER
-
-    @staticmethod
-    def __l2bridge_create_data(sliver: NetworkServiceSliver, service_name: str) -> dict:
+    def __l2bridge_create_data(self, sliver: NetworkServiceSliver, service_name: str) -> dict:
         device_name = None
         interfaces = []
         data = {"name": service_name, "interface": interfaces}
@@ -277,3 +267,67 @@ class NetHandler(HandlerBase):
             raise NetHandlerException(f'l2bridge - none valid interface is defined in sliver')
         return data
 
+    def __l2ptp_create_data(self, sliver: NetworkServiceSliver, service_name: str) -> dict:
+        stp_list = []
+        if len(sliver.interface_info.interfaces) != 2:
+            raise NetHandlerException(f'l2ptp - sliver requires 2 interfaces but was given {len(sliver.interface_info.interfaces)}')
+
+        for interface_name in sliver.interface_info.interfaces:
+            stp = {}
+            interface_sliver = sliver.interface_info.interfaces[interface_name]
+            labs: Labels = interface_sliver.get_labels()
+            caps: Capacities = interface_sliver.get_capacities()
+            if labs.device_name is None:
+                raise NetHandlerException(f'l2bridge - interface "{interface_name}" has no "device_name" label')
+            stp['device'] = labs.device_name
+            interface = {}
+            if labs.local_name is None:
+                raise NetHandlerException(f'l2bridge - interface "{interface_name}" has no "local_name" label')
+            interface_type_id = re.findall(r'(\w+)(\d.+)', labs.local_name)
+            if not interface_type_id or len(interface_type_id[0]) != 2:
+                raise NetHandlerException(f'l2ptp - interface "{interface_name}" has malformed "local_name" label')
+            interface['type'] = interface_type_id[0][0]
+            interface['id'] = interface_type_id[0][1]
+            if labs.vlan is None:
+                raise NetHandlerException(f'l2ptp - interface "{interface_name}" must have vlan label')
+            interface['outervlan'] = labs.vlan
+            """
+            if labs.inner_vlan is not None:
+                interface['innervlan'] = labs.inner_vlan
+            """
+            if caps.bw is not None and caps.bw != 0:
+                interface['bandwidth'] = caps.bw
+                if caps.burst_size is not None and caps.burst_size != 0:
+                    interface['burst-size'] = caps.burst_size
+            stp['interface'] = interface
+            stp_list.append(stp)
+
+        if stp_list[0]['device'] == stp_list[1]['device']:
+            raise NetHandlerException(
+                f'l2ptp - has two interfaces on the same device "{stp_list[0]["device"]}" (required to be different)')
+
+        data = {"name": service_name, "stp-a": stp_list[0], "stp-z": stp_list[1]}
+
+        if sliver.ero is not None and len(sliver.ero.get()) == 2:
+            ero_a2z = []
+            type, path = sliver.ero.get()
+            index = 1
+            for hop in path.get()[0]:
+                # TODO: validate hop is ipv4 using regex
+                ero_a2z.append({'index': str(index), 'address': hop})
+                index += 1
+            hop_a2z = {"hop": ero_a2z}
+            data['ero-a2z'] = hop_a2z
+
+            ero_z2a = []
+            index = 1
+            for hop in path.get()[1]:
+                # TODO: validate hop is ipv4 using regex
+                ero_z2a.append({'index': str(index), 'address': hop})
+                index += 1
+            hop_z2a = {"hop": ero_z2a}
+            data['ero-z2a'] = hop_z2a
+        else:
+            self.logger.info(f"l2ptp - created without ERO")
+
+        return data

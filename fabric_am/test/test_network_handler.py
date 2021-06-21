@@ -164,16 +164,15 @@ class TestNetHandler(unittest.TestCase):
         # into exact parameters the service ansible script needs)
         #
         r, updated_unit = handler.create(unit=self.unit)
-        # some assertions go here to test the outcome
         self.assertEqual(r[Constants.PROPERTY_TARGET_NAME], Constants.TARGET_CREATE)
         self.assertEqual(r[Constants.PROPERTY_ACTION_SEQUENCE_NUMBER], 0)
         self.assertEqual(r[Constants.PROPERTY_TARGET_RESULT_CODE], Constants.RESULT_CODE_OK)
 
         time.sleep(30)
+
         #
         # delete - need to make sure the updated unit has the right info to delete the service
         #
-
         r, updated_unit = handler.delete(updated_unit)
         self.assertEqual(r[Constants.PROPERTY_TARGET_NAME], Constants.TARGET_DELETE)
         self.assertEqual(r[Constants.PROPERTY_ACTION_SEQUENCE_NUMBER], 0)
@@ -181,10 +180,8 @@ class TestNetHandler(unittest.TestCase):
 
     def test_L2PTP(self):
         # create a NetworkService sliver for L2Bridge
-        # FIXME: @xiyang properties of net handler
-        prop = {AmConstants.CONFIG_PROPERTIES_FILE: 'config/net_handler_config.yml'}
+        prop = {AmConstants.CONFIG_PROPERTIES_FILE: '../config/net_handler_config.yml'}
 
-        # FIXME: @xiyang whatever the name of the net handler
         handler = NetHandler(logger=self.logger, properties=prop)
 
         #
@@ -199,8 +196,8 @@ class TestNetHandler(unittest.TestCase):
         # ERO
         # first declare a path. Each path is a list of somethings. a2z and z2a maintained separately within Path
         ero_path = Path()
-        # FIXME @xiang put a realistic path. set_symmetric simply reverses forward path to reverse so a2z=reverse(z2a)
-        ero_path.set_symmetric(["1.2.3.4", "1.2.3.5"])
+
+        ero_path.set_symmetric(["10.1.1.1", "10.1.1.2"])
         # default is loose ERO, set strict=True if want otherwise
         ero = ERO(strict=False)
         ero.set(ero_path)
@@ -216,11 +213,11 @@ class TestNetHandler(unittest.TestCase):
         sliver_labels = Labels()
         sliver_capacities = Capacities()
 
-        sliver_labels.set_fields(vlan='2')
-        sliver_labels.set_fields(local_name='HundredGigE0/0/0/13')
-        sliver_labels.set_fields(device_name='NSO device name')
+        sliver_labels.set_fields(vlan='235')
+        sliver_labels.set_fields(local_name='HundredGigE0/0/0/17')
+        sliver_labels.set_fields(device_name='renc-data-sw')
 
-        sliver_capacities.set_fields(bw=10, burst_size=100)
+        sliver_capacities.set_fields(bw=1000)
 
         stp_a.set_labels(sliver_labels)
         stp_a.set_capacities(sliver_capacities)
@@ -235,11 +232,11 @@ class TestNetHandler(unittest.TestCase):
         sliver_labels = Labels()
         sliver_capacities = Capacities()
 
-        sliver_labels.set_fields(vlan='2')
+        sliver_labels.set_fields(vlan='235')
         sliver_labels.set_fields(local_name='HundredGigE0/0/0/13')
-        sliver_labels.set_fields(device_name='NSO device name')
+        sliver_labels.set_fields(device_name='uky-data-sw')
 
-        sliver_capacities.set_fields(bw=10, burst_size=100)
+        sliver_capacities.set_fields(bw=1000)
 
         stp_z.set_labels(sliver_labels)
         stp_z.set_capacities(sliver_capacities)
@@ -251,22 +248,27 @@ class TestNetHandler(unittest.TestCase):
 
         # All of this happens automagically in FIM
         sliver.interface_info = ifi
-        self.unit.set_sliver(sliver)
+        uid = uuid.uuid3(uuid.NAMESPACE_DNS, 'test_L2PTP')
+        self.unit = Unit(rid=ID(uid=str(uid)))
+        self.unit.set_sliver(sliver=sliver)
 
         #
         # create a service
         #
         r, updated_unit = handler.create(unit=self.unit)
-        # some assertions go here to test the outcome
-        # FIXME: add assertion checks
+        self.assertEqual(r[Constants.PROPERTY_TARGET_NAME], Constants.TARGET_CREATE)
+        self.assertEqual(r[Constants.PROPERTY_ACTION_SEQUENCE_NUMBER], 0)
+        self.assertEqual(r[Constants.PROPERTY_TARGET_RESULT_CODE], Constants.RESULT_CODE_OK)
 
-        # wait for whatever time makes sense
-        time.sleep(10)
+        time.sleep(30)
 
         #
-        # delete
+        # delete - need to make sure the updated unit has the right info to delete the service
         #
-        handler.delete(updated_unit)
+        r, updated_unit = handler.delete(updated_unit)
+        self.assertEqual(r[Constants.PROPERTY_TARGET_NAME], Constants.TARGET_DELETE)
+        self.assertEqual(r[Constants.PROPERTY_ACTION_SEQUENCE_NUMBER], 0)
+        self.assertEqual(r[Constants.PROPERTY_TARGET_RESULT_CODE], Constants.RESULT_CODE_OK)
 
     def test_L2STS(self):
         pass
