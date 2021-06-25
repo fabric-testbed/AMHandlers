@@ -179,7 +179,7 @@ class TestNetHandler(unittest.TestCase):
         self.assertEqual(r[Constants.PROPERTY_TARGET_RESULT_CODE], Constants.RESULT_CODE_OK)
 
     def test_L2PTP(self):
-        # create a NetworkService sliver for L2Bridge
+        # create a NetworkService sliver for L2PTP
         prop = {AmConstants.CONFIG_PROPERTIES_FILE: '../config/net_handler_config.yml'}
 
         handler = NetHandler(logger=self.logger, properties=prop)
@@ -271,4 +271,98 @@ class TestNetHandler(unittest.TestCase):
         self.assertEqual(r[Constants.PROPERTY_TARGET_RESULT_CODE], Constants.RESULT_CODE_OK)
 
     def test_L2STS(self):
-        pass
+        # create a NetworkService sliver for L2STS
+        prop = {AmConstants.CONFIG_PROPERTIES_FILE: '../config/net_handler_config.yml'}
+
+        handler = NetHandler(logger=self.logger, properties=prop)
+
+        #
+        # create a network sliver for L2Bridge and its interfaces
+        #
+        sliver = NetworkServiceSliver()
+        # service name - can we use the sliver name - only guaranteed unique in the slice
+        sliver.set_name('L2STSServiceTest')
+        sliver.set_type(ServiceType.L2STS)
+        sliver.set_layer(NSLayer.L2)
+
+        # ERO
+        # first declare a path. Each path is a list of somethings. a2z and z2a maintained separately within Path
+        ero_path = Path()
+
+        ero_path.set_symmetric(["10.1.1.1", "10.1.1.2"])
+        # default is loose ERO, set strict=True if want otherwise
+        ero = ERO(strict=False)
+        ero.set(ero_path)
+        sliver.set_ero(ero)
+
+        #
+        # site A interfaces
+        #
+        stp_a1 = InterfaceSliver()
+        stp_a1.set_name('Interface_A1')
+        stp_a1.set_type(InterfaceType.ServicePort)
+        sliver_labels = Labels()
+        sliver_capacities = Capacities()
+        # untagged w/o vlan label set
+        sliver_labels.set_fields(local_name='TwentyFiveGigE0/0/0/23/1')
+        sliver_labels.set_fields(device_name='lbnl-data-sw')
+        sliver_capacities.set_fields(bw=2000)
+        stp_a1.set_labels(sliver_labels)
+        stp_a1.set_capacities(sliver_capacities)
+
+        #
+        # site Z interfaces
+        #
+        stp_z1 = InterfaceSliver()
+        stp_z1.set_name('Interface_Z1')
+        stp_z1.set_type(InterfaceType.ServicePort)
+        sliver_labels = Labels()
+        sliver_capacities = Capacities()
+        sliver_labels.set_fields(vlan='235')
+        sliver_labels.set_fields(local_name='HundredGigE0/0/0/13')
+        sliver_labels.set_fields(device_name='uky-data-sw')
+        sliver_capacities.set_fields(bw=1000)
+        stp_z1.set_labels(sliver_labels)
+        stp_z1.set_capacities(sliver_capacities)
+
+        stp_z2 = InterfaceSliver()
+        stp_z2.set_name('Interface_Z2')
+        stp_z2.set_type(InterfaceType.ServicePort)
+        sliver_labels = Labels()
+        sliver_capacities = Capacities()
+        # untagged w/o vlan label set
+        sliver_labels.set_fields(local_name='TwentyFiveGigE0/0/0/23/2')
+        sliver_labels.set_fields(device_name='uky-data-sw')
+        sliver_capacities.set_fields(bw=1000)
+        stp_z2.set_labels(sliver_labels)
+        stp_z2.set_capacities(sliver_capacities)
+
+        # create interface info object, add interfaces to it
+        ifi = InterfaceInfo()
+        ifi.add_interface(stp_a1)
+        ifi.add_interface(stp_z1)
+        ifi.add_interface(stp_z2)
+
+        # All of this happens automagically in FIM
+        sliver.interface_info = ifi
+        uid = uuid.uuid3(uuid.NAMESPACE_DNS, 'test_L2STS')
+        self.unit = Unit(rid=ID(uid=str(uid)))
+        self.unit.set_sliver(sliver=sliver)
+
+        #
+        # create a service
+        #
+        r, updated_unit = handler.create(unit=self.unit)
+        self.assertEqual(r[Constants.PROPERTY_TARGET_NAME], Constants.TARGET_CREATE)
+        self.assertEqual(r[Constants.PROPERTY_ACTION_SEQUENCE_NUMBER], 0)
+        self.assertEqual(r[Constants.PROPERTY_TARGET_RESULT_CODE], Constants.RESULT_CODE_OK)
+
+        time.sleep(30)
+
+        #
+        # delete - need to make sure the updated unit has the right info to delete the service
+        #
+        r, updated_unit = handler.delete(updated_unit)
+        self.assertEqual(r[Constants.PROPERTY_TARGET_NAME], Constants.TARGET_DELETE)
+        self.assertEqual(r[Constants.PROPERTY_ACTION_SEQUENCE_NUMBER], 0)
+        self.assertEqual(r[Constants.PROPERTY_TARGET_RESULT_CODE], Constants.RESULT_CODE_OK)

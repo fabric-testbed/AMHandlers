@@ -103,6 +103,8 @@ class NetHandler(HandlerBase):
                 service_data = self.__l2bridge_create_data(sliver, service_name)
             if service_type == 'l2ptp':
                 service_data = self.__l2ptp_create_data(sliver, service_name)
+            if service_type == 'l2sts':
+                service_data = self.__l2sts_create_data(sliver, service_name)
             else:
                 raise NetHandlerException(f'unrecognized network service type "{service_type}"')
             data = {
@@ -185,10 +187,10 @@ class NetHandler(HandlerBase):
         service_type = resource_type.lower()
         data = {
             "tailf-ncs:services": {
-                f'{service_type}:{service_type}': [ {
-                        "name": f'{service_name}',
-                        "__state": "absent"
-                    }]
+                f'{service_type}:{service_type}': [{
+                    "name": f'{service_name}',
+                    "__state": "absent"
+                }]
             }
         }
         extra_vars = {
@@ -270,7 +272,8 @@ class NetHandler(HandlerBase):
     def __l2ptp_create_data(self, sliver: NetworkServiceSliver, service_name: str) -> dict:
         stp_list = []
         if len(sliver.interface_info.interfaces) != 2:
-            raise NetHandlerException(f'l2ptp - sliver requires 2 interfaces but was given {len(sliver.interface_info.interfaces)}')
+            raise NetHandlerException(
+                f'l2ptp - sliver requires 2 interfaces but was given {len(sliver.interface_info.interfaces)}')
 
         for interface_name in sliver.interface_info.interfaces:
             stp = {}
@@ -278,11 +281,11 @@ class NetHandler(HandlerBase):
             labs: Labels = interface_sliver.get_labels()
             caps: Capacities = interface_sliver.get_capacities()
             if labs.device_name is None:
-                raise NetHandlerException(f'l2bridge - interface "{interface_name}" has no "device_name" label')
+                raise NetHandlerException(f'l2ptp - interface "{interface_name}" has no "device_name" label')
             stp['device'] = labs.device_name
             interface = {}
             if labs.local_name is None:
-                raise NetHandlerException(f'l2bridge - interface "{interface_name}" has no "local_name" label')
+                raise NetHandlerException(f'l2ptp - interface "{interface_name}" has no "local_name" label')
             interface_type_id = re.findall(r'(\w+)(\d.+)', labs.local_name)
             if not interface_type_id or len(interface_type_id[0]) != 2:
                 raise NetHandlerException(f'l2ptp - interface "{interface_name}" has malformed "local_name" label')
@@ -329,5 +332,80 @@ class NetHandler(HandlerBase):
             data['ero-z2a'] = hop_z2a
         else:
             self.logger.info(f"l2ptp - created without ERO")
+        return data
 
+    def __l2sts_create_data(self, sliver: NetworkServiceSliver, service_name: str) -> dict:
+        site_a = {}
+        site_z = {}
+        if len(sliver.interface_info.interfaces) < 2:
+            raise NetHandlerException(
+                f'l2sts - sliver requires at least 2 interfaces but was given {len(sliver.interface_info.interfaces)}')
+
+        for interface_name in sliver.interface_info.interfaces:
+            interfaces = {}
+            interface_sliver = sliver.interface_info.interfaces[interface_name]
+            labs: Labels = interface_sliver.get_labels()
+            caps: Capacities = interface_sliver.get_capacities()
+            if labs.device_name is None:
+                raise NetHandlerException(f'l2sts - interface "{interface_name}" has no "device_name" label')
+            interface = {}
+            if labs.local_name is None:
+                raise NetHandlerException(f'l2sts - interface "{interface_name}" has no "local_name" label')
+            interface_type_id = re.findall(r'(\w+)(\d.+)', labs.local_name)
+            if not interface_type_id or len(interface_type_id[0]) != 2:
+                raise NetHandlerException(f'l2sts - interface "{interface_name}" has malformed "local_name" label')
+            interface['type'] = interface_type_id[0][0]
+            interface['id'] = interface_type_id[0][1]
+            if labs.vlan is not None:
+                interface['outervlan'] = labs.vlan
+                """
+                if labs.inner_vlan is not None:
+                    interface['innervlan'] = labs.inner_vlan
+                """
+            if caps.bw is not None and caps.bw != 0:
+                interface['bandwidth'] = caps.bw
+                if caps.burst_size is not None and caps.burst_size != 0:
+                    interface['burst-size'] = caps.burst_size
+
+            if not site_a:
+                site_a['device'] = labs.device_name
+                site_a['interface'] = [interface]
+            elif site_a['device'] == labs.device_name:
+                site_a['interface'].append(interface)
+            elif not site_z:
+                site_z['device'] = labs.device_name
+                site_z['interface'] = [interface]
+            elif site_z['device'] == labs.device_name:
+                site_z['interface'].append(interface)
+            else:
+                raise NetHandlerException(
+                    f'l2sts - more than 2 sites are present in the list of interfaces (requires exactly 2)')
+
+        if not site_a or not site_z:
+            raise NetHandlerException(
+                f'l2sts - fewer than 2 sites are present in the list of interfaces (requires exactly 2)')
+
+        data = {"name": service_name, "site-a": site_a, "site-z": site_z}
+
+        if sliver.ero is not None and len(sliver.ero.get()) == 2:
+            ero_a2z = []
+            type, path = sliver.ero.get()
+            index = 1
+            for hop in path.get()[0]:
+                # TODO: validate hop is ipv4 using regex
+                ero_a2z.append({'index': str(index), 'address': hop})
+                index += 1
+            hop_a2z = {"hop": ero_a2z}
+            data['ero-a2z'] = hop_a2z
+
+            ero_z2a = []
+            index = 1
+            for hop in path.get()[1]:
+                # TODO: validate hop is ipv4 using regex
+                ero_z2a.append({'index': str(index), 'address': hop})
+                index += 1
+            hop_z2a = {"hop": ero_z2a}
+            data['ero-z2a'] = hop_z2a
+        else:
+            self.logger.info(f"l2ptp - created without ERO")
         return data
