@@ -75,7 +75,7 @@ class TestNetHandler(unittest.TestCase):
         # type = parse(InterfaceSliver.Labels.local_name)
         # id = parse(InterfaceSliver.Labels.local_name)
         # outervlan = InterfaceSliver.Labels.vlan
-        # innervlan = InterfaceSliver.Labels.vlan
+        # innervlan = InterfaceSliver.Labels.inner_vlan
         # bw = InterfaceSliver.Capacities.bw (0 - best-effort)
         # burst size = InterfaceSliver.Capacities.burst_size
         #

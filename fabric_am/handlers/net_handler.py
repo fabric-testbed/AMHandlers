@@ -256,10 +256,8 @@ class NetHandler(HandlerBase):
             interface['id'] = interface_type_id[0][1]
             if labs.vlan is not None:
                 interface['outervlan'] = labs.vlan
-                """
                 if labs.inner_vlan is not None:
                     interface['innervlan'] = labs.inner_vlan
-                """
             if caps.bw is not None and caps.bw != 0:
                 interface['bandwidth'] = caps.bw
                 if caps.burst_size is not None and caps.burst_size != 0:
@@ -294,10 +292,8 @@ class NetHandler(HandlerBase):
             if labs.vlan is None:
                 raise NetHandlerException(f'l2ptp - interface "{interface_name}" must have vlan label')
             interface['outervlan'] = labs.vlan
-            """
             if labs.inner_vlan is not None:
                 interface['innervlan'] = labs.inner_vlan
-            """
             if caps.bw is not None and caps.bw != 0:
                 interface['bandwidth'] = caps.bw
                 if caps.burst_size is not None and caps.burst_size != 0:
@@ -358,10 +354,8 @@ class NetHandler(HandlerBase):
             interface['id'] = interface_type_id[0][1]
             if labs.vlan is not None:
                 interface['outervlan'] = labs.vlan
-                """
                 if labs.inner_vlan is not None:
                     interface['innervlan'] = labs.inner_vlan
-                """
             if caps.bw is not None and caps.bw != 0:
                 interface['bandwidth'] = caps.bw
                 if caps.burst_size is not None and caps.burst_size != 0:
