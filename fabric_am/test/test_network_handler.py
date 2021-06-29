@@ -74,9 +74,9 @@ class TestNetHandler(unittest.TestCase):
         # The service definitions make a distinction between interface which requires
         # type = parse(InterfaceSliver.Labels.local_name)
         # id = parse(InterfaceSliver.Labels.local_name)
-        # outervlan = InterfaceSliver.Labels.outer_vlan
+        # outervlan = InterfaceSliver.Labels.vlan
         # innervlan = InterfaceSliver.Labels.vlan
-        # bw = InterfaceSliver.Capacities.bw
+        # bw = InterfaceSliver.Capacities.bw (0 - best-effort)
         # burst size = InterfaceSliver.Capacities.burst_size
         #
         # and STP which in addition also requires NSO device name.
@@ -107,9 +107,9 @@ class TestNetHandler(unittest.TestCase):
 
         sliver_labels = Labels()
         sliver_capacities = Capacities()
-        # outer_vlan - not used for now - orchestrator would fill it in directly on the sliver Labels -
+        # inner_vlan - not used for now - user would fill it in directly on the sliver Labels -
         # need to discuss.
-        # sl1labs.set_fields(outer_vlan='3')
+        # sl1labs.set_fields(inner_vlan='3')
 
         # vlan - source: (c)
         sliver_labels.set_fields(vlan='300')
