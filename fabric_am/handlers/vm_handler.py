@@ -25,6 +25,7 @@
 # Author: Komal Thareja (kthare10@renci.org)
 import json
 import re
+import threading
 import traceback
 from typing import Tuple, List
 
@@ -58,6 +59,7 @@ class VMHandler(HandlerBase):
             return
 
         self.config = self.load_config(path=config_properties_file)
+        self.thread_id = str(threading.get_ident())
 
     def create(self, unit: ConfigToken) -> Tuple[dict, ConfigToken]:
         """
@@ -122,14 +124,17 @@ class VMHandler(HandlerBase):
                                                  f"sliver: {sliver}")
 
                     playbook_path_full = f"{playbook_path}/{playbook}"
+                    self.logger.debug(f"Attaching Devices {playbook_path_full}")
                     self.__attach_detach_pci(playbook_path=playbook_path_full, inventory_path=inventory_path,
                                              host=worker_node, instance_name=sliver.label_allocations.instance,
-                                             device_name=unit_id,
+                                             device_name=self.thread_id,
                                              pci_devices=component.label_allocations.bdf)
 
             sliver.management_ip = fip_props.get(AmConstants.FLOATING_IP, None)
 
         except Exception as e:
+            self.logger.error(e)
+            self.logger.error(traceback.format_exc())
             # Delete VM in case of failure
             if sliver is not None and unit_id is not None:
                 self.__cleanup(sliver=sliver, unit_id=unit_id)
@@ -139,8 +144,6 @@ class VMHandler(HandlerBase):
                       Constants.PROPERTY_TARGET_RESULT_CODE: Constants.RESULT_CODE_EXCEPTION,
                       Constants.PROPERTY_ACTION_SEQUENCE_NUMBER: 0,
                       Constants.PROPERTY_EXCEPTION_MESSAGE: e}
-            self.logger.error(e)
-            self.logger.error(traceback.format_exc())
         finally:
 
             self.logger.info(f"Create completed")
@@ -217,12 +220,15 @@ class VMHandler(HandlerBase):
                         raise VmHandlerException(f"Missing config parameters playbook: {playbook} "
                                                  f"playbook_path: {playbook_path} inventory_path: {inventory_path}")
                     full_playbook_path = f"{playbook_path}/{playbook}"
+                    self.logger.debug(f"Attaching/Detaching Devices {full_playbook_path}")
                     self.__attach_detach_pci(playbook_path=full_playbook_path, inventory_path=inventory_path,
                                              instance_name=instance_name, host=worker_node,
-                                             device_name=str(unit.get_reservation_id()),
+                                             device_name=self.thread_id,
                                              pci_devices=device.label_allocations.bdf)
 
         except Exception as e:
+            self.logger.error(e)
+            self.logger.error(traceback.format_exc())
             if sliver is not None and sliver.attached_components_info is not None and inventory_path is not None and \
                     playbook_path is not None:
                 for device in sliver.attached_components_info.devices.values():
@@ -232,17 +238,16 @@ class VMHandler(HandlerBase):
                         raise VmHandlerException(f"Missing config parameters playbook: {playbook} "
                                                  f"playbook_path: {playbook_path} inventory_path: {inventory_path}")
                     full_playbook_path = f"{playbook_path}/{playbook}"
+                    self.logger.debug(f"Detaching Devices {full_playbook_path}")
                     self.__attach_detach_pci(playbook_path=full_playbook_path, inventory_path=inventory_path,
                                              instance_name=instance_name, host=worker_node,
-                                             device_name=str(unit.get_reservation_id()),
+                                             device_name=self.thread_id,
                                              pci_devices=device.label_allocations.bdf, attach=False)
 
             result = {Constants.PROPERTY_TARGET_NAME: Constants.TARGET_MODIFY,
                       Constants.PROPERTY_TARGET_RESULT_CODE: Constants.RESULT_CODE_EXCEPTION,
                       Constants.PROPERTY_ACTION_SEQUENCE_NUMBER: 0,
                       Constants.PROPERTY_EXCEPTION_MESSAGE: e}
-            self.logger.error(e)
-            self.logger.error(traceback.format_exc())
         finally:
 
             self.logger.info(f"Modify completed")
@@ -368,37 +373,42 @@ class VMHandler(HandlerBase):
         :param attach: True for attach and False for detach
         :return:
         """
-        pci_device_list = None
-        if isinstance(pci_devices, str):
-            pci_device_list = [pci_devices]
-        else:
-            pci_device_list = pci_devices
+        self.logger.debug("__attach_detach_pci IN")
+        try:
+            pci_device_list = None
+            if isinstance(pci_devices, str):
+                pci_device_list = [pci_devices]
+            else:
+                pci_device_list = pci_devices
 
-        hostname_suffix = self.config[AmConstants.PLAYBOOK_SECTION][AmConstants.PB_HOSTNAME_SUFFIX]
-        worker_node = f"{host}{hostname_suffix}"
+            hostname_suffix = self.config[AmConstants.PLAYBOOK_SECTION][AmConstants.PB_HOSTNAME_SUFFIX]
+            worker_node = f"{host}{hostname_suffix}"
 
-        extra_vars = {AmConstants.WORKER_NODE_NAME: worker_node,
-                      AmConstants.PCI_PROV_DEVICE: device_name}
-        if attach:
-            extra_vars[AmConstants.PCI_OPERATION] = AmConstants.PCI_PROV_ATTACH
-        else:
-            extra_vars[AmConstants.PCI_OPERATION] = AmConstants.PCI_PROV_DETACH
+            extra_vars = {AmConstants.WORKER_NODE_NAME: worker_node,
+                          AmConstants.PCI_PROV_DEVICE: device_name}
+            if attach:
+                extra_vars[AmConstants.PCI_OPERATION] = AmConstants.PCI_PROV_ATTACH
+            else:
+                extra_vars[AmConstants.PCI_OPERATION] = AmConstants.PCI_PROV_DETACH
 
-        for device in pci_device_list:
-            ansible_helper = AnsibleHelper(inventory_path=inventory_path, logger=self.logger)
-            ansible_helper.set_extra_vars(extra_vars=extra_vars)
+            self.logger.debug(f"Device List Size: {len(pci_device_list)} List: {pci_device_list}")
+            for device in pci_device_list:
+                ansible_helper = AnsibleHelper(inventory_path=inventory_path, logger=self.logger)
+                ansible_helper.set_extra_vars(extra_vars=extra_vars)
 
-            device_char_arr = self.__extract_device_addr_octets(device_address=device)
-            ansible_helper.add_vars(host=worker_node, var_name=AmConstants.KVM_GUEST_NAME, value=instance_name)
-            ansible_helper.add_vars(host=worker_node, var_name=AmConstants.PCI_DOMAIN, value=device_char_arr[0])
-            ansible_helper.add_vars(host=worker_node, var_name=AmConstants.PCI_BUS, value=device_char_arr[1])
-            ansible_helper.add_vars(host=worker_node, var_name=AmConstants.PCI_SLOT, value=device_char_arr[2])
-            ansible_helper.add_vars(host=worker_node, var_name=AmConstants.PCI_FUNCTION, value=device_char_arr[3])
+                device_char_arr = self.__extract_device_addr_octets(device_address=device)
+                ansible_helper.add_vars(host=worker_node, var_name=AmConstants.KVM_GUEST_NAME, value=instance_name)
+                ansible_helper.add_vars(host=worker_node, var_name=AmConstants.PCI_DOMAIN, value=device_char_arr[0])
+                ansible_helper.add_vars(host=worker_node, var_name=AmConstants.PCI_BUS, value=device_char_arr[1])
+                ansible_helper.add_vars(host=worker_node, var_name=AmConstants.PCI_SLOT, value=device_char_arr[2])
+                ansible_helper.add_vars(host=worker_node, var_name=AmConstants.PCI_FUNCTION, value=device_char_arr[3])
 
-            self.logger.debug(f"Executing playbook {playbook_path} to attach({attach})/detach({attach}) PCI device "
-                              f"({device})")
+                self.logger.debug(f"Executing playbook {playbook_path} to attach({attach})/detach({not attach}) PCI device "
+                                  f"({device})")
 
-            ansible_helper.run_playbook(playbook_path=playbook_path)
+                ansible_helper.run_playbook(playbook_path=playbook_path)
+        finally:
+            self.logger.debug("__attach_detach_pci OUT")
 
     def __cleanup(self, *, sliver: NodeSliver, unit_id: str, raise_exception: bool = False):
         """
@@ -431,9 +441,10 @@ class VMHandler(HandlerBase):
 
                         if device.label_allocations.bdf is None:
                             raise VmHandlerException(f"Missing required parameters bdf: {device.label_allocations.bdf}")
+                        self.logger.debug(f"Attaching/Detaching Devices {full_playbook_path}")
                         self.__attach_detach_pci(playbook_path=full_playbook_path, inventory_path=inventory_path,
                                                  instance_name=instance_name, host=worker_node,
-                                                 device_name=unit_id,
+                                                 device_name=self.thread_id,
                                                  pci_devices=device.label_allocations.bdf,
                                                  attach=False)
                     except Exception as e:
