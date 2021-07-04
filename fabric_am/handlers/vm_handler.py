@@ -270,8 +270,7 @@ class VMHandler(HandlerBase):
         ansible_helper = AnsibleHelper(inventory_path=inventory_path, logger=self.logger)
         vm_name_combined = f"{unit_id}-{vm_name}"
 
-        hostname_suffix = self.config[AmConstants.PLAYBOOK_SECTION][AmConstants.PB_HOSTNAME_SUFFIX]
-        avail_zone = f"nova:{worker_node}{hostname_suffix}"
+        avail_zone = f"nova:{worker_node}"
 
         default_user = self.__get_default_user(image=image)
 
