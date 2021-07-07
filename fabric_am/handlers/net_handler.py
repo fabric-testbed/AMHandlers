@@ -101,9 +101,9 @@ class NetHandler(HandlerBase):
             service_type = resource_type.lower()
             if service_type == 'l2bridge':
                 service_data = self.__l2bridge_create_data(sliver, service_name)
-            if service_type == 'l2ptp':
+            elif service_type == 'l2ptp':
                 service_data = self.__l2ptp_create_data(sliver, service_name)
-            if service_type == 'l2sts':
+            elif service_type == 'l2sts':
                 service_data = self.__l2sts_create_data(sliver, service_name)
             else:
                 raise NetHandlerException(f'unrecognized network service type "{service_type}"')
