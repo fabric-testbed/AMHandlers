@@ -259,9 +259,9 @@ class NetHandler(HandlerBase):
                 if labs.inner_vlan is not None:
                     interface['innervlan'] = labs.inner_vlan
             if caps.bw is not None and caps.bw != 0:
-                interface['bandwidth'] = caps.bw
+                interface['bandwidth'] = caps.bw * 1000000000
                 if caps.burst_size is not None and caps.burst_size != 0:
-                    interface['burst-size'] = caps.burst_size
+                    interface['burst-size'] = caps.burst_size * 1000000
             interfaces.append(interface)
         if not interfaces:
             raise NetHandlerException(f'l2bridge - none valid interface is defined in sliver')
@@ -295,9 +295,9 @@ class NetHandler(HandlerBase):
             if labs.inner_vlan is not None:
                 interface['innervlan'] = labs.inner_vlan
             if caps.bw is not None and caps.bw != 0:
-                interface['bandwidth'] = caps.bw
+                interface['bandwidth'] = caps.bw * 1000000000
                 if caps.burst_size is not None and caps.burst_size != 0:
-                    interface['burst-size'] = caps.burst_size
+                    interface['burst-size'] = caps.burst_size * 1000000
             stp['interface'] = interface
             stp_list.append(stp)
 
@@ -357,9 +357,9 @@ class NetHandler(HandlerBase):
                 if labs.inner_vlan is not None:
                     interface['innervlan'] = labs.inner_vlan
             if caps.bw is not None and caps.bw != 0:
-                interface['bandwidth'] = caps.bw
+                interface['bandwidth'] = caps.bw * 1000000000
                 if caps.burst_size is not None and caps.burst_size != 0:
-                    interface['burst-size'] = caps.burst_size
+                    interface['burst-size'] = caps.burst_size * 1000000
 
             if not site_a:
                 site_a['device'] = labs.device_name
