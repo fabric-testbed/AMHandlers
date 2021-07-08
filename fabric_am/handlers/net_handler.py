@@ -258,7 +258,7 @@ class NetHandler(HandlerBase):
                 interface['outervlan'] = labs.vlan
                 if labs.inner_vlan is not None:
                     interface['innervlan'] = labs.inner_vlan
-            if caps.bw is not None and caps.bw != 0:
+            if caps is not None and caps.bw is not None and caps.bw != 0:
                 interface['bandwidth'] = caps.bw * 1000000000
                 if caps.burst_size is not None and caps.burst_size != 0:
                     interface['burst-size'] = caps.burst_size * 1000000
@@ -294,7 +294,7 @@ class NetHandler(HandlerBase):
             interface['outervlan'] = labs.vlan
             if labs.inner_vlan is not None:
                 interface['innervlan'] = labs.inner_vlan
-            if caps.bw is not None and caps.bw != 0:
+            if caps is not None and caps.bw is not None and caps.bw != 0:
                 interface['bandwidth'] = caps.bw * 1000000000
                 if caps.burst_size is not None and caps.burst_size != 0:
                     interface['burst-size'] = caps.burst_size * 1000000
@@ -356,7 +356,7 @@ class NetHandler(HandlerBase):
                 interface['outervlan'] = labs.vlan
                 if labs.inner_vlan is not None:
                     interface['innervlan'] = labs.inner_vlan
-            if caps.bw is not None and caps.bw != 0:
+            if caps is not None and caps.bw is not None and caps.bw != 0:
                 interface['bandwidth'] = caps.bw * 1000000000
                 if caps.burst_size is not None and caps.burst_size != 0:
                     interface['burst-size'] = caps.burst_size * 1000000
