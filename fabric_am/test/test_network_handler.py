@@ -61,7 +61,7 @@ class TestNetHandler(unittest.TestCase):
         #
         sliver = NetworkServiceSliver()
         # service name (set by user) - only guaranteed unique within a slice
-        sliver.set_name('L2BridgeServiceTest')
+        sliver.set_name('L2-UKY-BareMetal')
         # if service name global uniqueness is a requirement use Labels.local_name for that (optional)
         # e.g. concatenate name + res id (or another unique id)
         # sliver.set_labels(Labels().set_fields(local_name='test-l2bridge-shortname'))
@@ -112,17 +112,17 @@ class TestNetHandler(unittest.TestCase):
         # sl1labs.set_fields(inner_vlan='3')
 
         # vlan - source: (c)
-        sliver_labels.set_fields(vlan='300')
+        sliver_labels.set_fields(vlan='11')
 
         # local_name source: (a)
-        sliver_labels.set_fields(local_name='HundredGigE0/0/0/15')
+        sliver_labels.set_fields(local_name='HundredGigE0/0/0/17')
 
         # NSO device name source: (a) - need to find the owner switch of the network service in CBM
         # and take its .name or labels.local_name
         sliver_labels.set_fields(device_name='uky-data-sw')
 
-        # capacities (bw in Gbps, burst size is in Mbits) source: (b)
-        sliver_capacities.set_fields(bw=1000)
+        # capacities (bw in Gbps, burst size is in Mbytes) source: (b)
+        sliver_capacities.set_fields(bw=1)
 
         # assign labels and capacities
         isl1.set_labels(sliver_labels)
@@ -138,11 +138,11 @@ class TestNetHandler(unittest.TestCase):
         sliver_labels = Labels()
         sliver_capacities = Capacities()
 
-        # sliver_labels.set_fields(vlan='2')
-        sliver_labels.set_fields(local_name='HundredGigE0/0/0/19')
+        sliver_labels.set_fields(vlan='11')
+        sliver_labels.set_fields(local_name='TwentyFiveGigE0/0/0/23/1')
         sliver_labels.set_fields(device_name='uky-data-sw')
 
-        sliver_capacities.set_fields(bw=1000)
+        sliver_capacities.set_fields(bw=1)
 
         isl2.set_labels(sliver_labels)
         isl2.set_capacities(sliver_capacities)
