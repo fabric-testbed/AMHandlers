@@ -254,10 +254,12 @@ class NetHandler(HandlerBase):
                 raise NetHandlerException(f'l2bridge - interface "{interface_name}" has malformed "local_name" label')
             interface['type'] = interface_type_id[0][0]
             interface['id'] = interface_type_id[0][1]
-            if labs.vlan is not None:
+            if labs.vlan is None:
+                interface['outervlan'] = 0
+            else:
                 interface['outervlan'] = labs.vlan
-                if labs.inner_vlan is not None:
-                    interface['innervlan'] = labs.inner_vlan
+            if int(interface['outervlan']) > 0 and labs.inner_vlan is not None:
+                interface['innervlan'] = labs.inner_vlan
             if caps is not None and caps.bw is not None and caps.bw != 0:
                 interface['bandwidth'] = caps.bw # default unit = gbps
                 if caps.burst_size is not None and caps.burst_size != 0:
@@ -289,11 +291,12 @@ class NetHandler(HandlerBase):
                 raise NetHandlerException(f'l2ptp - interface "{interface_name}" has malformed "local_name" label')
             interface['type'] = interface_type_id[0][0]
             interface['id'] = interface_type_id[0][1]
-            if labs.vlan is None:
-                raise NetHandlerException(f'l2ptp - interface "{interface_name}" must have vlan label')
+            if labs.vlan is None or labs.vlan == 0:
+                raise NetHandlerException(f'l2ptp - interface "{interface_name}" must be tagged (with vlan label in 1..4095)')
             interface['outervlan'] = labs.vlan
             if labs.inner_vlan is not None:
                 interface['innervlan'] = labs.inner_vlan
+
             if caps is not None and caps.bw is not None and caps.bw != 0:
                 interface['bandwidth'] = caps.bw
                 if caps.burst_size is not None and caps.burst_size != 0:
@@ -352,10 +355,13 @@ class NetHandler(HandlerBase):
                 raise NetHandlerException(f'l2sts - interface "{interface_name}" has malformed "local_name" label')
             interface['type'] = interface_type_id[0][0]
             interface['id'] = interface_type_id[0][1]
-            if labs.vlan is not None:
+            if labs.vlan is None:
+                interface['outervlan'] = 0
+            else:
                 interface['outervlan'] = labs.vlan
-                if labs.inner_vlan is not None:
-                    interface['innervlan'] = labs.inner_vlan
+            if int(interface['outervlan']) > 0 and labs.inner_vlan is not None:
+                interface['innervlan'] = labs.inner_vlan
+
             if caps is not None and caps.bw is not None and caps.bw != 0:
                 interface['bandwidth'] = caps.bw
                 if caps.burst_size is not None and caps.burst_size != 0:
