@@ -59,7 +59,6 @@ class VMHandler(HandlerBase):
             return
 
         self.config = self.load_config(path=config_properties_file)
-        self.thread_id = str(threading.get_ident())
 
     def create(self, unit: ConfigToken) -> Tuple[dict, ConfigToken]:
         """
@@ -127,7 +126,7 @@ class VMHandler(HandlerBase):
                     self.logger.debug(f"Attaching Devices {playbook_path_full}")
                     self.__attach_detach_pci(playbook_path=playbook_path_full, inventory_path=inventory_path,
                                              host=worker_node, instance_name=sliver.label_allocations.instance,
-                                             device_name=self.thread_id,
+                                             device_name=str(unit.get_id()),
                                              pci_devices=component.label_allocations.bdf)
 
             sliver.management_ip = fip_props.get(AmConstants.FLOATING_IP, None)
@@ -223,7 +222,7 @@ class VMHandler(HandlerBase):
                     self.logger.debug(f"Attaching/Detaching Devices {full_playbook_path}")
                     self.__attach_detach_pci(playbook_path=full_playbook_path, inventory_path=inventory_path,
                                              instance_name=instance_name, host=worker_node,
-                                             device_name=self.thread_id,
+                                             device_name=str(unit.get_id()),
                                              pci_devices=device.label_allocations.bdf)
 
         except Exception as e:
@@ -241,7 +240,7 @@ class VMHandler(HandlerBase):
                     self.logger.debug(f"Detaching Devices {full_playbook_path}")
                     self.__attach_detach_pci(playbook_path=full_playbook_path, inventory_path=inventory_path,
                                              instance_name=instance_name, host=worker_node,
-                                             device_name=self.thread_id,
+                                             device_name=str(unit.get_id()),
                                              pci_devices=device.label_allocations.bdf, attach=False)
 
             result = {Constants.PROPERTY_TARGET_NAME: Constants.TARGET_MODIFY,
@@ -270,8 +269,7 @@ class VMHandler(HandlerBase):
         ansible_helper = AnsibleHelper(inventory_path=inventory_path, logger=self.logger)
         vm_name_combined = f"{unit_id}-{vm_name}"
 
-        hostname_suffix = self.config[AmConstants.PLAYBOOK_SECTION][AmConstants.PB_HOSTNAME_SUFFIX]
-        avail_zone = f"nova:{worker_node}{hostname_suffix}"
+        avail_zone = f"nova:{worker_node}"
 
         default_user = self.__get_default_user(image=image)
 
@@ -381,8 +379,7 @@ class VMHandler(HandlerBase):
             else:
                 pci_device_list = pci_devices
 
-            hostname_suffix = self.config[AmConstants.PLAYBOOK_SECTION][AmConstants.PB_HOSTNAME_SUFFIX]
-            worker_node = f"{host}{hostname_suffix}"
+            worker_node = host
 
             extra_vars = {AmConstants.WORKER_NODE_NAME: worker_node,
                           AmConstants.PCI_PROV_DEVICE: device_name}
@@ -444,7 +441,7 @@ class VMHandler(HandlerBase):
                         self.logger.debug(f"Attaching/Detaching Devices {full_playbook_path}")
                         self.__attach_detach_pci(playbook_path=full_playbook_path, inventory_path=inventory_path,
                                                  instance_name=instance_name, host=worker_node,
-                                                 device_name=self.thread_id,
+                                                 device_name=unit_id,
                                                  pci_devices=device.label_allocations.bdf,
                                                  attach=False)
                     except Exception as e:
