@@ -36,11 +36,9 @@ from fabric_am.handlers.vm_handler import VMHandler
 from fabric_am.util.am_constants import AmConstants
 
 
-
 class TestPlaybooks:
-    logger = logging.getLogger(__name__)
-    logging.basicConfig(level=logging.DEBUG, format="%(asctime)s [%(filename)s:%(lineno)d] [%(levelname)s] %(message)s",
-                        handlers=[logging.StreamHandler()])
+    log_config = {"log-directory": ".", "log-file": "handler.log","log-level": "DEBUG","log-retain": 5,
+                  "log-size": 5000000, "logger": __name__}
 
     @staticmethod
     def create_unit(include_pci: bool = True, include_image: bool = True, include_name: bool = True,
@@ -96,7 +94,7 @@ class TestPlaybooks:
         u = self.create_unit()
 
         prop = {AmConstants.CONFIG_PROPERTIES_FILE: 'fabric_am/config/vm_handler_config.yml'}
-        handler = VMHandler(logger=self.logger, properties=prop)
+        handler = VMHandler(log_config=self.log_config, properties=prop)
 
         r, u = handler.create(unit=u)
         print(r)
@@ -111,7 +109,7 @@ class TestPlaybooks:
         u = self.create_unit(include_pci=False)
 
         prop = {AmConstants.CONFIG_PROPERTIES_FILE: 'fabric_am/config/vm_handler_config.yml'}
-        handler = VMHandler(logger=self.logger, properties=prop)
+        handler = VMHandler(log_config=self.log_config, properties=prop)
 
         r, u = handler.create(unit=u)
         print(r)
@@ -126,7 +124,7 @@ class TestPlaybooks:
             u = self.create_unit(include_instance_name=True, include_name=True)
 
         prop = {AmConstants.CONFIG_PROPERTIES_FILE: 'fabric_am/config/vm_handler_config.yml'}
-        handler = VMHandler(logger=self.logger, properties=prop)
+        handler = VMHandler(log_config=self.log_config, properties=prop)
 
         r, u = handler.delete(unit=u)
         print(r)
@@ -140,7 +138,7 @@ class TestPlaybooks:
         u = self.create_unit(include_pci=False)
 
         prop = {AmConstants.CONFIG_PROPERTIES_FILE: 'fabric_am/config/vm_handler_config.yml'}
-        handler = VMHandler(logger=self.logger, properties=prop)
+        handler = VMHandler(log_config=self.log_config, properties=prop)
 
         r, u = handler.delete(unit=u)
         print(r)

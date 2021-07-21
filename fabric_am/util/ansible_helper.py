@@ -210,6 +210,7 @@ class AnsibleHelper:
             self.results_callback.dump_all_failed(logger=self.logger)
             self.logger.debug("Unreachable:")
             self.results_callback.dump_all_unreachable(logger=self.logger)
+            pbex._tqm.cleanup()
             if self.loader is not None:
                 self.loader.cleanup_all_tmp_files()
 
