@@ -39,9 +39,8 @@ from fabric_am.util.am_constants import AmConstants
 
 
 class TestVmHandler(unittest.TestCase):
-    logger = logging.getLogger(__name__)
-    logging.basicConfig(level=logging.DEBUG, format="%(asctime)s [%(filename)s:%(lineno)d] [%(levelname)s] %(message)s",
-                        handlers=[logging.StreamHandler()])
+    log_config = {"log-directory": ".", "log-file": "handler.log", "log-level": "DEBUG", "log-retain": 5,
+                  "log-size": 5000000, "logger": __name__}
 
     @staticmethod
     def create_unit(include_pci: bool = True, include_image: bool = True, include_name: bool = True,
@@ -95,7 +94,7 @@ class TestVmHandler(unittest.TestCase):
         u = self.create_unit()
 
         prop = {AmConstants.CONFIG_PROPERTIES_FILE: 'config/vm_handler_config.yml'}
-        handler = VMHandler(logger=self.logger, properties=prop)
+        handler = VMHandler(log_config=self.log_config, properties=prop)
 
         r, u = handler.create(unit=u)
         self.assertEqual(r[Constants.PROPERTY_TARGET_NAME], Constants.TARGET_CREATE)
@@ -112,7 +111,7 @@ class TestVmHandler(unittest.TestCase):
         u = self.create_unit(include_pci=False)
 
         prop = {AmConstants.CONFIG_PROPERTIES_FILE: 'config/vm_handler_config.yml'}
-        handler = VMHandler(logger=self.logger, properties=prop)
+        handler = VMHandler(log_config=self.log_config, properties=prop)
 
         r, u = handler.create(unit=u)
         self.assertEqual(r[Constants.PROPERTY_TARGET_NAME], Constants.TARGET_CREATE)
@@ -129,7 +128,7 @@ class TestVmHandler(unittest.TestCase):
         u = self.create_unit(include_image=False)
 
         prop = {AmConstants.CONFIG_PROPERTIES_FILE: 'config/vm_handler_config.yml'}
-        handler = VMHandler(logger=self.logger, properties=prop)
+        handler = VMHandler(log_config=self.log_config, properties=prop)
 
         r, u = handler.create(unit=u)
         self.assertEqual(r[Constants.PROPERTY_TARGET_NAME], Constants.TARGET_CREATE)
@@ -146,7 +145,7 @@ class TestVmHandler(unittest.TestCase):
         u = self.create_unit()
 
         prop = {}
-        handler = VMHandler(logger=self.logger, properties=prop)
+        handler = VMHandler(log_config=self.log_config, properties=prop)
 
         r, u = handler.create(unit=u)
         self.assertEqual(r[Constants.PROPERTY_TARGET_NAME], Constants.TARGET_CREATE)
@@ -163,7 +162,7 @@ class TestVmHandler(unittest.TestCase):
         u = self.create_unit(include_instance_name=True, include_name=True)
 
         prop = {AmConstants.CONFIG_PROPERTIES_FILE: 'config/vm_handler_config.yml'}
-        handler = VMHandler(logger=self.logger, properties=prop)
+        handler = VMHandler(log_config=self.log_config, properties=prop)
 
         r, u = handler.delete(unit=u)
         self.assertEqual(r[Constants.PROPERTY_TARGET_NAME], Constants.TARGET_DELETE)
@@ -178,7 +177,7 @@ class TestVmHandler(unittest.TestCase):
         u = self.create_unit(include_pci=False)
 
         prop = {AmConstants.CONFIG_PROPERTIES_FILE: 'config/vm_handler_config.yml'}
-        handler = VMHandler(logger=self.logger, properties=prop)
+        handler = VMHandler(log_config=self.log_config, properties=prop)
 
         r, u = handler.delete(unit=u)
         self.assertEqual(r[Constants.PROPERTY_TARGET_NAME], Constants.TARGET_DELETE)
@@ -193,7 +192,7 @@ class TestVmHandler(unittest.TestCase):
         u = self.create_unit()
 
         prop = {}
-        handler = VMHandler(logger=self.logger, properties=prop)
+        handler = VMHandler(log_config=self.log_config, properties=prop)
 
         r, u = handler.delete(unit=u)
         self.assertEqual(r[Constants.PROPERTY_TARGET_NAME], Constants.TARGET_DELETE)
@@ -208,7 +207,7 @@ class TestVmHandler(unittest.TestCase):
         u = self.create_unit(include_name=False)
 
         prop = {AmConstants.CONFIG_PROPERTIES_FILE: 'config/vm_handler_config.yml'}
-        handler = VMHandler(logger=self.logger, properties=prop)
+        handler = VMHandler(log_config=self.log_config, properties=prop)
 
         r, u = handler.delete(unit=u)
         self.assertEqual(r[Constants.PROPERTY_TARGET_NAME], Constants.TARGET_DELETE)
@@ -223,7 +222,7 @@ class TestVmHandler(unittest.TestCase):
         u = self.create_unit()
 
         prop = {AmConstants.CONFIG_PROPERTIES_FILE: 'config/vm_handler_config.yml'}
-        handler = VMHandler(logger=self.logger, properties=prop)
+        handler = VMHandler(log_config=self.log_config, properties=prop)
 
         r, u = handler.modify(unit=u)
         self.assertEqual(r[Constants.PROPERTY_TARGET_NAME], Constants.TARGET_MODIFY)
@@ -238,7 +237,7 @@ class TestVmHandler(unittest.TestCase):
         u = self.create_unit()
 
         prop = {}
-        handler = VMHandler(logger=self.logger, properties=prop)
+        handler = VMHandler(log_config=self.log_config, properties=prop)
 
         r, u = handler.modify(unit=u)
         self.assertEqual(r[Constants.PROPERTY_TARGET_NAME], Constants.TARGET_MODIFY)
@@ -254,7 +253,7 @@ class TestVmHandler(unittest.TestCase):
         u = self.create_unit(include_instance_name=True)
 
         prop = {AmConstants.CONFIG_PROPERTIES_FILE: 'config/vm_handler_config.yml'}
-        handler = VMHandler(logger=self.logger, properties=prop)
+        handler = VMHandler(log_config=self.log_config, properties=prop)
 
         r, u = handler.modify(unit=u)
         self.assertEqual(r[Constants.PROPERTY_TARGET_NAME], Constants.TARGET_MODIFY)
