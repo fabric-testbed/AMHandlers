@@ -81,10 +81,10 @@ class VMHandler(HandlerBase):
                                          f"flavor: {flavor}: vmname: {vmname} image: {image}")
 
             resource_type = str(sliver.get_type())
-            playbook_path = self.config[AmConstants.PLAYBOOK_SECTION][AmConstants.PB_LOCATION]
-            inventory_path = self.config[AmConstants.PLAYBOOK_SECTION][AmConstants.PB_INVENTORY]
+            playbook_path = self.get_config()[AmConstants.PLAYBOOK_SECTION][AmConstants.PB_LOCATION]
+            inventory_path = self.get_config()[AmConstants.PLAYBOOK_SECTION][AmConstants.PB_INVENTORY]
 
-            playbook = self.config[AmConstants.PLAYBOOK_SECTION][resource_type]
+            playbook = self.get_config()[AmConstants.PLAYBOOK_SECTION][resource_type]
             if playbook is None or inventory_path is None or playbook_path is None:
                 raise VmHandlerException(f"Missing config parameters playbook: {playbook} "
                                          f"playbook_path: {playbook_path} inventory_path: {inventory_path}")
@@ -105,7 +105,7 @@ class VMHandler(HandlerBase):
             if sliver.attached_components_info is not None:
                 for component in sliver.attached_components_info.devices.values():
                     resource_type = str(component.get_type())
-                    playbook = self.config[AmConstants.PLAYBOOK_SECTION][resource_type]
+                    playbook = self.get_config()[AmConstants.PLAYBOOK_SECTION][resource_type]
                     if playbook is None:
                         raise VmHandlerException(f"Missing parameters playbook: {playbook} "
                                                  f"resource_type: {resource_type} component: {component} "
@@ -196,13 +196,13 @@ class VMHandler(HandlerBase):
                 raise VmHandlerException(f"Missing required parameters workernode: {worker_node} "
                                          f"vmname: {vmname} instance_name: {instance_name}")
 
-            playbook_path = self.config[AmConstants.PLAYBOOK_SECTION][AmConstants.PB_LOCATION]
-            inventory_path = self.config[AmConstants.PLAYBOOK_SECTION][AmConstants.PB_INVENTORY]
+            playbook_path = self.get_config()[AmConstants.PLAYBOOK_SECTION][AmConstants.PB_LOCATION]
+            inventory_path = self.get_config()[AmConstants.PLAYBOOK_SECTION][AmConstants.PB_INVENTORY]
 
             if sliver.attached_components_info is not None:
                 for device in sliver.attached_components_info.devices.values():
                     resource_type = str(device.get_type())
-                    playbook = self.config[AmConstants.PLAYBOOK_SECTION][resource_type]
+                    playbook = self.get_config()[AmConstants.PLAYBOOK_SECTION][resource_type]
                     if playbook is None or inventory_path is None:
                         raise VmHandlerException(f"Missing config parameters playbook: {playbook} "
                                                  f"playbook_path: {playbook_path} inventory_path: {inventory_path}")
@@ -220,7 +220,7 @@ class VMHandler(HandlerBase):
                     playbook_path is not None:
                 for device in sliver.attached_components_info.devices.values():
                     resource_type = str(device.get_type())
-                    playbook = self.config[AmConstants.PLAYBOOK_SECTION][resource_type]
+                    playbook = self.get_config()[AmConstants.PLAYBOOK_SECTION][resource_type]
                     if playbook is None or inventory_path is None:
                         raise VmHandlerException(f"Missing config parameters playbook: {playbook} "
                                                  f"playbook_path: {playbook_path} inventory_path: {inventory_path}")
@@ -404,8 +404,8 @@ class VMHandler(HandlerBase):
         :return:
         """
         try:
-            playbook_path = self.config[AmConstants.PLAYBOOK_SECTION][AmConstants.PB_LOCATION]
-            inventory_path = self.config[AmConstants.PLAYBOOK_SECTION][AmConstants.PB_INVENTORY]
+            playbook_path = self.get_config()[AmConstants.PLAYBOOK_SECTION][AmConstants.PB_LOCATION]
+            inventory_path = self.get_config()[AmConstants.PLAYBOOK_SECTION][AmConstants.PB_INVENTORY]
 
             worker_node = sliver.label_allocations.instance_parent
             instance_name = sliver.label_allocations.instance
@@ -418,7 +418,7 @@ class VMHandler(HandlerBase):
                 for device in sliver.attached_components_info.devices.values():
                     try:
                         resource_type = str(device.get_type())
-                        playbook = self.config[AmConstants.PLAYBOOK_SECTION][resource_type]
+                        playbook = self.get_config()[AmConstants.PLAYBOOK_SECTION][resource_type]
                         if playbook is None or inventory_path is None:
                             raise VmHandlerException(f"Missing config parameters playbook: {playbook} "
                                                      f"playbook_path: {playbook_path} inventory_path: {inventory_path}")
@@ -438,7 +438,7 @@ class VMHandler(HandlerBase):
                             raise e
 
             resource_type = str(sliver.get_type())
-            playbook = self.config[AmConstants.PLAYBOOK_SECTION][resource_type]
+            playbook = self.get_config()[AmConstants.PLAYBOOK_SECTION][resource_type]
             full_playbook_path = f"{playbook_path}/{playbook}"
 
             if sliver.get_name() is None:
