@@ -1,10 +1,10 @@
 # coding: utf-8
 
 from setuptools import setup, find_packages
-
+from fabric_am import __VERSION__
 
 NAME = "fabric-am-handlers"
-VERSION = "0.10"
+VERSION = __VERSION__
 # To install the library, run the following
 #
 # python setup.py install

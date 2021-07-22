@@ -2,7 +2,7 @@
 # /tasks/main.yml
 #
 
-- name: Create entry to add/delete device
+- name: Create file to add device
   template:
     src: device.j2
     dest: /tmp/{{ device }}.yml
@@ -17,4 +17,9 @@
   ansible.builtin.shell: 
     virsh detach-device {{ kvmguest_name }} /tmp/{{ device }}.yml --live
   when: pci_prov_op == 'detach'
+
+- name: Delete file
+  file:
+    path: /tmp/{{ device }}.yml
+    state: absent
 

@@ -24,25 +24,21 @@
 #
 # Author: Komal Thareja (kthare10@renci.org)
 import logging
-import unittest
 
-from fabric_cf.actor.core.common.constants import Constants
 from fabric_cf.actor.core.core.unit import Unit
 from fabric_cf.actor.core.util.id import ID
+from fim.slivers import InstanceCatalog
 from fim.slivers.attached_components import ComponentSliver, ComponentType, AttachedComponentsInfo
-from fim.slivers.capacities_labels import Capacities, Labels
+from fim.slivers.capacities_labels import Capacities, Labels, CapacityHints
 from fim.slivers.network_node import NodeSliver, NodeType
 
 from fabric_am.handlers.vm_handler import VMHandler
 from fabric_am.util.am_constants import AmConstants
 
-import pickle
-
 
 class TestPlaybooks:
-    logger = logging.getLogger(__name__)
-    logging.basicConfig(level=logging.DEBUG, format="%(asctime)s [%(filename)s:%(lineno)d] [%(levelname)s] %(message)s",
-                        handlers=[logging.StreamHandler()])
+    log_config = {"log-directory": ".", "log-file": "handler.log","log-level": "DEBUG","log-retain": 5,
+                  "log-size": 5000000, "logger": __name__}
 
     @staticmethod
     def create_unit(include_pci: bool = True, include_image: bool = True, include_name: bool = True,
@@ -55,12 +51,17 @@ class TestPlaybooks:
         :param include_instance_name:
         :return:
         """
-        u = Unit(uid=ID(uid='fc820986-d5eb-4177-92b2-907e9e617820'), rid=ID(uid='rid-1'))
+        u = Unit(rid=ID(uid='rid-1'))
         sliver = NodeSliver()
         cap = Capacities()
         cap.set_fields(core=4, ram=64, disk=500)
         sliver.set_properties(type=NodeType.VM, site="RENC", capacity_allocations=cap)
         sliver.label_allocations = Labels().set_fields(instance_parent="renc-w1")
+        catalog = InstanceCatalog()
+        instance_type = catalog.map_capacities_to_instance(cap=cap)
+        cap_hints = CapacityHints().set_fields(instance_type=instance_type)
+        sliver.set_properties(capacity_hints=cap_hints,
+                              capacity_allocations=catalog.get_instance_capacities(instance_type=instance_type))
 
         if include_name:
             sliver.set_properties(name="n2")
@@ -93,7 +94,7 @@ class TestPlaybooks:
         u = self.create_unit()
 
         prop = {AmConstants.CONFIG_PROPERTIES_FILE: 'fabric_am/config/vm_handler_config.yml'}
-        handler = VMHandler(logger=self.logger, properties=prop)
+        handler = VMHandler(log_config=self.log_config, properties=prop)
 
         r, u = handler.create(unit=u)
         print(r)
@@ -108,7 +109,7 @@ class TestPlaybooks:
         u = self.create_unit(include_pci=False)
 
         prop = {AmConstants.CONFIG_PROPERTIES_FILE: 'fabric_am/config/vm_handler_config.yml'}
-        handler = VMHandler(logger=self.logger, properties=prop)
+        handler = VMHandler(log_config=self.log_config, properties=prop)
 
         r, u = handler.create(unit=u)
         print(r)
@@ -123,7 +124,7 @@ class TestPlaybooks:
             u = self.create_unit(include_instance_name=True, include_name=True)
 
         prop = {AmConstants.CONFIG_PROPERTIES_FILE: 'fabric_am/config/vm_handler_config.yml'}
-        handler = VMHandler(logger=self.logger, properties=prop)
+        handler = VMHandler(log_config=self.log_config, properties=prop)
 
         r, u = handler.delete(unit=u)
         print(r)
@@ -137,7 +138,7 @@ class TestPlaybooks:
         u = self.create_unit(include_pci=False)
 
         prop = {AmConstants.CONFIG_PROPERTIES_FILE: 'fabric_am/config/vm_handler_config.yml'}
-        handler = VMHandler(logger=self.logger, properties=prop)
+        handler = VMHandler(log_config=self.log_config, properties=prop)
 
         r, u = handler.delete(unit=u)
         print(r)
