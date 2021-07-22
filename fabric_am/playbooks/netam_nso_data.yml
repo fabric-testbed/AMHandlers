@@ -1,0 +1,51 @@
+- name: Configure device
+  hosts:
+    - fabric_site_nso
+  connection: local
+  gather_facts: no
+
+  vars:
+    service: "{{service_type}}"
+    operation: "{{service_action}}"
+
+  tasks:
+  - name: Create idipa service
+    nso_config:
+      url: "{{ url }}"
+      username: "{{ username }}"
+      password: "{{ password }}"
+      data:
+        tailf-ncs:services:
+          idipa:idipa:
+          - name: "{{ service_name }}"
+            group:
+              service: "{{ service }}"
+    when: (service == 'l2ptp' or service == 'l2sts') and operation == 'create'
+
+  - name: Create network service
+    nso_config:
+      url: "{{ url }}"
+      username: "{{ username }}"
+      password: "{{ password }}"
+      data: "{{ data }}"
+    when: operation == 'create'
+
+  - name: Delete network service
+    nso_config:
+      url: "{{ url }}"
+      username: "{{ username }}"
+      password: "{{ password }}"
+      data: "{{ data }}"
+    when: operation == 'delete'
+
+  - name: Delete idipa service
+    nso_config:
+      url: "{{ url }}"
+      username: "{{ username }}"
+      password: "{{ password }}"
+      data:
+        tailf-ncs:services:
+          idipa:idipa:
+          - name: "{{ service_name }}"
+            __state: absent
+    when: (service == 'l2ptp' or service == 'l2sts') and operation == 'delete'

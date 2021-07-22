@@ -16,6 +16,12 @@ renc-hn.fabric-testbed.net security_group=fully-permissive
 renc-hn.fabric-testbed.net key_name=default
 renc-hn.fabric-testbed.net ext_network=public
 
+[fabric_site_nso]
+netam.fabric-testbed.net url=https://192.168.11.246/jsonrpc
+netam.fabric-testbed.net username=admin
+netam.fabric-testbed.net password=
+netam.fabric-testbed.net validate_certs=true
+
 [fabric_worker:children]
 fabric_site_worker
 
