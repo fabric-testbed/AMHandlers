@@ -23,7 +23,6 @@
 #
 #
 # Author: Ilya Baldin (ibaldin@renci.org), Xi Yang (xiwang@es.net), Komal Thareja (kthare10@renci.org)
-import logging
 import unittest
 import time
 import uuid
@@ -44,9 +43,8 @@ from fabric_am.util.am_constants import AmConstants
 
 
 class TestNetHandler(unittest.TestCase):
-    logger = logging.getLogger(__name__)
-    logging.basicConfig(level=logging.DEBUG, format="%(asctime)s [%(filename)s:%(lineno)d] [%(levelname)s] %(message)s",
-                        handlers=[logging.StreamHandler()])
+    log_config = {"log-directory": ".", "log-file": "net_handler.log", "log-level": "DEBUG", "log-retain": 5,
+                  "log-size": 5000000, "logger": __name__}
 
     def setUp(self) -> None:
         self.unit = Unit(rid=ID(uid="rid-1"))
@@ -55,7 +53,7 @@ class TestNetHandler(unittest.TestCase):
         # create a NetworkService sliver for L2Bridge
         prop = {AmConstants.CONFIG_PROPERTIES_FILE: '../config/net_handler_config.yml'}
 
-        handler = NetHandler(logger=self.logger, properties=prop)
+        handler = NetHandler(log_config=self.log_config, properties=prop)
         #
         # create a network sliver for L2Bridge and its interfaces
         #
@@ -182,7 +180,7 @@ class TestNetHandler(unittest.TestCase):
         # create a NetworkService sliver for L2Bridge
         prop = {AmConstants.CONFIG_PROPERTIES_FILE: '../config/net_handler_config.yml'}
 
-        handler = NetHandler(logger=self.logger, properties=prop)
+        handler = NetHandler(log_config=self.log_config, properties=prop)
         #
         # create a network sliver for L2Bridge and its interfaces
         #
@@ -311,7 +309,7 @@ class TestNetHandler(unittest.TestCase):
         # create a NetworkService sliver for L2PTP
         prop = {AmConstants.CONFIG_PROPERTIES_FILE: '../config/net_handler_config.yml'}
 
-        handler = NetHandler(logger=self.logger, properties=prop)
+        handler = NetHandler(log_config=self.log_config, properties=prop)
 
         #
         # create a network sliver for L2Bridge and its interfaces
@@ -403,7 +401,7 @@ class TestNetHandler(unittest.TestCase):
         # create a NetworkService sliver for L2STS
         prop = {AmConstants.CONFIG_PROPERTIES_FILE: '../config/net_handler_config.yml'}
 
-        handler = NetHandler(logger=self.logger, properties=prop)
+        handler = NetHandler(log_config=self.log_config, properties=prop)
 
         #
         # create a network sliver for L2Bridge and its interfaces

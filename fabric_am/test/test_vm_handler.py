@@ -23,7 +23,6 @@
 #
 #
 # Author: Komal Thareja (kthare10@renci.org)
-import logging
 import unittest
 
 from fabric_cf.actor.core.common.constants import Constants
