@@ -26,7 +26,7 @@
 import json
 import re
 import traceback
-from typing import Tuple, List
+from typing import Tuple
 
 from fabric_cf.actor.core.common.constants import Constants
 from fabric_cf.actor.core.plugins.handlers.config_token import ConfigToken
@@ -49,18 +49,6 @@ class NetHandler(HandlerBase):
     """
     Network Handler
     """
-
-    def __init__(self, logger, properties: dict):
-        self.logger = logger
-        self.properties = properties
-        self.config = None
-
-        config_properties_file = self.properties.get(AmConstants.CONFIG_PROPERTIES_FILE, None)
-        if config_properties_file is None:
-            return
-
-        self.config = self.load_config(path=config_properties_file)
-
     def create(self, unit: ConfigToken) -> Tuple[dict, ConfigToken]:
         """
         Create a Network Service
@@ -73,7 +61,7 @@ class NetHandler(HandlerBase):
         sliver = None
 
         try:
-            self.logger.info(f"Create invoked for unit: {unit}")
+            self.get_logger().info(f"Create invoked for unit: {unit}")
             sliver = unit.get_sliver()
             unit_id = str(unit.get_reservation_id())
             if sliver is None:
@@ -83,10 +71,10 @@ class NetHandler(HandlerBase):
 
             resource_type = str(sliver.get_type())
 
-            playbook_path = self.config[AmConstants.PLAYBOOK_SECTION][AmConstants.PB_LOCATION]
-            inventory_path = self.config[AmConstants.PLAYBOOK_SECTION][AmConstants.PB_INVENTORY]
+            playbook_path = self.get_config()[AmConstants.PLAYBOOK_SECTION][AmConstants.PB_LOCATION]
+            inventory_path = self.get_config()[AmConstants.PLAYBOOK_SECTION][AmConstants.PB_INVENTORY]
 
-            playbook = self.config[AmConstants.PLAYBOOK_SECTION][resource_type]
+            playbook = self.get_config()[AmConstants.PLAYBOOK_SECTION][resource_type]
             if playbook is None or inventory_path is None or playbook_path is None:
                 raise NetHandlerException(f"Missing config parameters playbook: {playbook} "
                                           f"playbook_path: {playbook_path} inventory_path: {inventory_path}")
@@ -119,9 +107,9 @@ class NetHandler(HandlerBase):
                 "data": data
             }
             print(json.dumps(extra_vars))
-            ansible_helper = AnsibleHelper(inventory_path=inventory_path, logger=self.logger)
+            ansible_helper = AnsibleHelper(inventory_path=inventory_path, logger=self.get_logger())
             ansible_helper.set_extra_vars(extra_vars=extra_vars)
-            self.logger.debug(f"Executing playbook {playbook_path_full} to create Network Service")
+            self.get_logger().debug(f"Executing playbook {playbook_path_full} to create Network Service")
             ansible_helper.run_playbook(playbook_path=playbook_path_full)
             ansible_callback = ansible_helper.get_result_callback()
             unreachable = ansible_callback.get_json_result_unreachable()
@@ -129,12 +117,12 @@ class NetHandler(HandlerBase):
                 raise NetHandlerException(f'network service {service_name} was not committed due to connection error')
             failed = ansible_callback.get_json_result_failed()
             if failed:
-                ansible_callback.dump_all_failed(logger=self.logger)
+                ansible_callback.dump_all_failed(logger=self.get_logger())
                 raise NetHandlerException(f'network service {service_name} was not committed due to config error')
             ok = ansible_callback.get_json_result_ok()
             if ok:
                 if not ok['changed']:
-                    self.logger.info(f'network service {service_name} was committed ok but without change')
+                    self.get_logger().info(f'network service {service_name} was committed ok but without change')
 
         except Exception as e:
             # Delete VM in case of failure
@@ -144,10 +132,10 @@ class NetHandler(HandlerBase):
                       Constants.PROPERTY_TARGET_RESULT_CODE: Constants.RESULT_CODE_EXCEPTION,
                       Constants.PROPERTY_ACTION_SEQUENCE_NUMBER: 0,
                       Constants.PROPERTY_EXCEPTION_MESSAGE: e}
-            self.logger.error(e)
-            self.logger.error(traceback.format_exc())
+            self.get_logger().error(e)
+            self.get_logger().error(traceback.format_exc())
         finally:
-            self.logger.info(f"Create completed")
+            self.get_logger().info(f"Create completed")
         return result, unit
 
     def delete(self, unit: ConfigToken) -> Tuple[dict, ConfigToken]:
@@ -155,7 +143,7 @@ class NetHandler(HandlerBase):
                   Constants.PROPERTY_TARGET_RESULT_CODE: Constants.RESULT_CODE_OK,
                   Constants.PROPERTY_ACTION_SEQUENCE_NUMBER: 0}
         try:
-            self.logger.info(f"Delete invoked for unit: {unit}")
+            self.get_logger().info(f"Delete invoked for unit: {unit}")
             sliver = unit.get_sliver()
             if sliver is None:
                 raise NetHandlerException(f"Unit # {unit} has no assigned slivers")
@@ -167,10 +155,10 @@ class NetHandler(HandlerBase):
                       Constants.PROPERTY_TARGET_RESULT_CODE: Constants.RESULT_CODE_EXCEPTION,
                       Constants.PROPERTY_ACTION_SEQUENCE_NUMBER: 0,
                       Constants.PROPERTY_EXCEPTION_MESSAGE: e}
-            self.logger.error(e)
-            self.logger.error(traceback.format_exc())
+            self.get_logger().error(e)
+            self.get_logger().error(traceback.format_exc())
         finally:
-            self.logger.info(f"Delete completed")
+            self.get_logger().info(f"Delete completed")
         return result, unit
 
     def modify(self, unit: ConfigToken) -> Tuple[dict, ConfigToken]:
@@ -200,16 +188,16 @@ class NetHandler(HandlerBase):
             "data": data
         }
         try:
-            playbook_path = self.config[AmConstants.PLAYBOOK_SECTION][AmConstants.PB_LOCATION]
-            inventory_path = self.config[AmConstants.PLAYBOOK_SECTION][AmConstants.PB_INVENTORY]
-            playbook = self.config[AmConstants.PLAYBOOK_SECTION][resource_type]
+            playbook_path = self.get_config()[AmConstants.PLAYBOOK_SECTION][AmConstants.PB_LOCATION]
+            inventory_path = self.get_config()[AmConstants.PLAYBOOK_SECTION][AmConstants.PB_INVENTORY]
+            playbook = self.get_config()[AmConstants.PLAYBOOK_SECTION][resource_type]
             if playbook is None or inventory_path is None or playbook_path is None:
                 raise NetHandlerException(f"Missing config parameters playbook: {playbook} "
                                           f"playbook_path: {playbook_path} inventory_path: {inventory_path}")
             playbook_path_full = f"{playbook_path}/{playbook}"
-            ansible_helper = AnsibleHelper(inventory_path=inventory_path, logger=self.logger)
+            ansible_helper = AnsibleHelper(inventory_path=inventory_path, logger=self.get_logger())
             ansible_helper.set_extra_vars(extra_vars=extra_vars)
-            self.logger.debug(f"Executing playbook {playbook_path_full} to delete Network Service")
+            self.get_logger().debug(f"Executing playbook {playbook_path_full} to delete Network Service")
             ansible_helper.run_playbook(playbook_path=playbook_path_full)
             ansible_callback = ansible_helper.get_result_callback()
             unreachable = ansible_callback.get_json_result_unreachable()
@@ -217,16 +205,16 @@ class NetHandler(HandlerBase):
                 raise NetHandlerException(f'network service {service_name} was not cleaned up due to connection error')
             failed = ansible_callback.get_json_result_failed()
             if failed:
-                ansible_callback.dump_all_failed(logger=self.logger)
+                ansible_callback.dump_all_failed(logger=self.get_logger())
                 raise NetHandlerException(f'network service {service_name} was not cleaned up due to config error')
             ok = ansible_callback.get_json_result_ok()
             if ok:
                 if not ok['changed']:
-                    self.logger.info(f'network service {service_name} was cleaned up ok but without change')
+                    self.get_logger().info(f'network service {service_name} was cleaned up ok but without change')
 
         except Exception as e:
-            self.logger.error(f"Exception occurred in cleanup {e}")
-            self.logger.error(traceback.format_exc())
+            self.get_logger().error(f"Exception occurred in cleanup {e}")
+            self.get_logger().error(traceback.format_exc())
             if raise_exception:
                 raise e
 
@@ -330,7 +318,7 @@ class NetHandler(HandlerBase):
             hop_z2a = {"hop": ero_z2a}
             data['ero-z2a'] = hop_z2a
         else:
-            self.logger.info(f"l2ptp - created without ERO")
+            self.get_logger().info(f"l2ptp - created without ERO")
         return data
 
     def __l2sts_create_data(self, sliver: NetworkServiceSliver, service_name: str) -> dict:
@@ -407,5 +395,5 @@ class NetHandler(HandlerBase):
             hop_z2a = {"hop": ero_z2a}
             data['ero-z2a'] = hop_z2a
         else:
-            self.logger.info(f"l2ptp - created without ERO")
+            self.get_logger().info(f"l2ptp - created without ERO")
         return data
