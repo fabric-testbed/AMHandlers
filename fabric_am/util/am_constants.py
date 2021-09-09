@@ -72,7 +72,17 @@ class AmConstants:
     HOSTNAME = "hostname"
     SSH_KEY = "sshkey"
     DEFAULT_USER = "default_user"
+    INIT_SCRIPT = "init_script"
 
     CENTOS_DEFAULT_USER = "centos"
     UBUNTU_DEFAULT_USER = "ubuntu"
+    FEDORA_DEFAULT_USER = "fedora"
+    DEBIAN_DEFAULT_USER = "debian"
     ROOT_USER = "root"
+
+    VLAN = "vlan"
+    MAC = "mac"
+    IPV4_ADDRESS = "ipv4_address"
+    IPV6_ADDRESS = "ipv6_address"
+    ADDRESS_LIST = "address_list"
+    ADMIN_SSH_KEY = "admin_ssh_key"

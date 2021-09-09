@@ -25,6 +25,7 @@
 playbooks:
   location: fabric_am/playbooks
   inventory_location: fabric_am/playbooks/inventory
+  admin_ssh_key: ~/.ssh/id_rsa_nova
   hostname_suffix: .fabric-testbed.net
   VM: head_vm_provisioning.yml
   GPU: worker_pci_provisioning.yml
@@ -32,3 +33,19 @@ playbooks:
   SharedNIC: worker_pci_provisioning.yml
   FPGA: worker_pci_provisioning.yml
   NVME: worker_pci_provisioning.yml
+  SmartNIC-centos: rhel_config_nw_interface.yml
+  SmartNIC-centos-vlan: rhel_config_tagged_nw_interface.yml
+  SmartNIC-fedora: rhel_config_nw_interface.yml
+  SmartNIC-fedora-vlan: rhel_config_tagged_nw_interface.yml
+  SmartNIC-debian: rhel_config_nw_interface.yml
+  SmartNIC-debian-vlan: rhel_config_tagged_nw_interface.yml
+  SmartNIC-ubuntu: nmcli_config_nw_interface.yml
+  SmartNIC-ubuntu-vlan: nmcli_config_tagged_nw_interface.yml
+  SharedNIC-centos: rhel_config_nw_interface.yml
+  SharedNIC-centos-vlan: rhel_config_tagged_nw_interface.yml
+  SharedNIC-fedora: rhel_config_nw_interface.yml
+  SharedNIC-fedora-vlan: rhel_config_tagged_nw_interface.yml
+  SharedNIC-debian: rhel_config_nw_interface.yml
+  SharedNIC-debian-vlan: rhel_config_tagged_nw_interface.yml
+  SharedNIC-ubuntu: nmcli_config_nw_interface.yml
+  SharedNIC-ubuntu-vlan: nmcli_config_tagged_nw_interface.yml

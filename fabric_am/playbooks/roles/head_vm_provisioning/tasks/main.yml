@@ -49,6 +49,7 @@
       {%- raw -%}#!/bin/bash
       echo {% endraw -%}"{{ sshkey }}"{%- raw -%} >> /home/{% endraw -%}"{{ default_user }}"{%- raw -%}/.ssh/authorized_keys
       {% endraw %}
+      {{ init_script }}
   when: vm_prov_op == 'create'
 
 - name: Attach a floating IP to the instance
