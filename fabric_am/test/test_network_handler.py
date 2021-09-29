@@ -493,3 +493,107 @@ class TestNetHandler(unittest.TestCase):
         self.assertEqual(r[Constants.PROPERTY_TARGET_NAME], Constants.TARGET_DELETE)
         self.assertEqual(r[Constants.PROPERTY_ACTION_SEQUENCE_NUMBER], 0)
         self.assertEqual(r[Constants.PROPERTY_TARGET_RESULT_CODE], Constants.RESULT_CODE_OK)
+
+    def test_FABNetv4(self):
+        # create a NetworkService sliver for L2Bridge
+        prop = {AmConstants.CONFIG_PROPERTIES_FILE: '../config/net_handler_config.yml'}
+
+        handler = NetHandler(log_config=self.log_config, properties=prop)
+        #
+        # create a network sliver for FABNetv4 and its interfaces
+        #
+        sliver = NetworkServiceSliver()
+        # service name (set by user) - only guaranteed unique within a slice
+        sliver.set_name('L2-RENC-IPv4')
+        # if service name global uniqueness is a requirement use Labels.local_name for that (optional)
+        # e.g. concatenate name + res id (or another unique id)
+        # sliver.set_labels(Labels().set_fields(local_name='test-l2bridge-shortname'))
+        # per @xiyang he uses unit id for service name so this is not needed.
+        sliver.set_type(ServiceType.FABNetv4)
+        sliver.set_layer(NSLayer.L3)
+
+        # this is the gateway with the IP range picked for this sliver in this slice on this site
+        # can also be specified with ipv6/ipv6_subnet and mac is optional for both.
+        # Q: does that mean that the advertisement needs to maintain information about multiple
+        # subnet, gateway and mac tuples for each site?
+        sliver.set_gateway(Labels(ipv4="192.168.0.1", ipv4_subnet="192.168.0.0/24"))
+
+        #
+        # create a small number of Interface slivers, set their properties and link to service
+        #
+
+        #
+        # First interface - let's assume it is SR-IOV
+        #
+        isl1 = InterfaceSliver()
+        # the name is normally set by FIM as '-' concatenation of service name
+        isl1.set_name('Interface1')
+        # this will be a ServicePort in the network service sliver. It is created by FIM automatically when
+        # the user adds a NetworkService to the ASM. The name is set by the FIM as '-' concatenation of service
+        # name and peer interface sliver name.
+        isl1.set_type(InterfaceType.ServicePort)
+
+        # since this is SR-IOV, orchestrator picks VLAN for this function based on info in advertisement
+        # other information is done in the same way it is done for L2 services
+        sliver_labels = Labels(vlan='121', local_name='HundredGigE0/0/0/5', device_name='uky-data-sw')
+
+        # capacities (bw in Gbps, burst size is in Mbytes) source: (b)
+        sliver_capacities = Capacities(bw=1)
+
+        # assign labels and capacities
+        isl1.set_labels(sliver_labels)
+        isl1.set_capacities(sliver_capacities)
+
+        #
+        # Second interface (let's assume this is a dedicated card)
+        #
+        isl2 = InterfaceSliver()
+        isl2.set_name('Interface2')
+        isl2.set_type(InterfaceType.ServicePort)
+
+        # Q: who and how picks the VLAN in this case? I think we discussed having an advertised pool of 'Layer 3
+        # vlans' which need to be kept track of and this would be one of them
+        # other information is done in the same way it is done for L2 services
+        sliver_labels = Labels(vlan='1001', local_name='HundredGigE0/0/0/5', device_name='uky-data-sw')
+        sliver_capacities = Capacities(bw=1)
+
+        isl2.set_labels(sliver_labels)
+        isl2.set_capacities(sliver_capacities)
+
+        # create interface info object, add populated interfaces to it
+        ifi = InterfaceInfo()
+        ifi.add_interface(isl1)
+        ifi.add_interface(isl2)
+
+        # add interface info object to sliver. All of this happens automagically normally
+        sliver.interface_info = ifi
+
+        # set a fake unit reservation
+        uid = uuid.uuid3(uuid.NAMESPACE_DNS, 'test_L2Bridge')
+        self.unit = Unit(rid=ID(uid=str(uid)))
+        self.unit.set_sliver(sliver=sliver)
+
+        #
+        # create a service (create needs to parse out sliver information
+        # into exact parameters the service ansible script needs)
+        #
+        r, updated_unit = handler.create(unit=self.unit)
+        self.assertEqual(r[Constants.PROPERTY_TARGET_NAME], Constants.TARGET_CREATE)
+        self.assertEqual(r[Constants.PROPERTY_ACTION_SEQUENCE_NUMBER], 0)
+        self.assertEqual(r[Constants.PROPERTY_TARGET_RESULT_CODE], Constants.RESULT_CODE_OK)
+
+        time.sleep(30)
+
+        #
+        # delete - need to make sure the updated unit has the right info to delete the service
+        #
+        r, updated_unit = handler.delete(updated_unit)
+        self.assertEqual(r[Constants.PROPERTY_TARGET_NAME], Constants.TARGET_DELETE)
+        self.assertEqual(r[Constants.PROPERTY_ACTION_SEQUENCE_NUMBER], 0)
+        self.assertEqual(r[Constants.PROPERTY_TARGET_RESULT_CODE], Constants.RESULT_CODE_OK)
+
+    def test_FABNetv6(self):
+        pass
+
+    def test_PortMirror(self):
+        pass
