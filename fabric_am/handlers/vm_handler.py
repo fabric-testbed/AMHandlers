@@ -95,8 +95,8 @@ class VMHandler(HandlerBase):
                                               unit_id=unit_id, ssh_key=ssh_key)
 
             # Attach FIP
-            fip_props = self.__attach_fip(playbook_path=playbook_path_full, inventory_path=inventory_path,
-                                          vm_name=vmname, unit_id=unit_id)
+            fip = self.__attach_fip(playbook_path=playbook_path_full, inventory_path=inventory_path,
+                                    vm_name=vmname, unit_id=unit_id)
 
             sliver.label_allocations.instance = instance_props.get(AmConstants.SERVER_INSTANCE_NAME, None)
 
@@ -117,7 +117,7 @@ class VMHandler(HandlerBase):
                                              device_name=str(unit.get_id()),
                                              pci_devices=component.label_allocations.bdf)
 
-            sliver.management_ip = fip_props.get(AmConstants.FLOATING_IP, None)
+            sliver.management_ip = fip
 
         except Exception as e:
             self.get_logger().error(e)
@@ -311,7 +311,7 @@ class VMHandler(HandlerBase):
         ansible_helper.run_playbook(playbook_path=playbook_path)
         return True
 
-    def __attach_fip(self, *, playbook_path: str, inventory_path: str, vm_name: str, unit_id: str) -> dict:
+    def __attach_fip(self, *, playbook_path: str, inventory_path: str, vm_name: str, unit_id: str) -> str:
         """
         Invoke ansible playbook to attach a floating IP to a provisioned VM
         :param playbook_path: playbook location
@@ -319,12 +319,12 @@ class VMHandler(HandlerBase):
         :param host: host
         :param vm_name: VM Name
         :param unit_id: Unit Id
-        :return: dictionary containing created floating ip details
+        :return: floating ip assigned to the VM
         """
-        vm_name = f"{unit_id}-{vm_name}"
+        vmname = f"{unit_id}-{vm_name}"
         ansible_helper = AnsibleHelper(inventory_path=inventory_path, logger=self.get_logger())
         extra_vars = {AmConstants.VM_PROV_OP: AmConstants.VM_PROV_OP_ATTACH_FIP,
-                      AmConstants.VM_NAME: vm_name}
+                      AmConstants.VM_NAME: vmname}
         ansible_helper.set_extra_vars(extra_vars=extra_vars)
 
         self.get_logger().debug(f"Executing playbook {playbook_path} to attach FIP")
@@ -332,18 +332,29 @@ class VMHandler(HandlerBase):
 
         ok = ansible_helper.get_result_callback().get_json_result_ok()
 
-        floating_ip = ok.get(AmConstants.FLOATING_IP, None)
-        # Added this code for enabling test suite
+        floating_ip = ok[AmConstants.FLOATING_IP]
+        result = None
         if floating_ip is None:
-            floating_ip = ok[AmConstants.ANSIBLE_FACTS][AmConstants.FLOATING_IP]
-            floating_ip = json.loads(floating_ip)
+            self.get_logger().info("Floating IP returned by attach was null, trying to get via get_vm")
+            ok = self.__get_vm(playbook_path=playbook_path, inventory_path=inventory_path, vm_name=vm_name,
+                               unit_id=unit_id)
+            self.get_logger().info(f"Info returned by __get_vm: {ok}")
+            servers = ok[AmConstants.OS_SERVERS]
+            self.get_logger().debug(f"Servers: {servers}")
+            if servers is not None and len(servers) == 1:
+                result = servers[0][AmConstants.SERVER_ACCESS_IPV4]
+                if result is None:
+                    result = servers[0][AmConstants.SERVER_ACCESS_IPV4]
+            else:
+                self.get_logger().error(f"No server found for {unit_id}-{vmname}")
+        else:
+            result = floating_ip[AmConstants.FLOATING_IP_ADDRESS]
 
-        result = {AmConstants.FLOATING_IP: str(floating_ip[AmConstants.FLOATING_IP_ADDRESS]),
-                  AmConstants.FLOATING_IP_MAC_ADDRESS: str(floating_ip[AmConstants.FLOATING_IP_PROPERTIES][
-                      AmConstants.FLOATING_IP_PORT_DETAILS][AmConstants.FLOATING_IP_MAC_ADDRESS])}
+        if result is None:
+            raise VmHandlerException(f"Unable to get the Floating IP for {unit_id}-{vm_name}")
 
-        self.get_logger().debug(f"Returning properties {result}")
-        return result
+        self.get_logger().debug(f"Returning FIP {result} for {unit_id}-{vm_name}")
+        return str(result)
 
     def __attach_detach_pci(self, *, playbook_path: str, inventory_path: str, host: str, instance_name: str,
                             device_name:str, pci_devices: str, attach: bool = True):
@@ -472,14 +483,14 @@ class VMHandler(HandlerBase):
             result.append(octet)
         return result
 
-    def __get_vm(self, *, playbook_path: str, inventory_path: str, vm_name: str, unit_id: str) -> bool:
+    def __get_vm(self, *, playbook_path: str, inventory_path: str, vm_name: str, unit_id: str):
         """
         Invoke ansible playbook to get a provisioned VM
         :param playbook_path: playbook location
         :param inventory_path: inventory location
         :param vm_name: VM Name
         :param unit_id: Unit Id
-        :return: True or False representing success/failure
+        :return: OK result
         """
         ansible_helper = AnsibleHelper(inventory_path=inventory_path, logger=self.get_logger())
         vm_name = f"{unit_id}-{vm_name}"
@@ -488,9 +499,9 @@ class VMHandler(HandlerBase):
                       AmConstants.VM_NAME: vm_name}
         ansible_helper.set_extra_vars(extra_vars=extra_vars)
 
-        self.get_logger().debug(f"Executing playbook {playbook_path} to get VM")
+        self.get_logger().debug(f"Executing playbook {playbook_path} to get VM extra_vars: {extra_vars}")
         ansible_helper.run_playbook(playbook_path=playbook_path)
-        return True
+        return ansible_helper.get_result_callback().get_json_result_ok()
 
     @staticmethod
     def __get_default_user(image: str) -> str:
