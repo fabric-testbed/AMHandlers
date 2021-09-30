@@ -346,7 +346,7 @@ class VMHandler(HandlerBase):
                 if result is None:
                     result = servers[0][AmConstants.SERVER_ACCESS_IPV6]
             else:
-                self.get_logger().error(f"No server found for {unit_id}-{vmname}")
+                self.get_logger().error(f"No server found for {unit_id}-{vm_name}")
         else:
             result = floating_ip[AmConstants.FLOATING_IP_ADDRESS]
 
