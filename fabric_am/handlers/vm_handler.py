@@ -344,7 +344,7 @@ class VMHandler(HandlerBase):
             if servers is not None and len(servers) == 1:
                 result = servers[0][AmConstants.SERVER_ACCESS_IPV4]
                 if result is None:
-                    result = servers[0][AmConstants.SERVER_ACCESS_IPV4]
+                    result = servers[0][AmConstants.SERVER_ACCESS_IPV6]
             else:
                 self.get_logger().error(f"No server found for {unit_id}-{vmname}")
         else:
