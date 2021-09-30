@@ -1,5 +1,4 @@
 ansible
-<<<<<<< HEAD
 fabric-fim==1.0.7
 fabric-cf==1.0.3
 Jinja2==2.11.3
