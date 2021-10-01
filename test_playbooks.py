@@ -157,6 +157,15 @@ class TestPlaybooks:
                                             resource_type=str(ComponentType.SharedNIC), mac_address="ba:93:fc:bb:37:e0",
                                             ipv4_address="192.168.10.51/24", vlan="200")
 
+    def attach_fip(self):
+        prop = {AmConstants.CONFIG_PROPERTIES_FILE: 'fabric_am/config/vm_handler_config.yml'}
+        handler = VMHandler(log_config=self.log_config, properties=prop)
+        res = handler.__attach_fip(playbook_path='fabric_am/playbooks/head_vm_provisioning.yml',
+                                   inventory_path='fabric_am/playbooks/inventory',
+                                   vm_name="test", unit_id="komal")
+        print(res)
+
+
 if __name__ == "__main__":
     import time
     tpb = TestPlaybooks()
