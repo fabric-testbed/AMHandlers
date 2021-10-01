@@ -1,0 +1,31 @@
+---
+# file: rhel_config_nw_interface.yml
+
+- hosts:
+    - "{{ vmname }}"
+
+  become: true
+
+  tasks:
+    - name: Determine the interface name identified by mac address
+      set_fact:
+        if_name: "{{ item }}"
+      when:
+        (item != 'lo')
+        and
+        (ansible_facts[item]['macaddress'] == mac )
+      with_items:
+        - "{{ ansible_interfaces }}"
+    - include_role:
+        name: linux-system-roles.network
+
+  vars:
+    network_connections:
+      - name: "{{ if_name }}"
+        type: ethernet
+        autoconnect: yes
+        ip:
+          dhcp4: no
+          auto6: no
+          address: "{{ address_list }}"
+        state: up
