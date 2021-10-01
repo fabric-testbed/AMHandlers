@@ -23,6 +23,7 @@
 #
 #
 # Author: Komal Thareja (kthare10@renci.org)
+import logging
 import unittest
 
 from fabric_cf.actor.core.common.constants import Constants
@@ -38,8 +39,15 @@ from fabric_am.util.am_constants import AmConstants
 
 
 class TestVmHandler(unittest.TestCase):
-    log_config = {"log-directory": ".", "log-file": "handler.log", "log-level": "DEBUG", "log-retain": 5,
-                  "log-size": 5000000, "logger": __name__}
+    logger = logging.getLogger(__name__)
+    log_format = \
+        '%(asctime)s - %(name)s - {%(filename)s:%(lineno)d} - [%(threadName)s] - %(levelname)s - %(message)s'
+    logging.basicConfig(handlers=[logging.StreamHandler()], format=log_format, force=True)
+
+    prop = {AmConstants.CONFIG_PROPERTIES_FILE: 'config/vm_handler_config.yml'}
+    handler = VMHandler(logger=logger, properties=prop)
+    handler.test_mode = True
+
 
     @staticmethod
     def create_unit(include_pci: bool = True, include_image: bool = True, include_name: bool = True,
@@ -92,10 +100,7 @@ class TestVmHandler(unittest.TestCase):
         """
         u = self.create_unit()
 
-        prop = {AmConstants.CONFIG_PROPERTIES_FILE: 'config/vm_handler_config.yml'}
-        handler = VMHandler(log_config=self.log_config, properties=prop)
-
-        r, u = handler.create(unit=u)
+        r, u = self.handler.create(unit=u)
         self.assertEqual(r[Constants.PROPERTY_TARGET_NAME], Constants.TARGET_CREATE)
         self.assertEqual(r[Constants.PROPERTY_ACTION_SEQUENCE_NUMBER], 0)
         self.assertEqual(r[Constants.PROPERTY_TARGET_RESULT_CODE], Constants.RESULT_CODE_OK)
@@ -109,10 +114,7 @@ class TestVmHandler(unittest.TestCase):
         """
         u = self.create_unit(include_pci=False)
 
-        prop = {AmConstants.CONFIG_PROPERTIES_FILE: 'config/vm_handler_config.yml'}
-        handler = VMHandler(log_config=self.log_config, properties=prop)
-
-        r, u = handler.create(unit=u)
+        r, u = self.handler.create(unit=u)
         self.assertEqual(r[Constants.PROPERTY_TARGET_NAME], Constants.TARGET_CREATE)
         self.assertEqual(r[Constants.PROPERTY_ACTION_SEQUENCE_NUMBER], 0)
         self.assertEqual(r[Constants.PROPERTY_TARGET_RESULT_CODE], Constants.RESULT_CODE_OK)
@@ -126,10 +128,7 @@ class TestVmHandler(unittest.TestCase):
         """
         u = self.create_unit(include_image=False)
 
-        prop = {AmConstants.CONFIG_PROPERTIES_FILE: 'config/vm_handler_config.yml'}
-        handler = VMHandler(log_config=self.log_config, properties=prop)
-
-        r, u = handler.create(unit=u)
+        r, u = self.handler.create(unit=u)
         self.assertEqual(r[Constants.PROPERTY_TARGET_NAME], Constants.TARGET_CREATE)
         self.assertEqual(r[Constants.PROPERTY_ACTION_SEQUENCE_NUMBER], 0)
         self.assertEqual(r[Constants.PROPERTY_TARGET_RESULT_CODE], Constants.RESULT_CODE_EXCEPTION)
@@ -144,7 +143,7 @@ class TestVmHandler(unittest.TestCase):
         u = self.create_unit()
 
         prop = {}
-        handler = VMHandler(log_config=self.log_config, properties=prop)
+        handler = VMHandler(logger=self.logger, properties=prop)
 
         r, u = handler.create(unit=u)
         self.assertEqual(r[Constants.PROPERTY_TARGET_NAME], Constants.TARGET_CREATE)
@@ -160,10 +159,7 @@ class TestVmHandler(unittest.TestCase):
         """
         u = self.create_unit(include_instance_name=True, include_name=True)
 
-        prop = {AmConstants.CONFIG_PROPERTIES_FILE: 'config/vm_handler_config.yml'}
-        handler = VMHandler(log_config=self.log_config, properties=prop)
-
-        r, u = handler.delete(unit=u)
+        r, u = self.handler.delete(unit=u)
         self.assertEqual(r[Constants.PROPERTY_TARGET_NAME], Constants.TARGET_DELETE)
         self.assertEqual(r[Constants.PROPERTY_ACTION_SEQUENCE_NUMBER], 0)
         self.assertEqual(r[Constants.PROPERTY_TARGET_RESULT_CODE], Constants.RESULT_CODE_OK)
@@ -175,10 +171,7 @@ class TestVmHandler(unittest.TestCase):
         """
         u = self.create_unit(include_pci=False)
 
-        prop = {AmConstants.CONFIG_PROPERTIES_FILE: 'config/vm_handler_config.yml'}
-        handler = VMHandler(log_config=self.log_config, properties=prop)
-
-        r, u = handler.delete(unit=u)
+        r, u = self.handler.delete(unit=u)
         self.assertEqual(r[Constants.PROPERTY_TARGET_NAME], Constants.TARGET_DELETE)
         self.assertEqual(r[Constants.PROPERTY_ACTION_SEQUENCE_NUMBER], 0)
         self.assertEqual(r[Constants.PROPERTY_TARGET_RESULT_CODE], Constants.RESULT_CODE_OK)
@@ -191,7 +184,7 @@ class TestVmHandler(unittest.TestCase):
         u = self.create_unit()
 
         prop = {}
-        handler = VMHandler(log_config=self.log_config, properties=prop)
+        handler = VMHandler(logger=self.logger, properties=prop)
 
         r, u = handler.delete(unit=u)
         self.assertEqual(r[Constants.PROPERTY_TARGET_NAME], Constants.TARGET_DELETE)
@@ -205,44 +198,10 @@ class TestVmHandler(unittest.TestCase):
         """
         u = self.create_unit(include_name=False)
 
-        prop = {AmConstants.CONFIG_PROPERTIES_FILE: 'config/vm_handler_config.yml'}
-        handler = VMHandler(log_config=self.log_config, properties=prop)
-
-        r, u = handler.delete(unit=u)
+        r, u = self.handler.delete(unit=u)
         self.assertEqual(r[Constants.PROPERTY_TARGET_NAME], Constants.TARGET_DELETE)
         self.assertEqual(r[Constants.PROPERTY_ACTION_SEQUENCE_NUMBER], 0)
         self.assertEqual(r[Constants.PROPERTY_TARGET_RESULT_CODE], Constants.RESULT_CODE_EXCEPTION)
-
-    def test_modify_fail_no_instance_name(self):
-        """
-        Test failure to modify VM when no instance name is specified
-        :return:
-        """
-        u = self.create_unit()
-
-        prop = {AmConstants.CONFIG_PROPERTIES_FILE: 'config/vm_handler_config.yml'}
-        handler = VMHandler(log_config=self.log_config, properties=prop)
-
-        r, u = handler.modify(unit=u)
-        self.assertEqual(r[Constants.PROPERTY_TARGET_NAME], Constants.TARGET_MODIFY)
-        self.assertEqual(r[Constants.PROPERTY_ACTION_SEQUENCE_NUMBER], 0)
-        self.assertEqual(r[Constants.PROPERTY_TARGET_RESULT_CODE], Constants.RESULT_CODE_EXCEPTION)
-
-    def test_modify_vm_fail_no_config(self):
-        """
-        Test failure to modify VM when no handler config is specified
-        :return:
-        """
-        u = self.create_unit()
-
-        prop = {}
-        handler = VMHandler(log_config=self.log_config, properties=prop)
-
-        r, u = handler.modify(unit=u)
-        self.assertEqual(r[Constants.PROPERTY_TARGET_NAME], Constants.TARGET_MODIFY)
-        self.assertEqual(r[Constants.PROPERTY_ACTION_SEQUENCE_NUMBER], 0)
-        self.assertEqual(r[Constants.PROPERTY_TARGET_RESULT_CODE], Constants.RESULT_CODE_EXCEPTION)
-        self.assertIsNotNone(r[Constants.PROPERTY_EXCEPTION_MESSAGE])
 
     def test_modify_vm_success(self):
         """
@@ -251,10 +210,7 @@ class TestVmHandler(unittest.TestCase):
         """
         u = self.create_unit(include_instance_name=True)
 
-        prop = {AmConstants.CONFIG_PROPERTIES_FILE: 'config/vm_handler_config.yml'}
-        handler = VMHandler(log_config=self.log_config, properties=prop)
-
-        r, u = handler.modify(unit=u)
+        r, u = self.handler.modify(unit=u)
         self.assertEqual(r[Constants.PROPERTY_TARGET_NAME], Constants.TARGET_MODIFY)
         self.assertEqual(r[Constants.PROPERTY_ACTION_SEQUENCE_NUMBER], 0)
         self.assertEqual(r[Constants.PROPERTY_TARGET_RESULT_CODE], Constants.RESULT_CODE_OK)

@@ -45,6 +45,8 @@ class AmConstants:
     SERVER_VM_STATE = "vm_state"
     SERVER_INSTANCE_NAME = "instance_name"
     SERVER_ACCESS_IPV4 = "accessIPv4"
+    SERVER_ACCESS_IPV6 = "accessIPv6"
+    OS_SERVERS = "openstack_servers"
 
     FLOATING_IP = "floating_ip"
     FLOATING_IP_ADDRESS = "floating_ip_address"
