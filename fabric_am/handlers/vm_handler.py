@@ -379,25 +379,8 @@ class VMHandler(HandlerBase):
                 ansible_helper.run_playbook(playbook_path=playbook_path)
 
                 # Configure the Network Interface card
-                if attach and (component.label_allocations.ipv4 is not None or
-                               component.label_allocations.ipv6 is not None):
-                    ipv4 = None
-                    ipv6 = None
-                    vlan = None
-                    if component.label_allocations.ipv4 is not None and len(component.label_allocations.ipv4) > 0:
-                        ipv4 = component.label_allocations.ipv4[index]
-                    if component.label_allocations.ipv6 is not None and len(component.label_allocations.ipv6) > 0:
-                        ipv6 = component.label_allocations.ipv6[index]
-                    if component.get_type() != ComponentType.SharedNIC and \
-                            component.label_allocations.vlan is not None and len(component.label_allocations.vlan) > 0:
-                        vlan = component.label_allocations.vlan[0]
-                    if not self.configure_network_interface(mgmt_ip=mgmt_ip, user=user, resource_type=component.get_type(),
-                                                            ipv4_address=ipv4, ipv6_address=ipv6,
-                                                            mac_address=component.label_allocations.mac[index],
-                                                            vlan=vlan):
-                        self.get_logger().error(
-                            f"Failed to configure Network Interface for VM: {mgmt_ip} NIC: {component.get_type()} "
-                            f"OS: {user} IPv4: {ipv4} IPv6: {ipv6} VLAN: {vlan}")
+                if attach:
+                    self.configure_nic(component=component, mgmt_ip=mgmt_ip, user=user)
         finally:
             self.get_logger().debug("__attach_detach_pci OUT")
 
@@ -510,6 +493,26 @@ class VMHandler(HandlerBase):
                 return user
         return AmConstants.ROOT_USER
 
+    def configure_nic(self, *, component: ComponentSliver, mgmt_ip: str, user: str):
+
+        if component.network_service_info is None or component.network_service_info.network_services is None:
+            return
+
+        for ns in component.network_service_info.network_services.values():
+            if ns.interface_info is None or ns.interface_info.interfaces is None:
+                continue
+
+            for ifs in ns.interface_info.interfaces.values():
+                if not self.configure_network_interface(mgmt_ip=mgmt_ip, user=user, resource_type=component.get_type(),
+                                                        ipv4_address=ifs.labels.ipv4,
+                                                        ipv6_address=ifs.labels.ipv6,
+                                                        mac_address=ifs.label_allocations.mac,
+                                                        vlan=ifs.label_allocations.vlan):
+                    self.get_logger().error(
+                        f"Failed to configure Network Interface for VM: {mgmt_ip} NIC: {component.get_type()} "
+                        f"OS: {user} IPv4: {ifs.labels.ipv4} IPv6: {ifs.labels.ipv6} "
+                        f"VLAN: {ifs.label_allocations.vlan} MAC: {ifs.label_allocations.mac}")
+
     def configure_network_interface(self, *, mgmt_ip: str, user: str, resource_type: str, mac_address: str,
                                     ipv4_address: str = None, ipv6_address: str = None, vlan: str = None) -> bool:
         if ipv6_address is None and ipv4_address is None:
@@ -545,6 +548,8 @@ class VMHandler(HandlerBase):
                       AmConstants.IPV6_ADDRESS: ipv6_address,
                       AmConstants.ADDRESS_LIST: address_list,
                       AmConstants.VLAN: vlan}
+
+        ansible_helper.set_extra_vars(extra_vars=extra_vars)
 
         admin_ssh_key = self.get_config()[AmConstants.PLAYBOOK_SECTION][AmConstants.ADMIN_SSH_KEY]
         # Invoke the playbook
