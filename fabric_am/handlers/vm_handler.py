@@ -239,7 +239,7 @@ class VMHandler(HandlerBase):
         }
         ansible_helper.set_extra_vars(extra_vars=extra_vars)
 
-        self.get_logger().debug(f"Executing playbook {playbook_path} to create VM")
+        self.get_logger().debug(f"Executing playbook {playbook_path} to create VM extra_vars: {extra_vars}")
         ansible_helper.run_playbook(playbook_path=playbook_path)
         ok = ansible_helper.get_result_callback().get_json_result_ok()
 
@@ -274,7 +274,7 @@ class VMHandler(HandlerBase):
                       AmConstants.VM_NAME: vm_name}
         ansible_helper.set_extra_vars(extra_vars=extra_vars)
 
-        self.get_logger().debug(f"Executing playbook {playbook_path} to delete VM")
+        self.get_logger().debug(f"Executing playbook {playbook_path} to delete VM extra_vars: {extra_vars}")
         ansible_helper.run_playbook(playbook_path=playbook_path)
         return True
 
@@ -294,7 +294,7 @@ class VMHandler(HandlerBase):
                       AmConstants.VM_NAME: vmname}
         ansible_helper.set_extra_vars(extra_vars=extra_vars)
 
-        self.get_logger().debug(f"Executing playbook {playbook_path} to attach FIP")
+        self.get_logger().debug(f"Executing playbook {playbook_path} to attach FIP extra_vars: {extra_vars}")
         ansible_helper.run_playbook(playbook_path=playbook_path)
 
         ok = ansible_helper.get_result_callback().get_json_result_ok()
@@ -374,13 +374,13 @@ class VMHandler(HandlerBase):
                 ansible_helper.add_vars(host=worker_node, var_name=AmConstants.PCI_FUNCTION, value=device_char_arr[3])
 
                 self.get_logger().debug(f"Executing playbook {playbook_path} to attach({attach})/detach({not attach}) "
-                                        f"PCI device ({device})")
+                                        f"PCI device ({device}) extra_vars: {extra_vars}")
 
                 ansible_helper.run_playbook(playbook_path=playbook_path)
 
-                # Configure the Network Interface card
-                if attach:
-                    self.configure_nic(component=component, mgmt_ip=mgmt_ip, user=user)
+            # Configure the Network Interface card
+            if attach:
+                self.configure_nic(component=component, mgmt_ip=mgmt_ip, user=user)
         finally:
             self.get_logger().debug("__attach_detach_pci OUT")
 
@@ -503,6 +503,7 @@ class VMHandler(HandlerBase):
                 continue
 
             for ifs in ns.interface_info.interfaces.values():
+                self.get_logger().info(f"Configuring Interface  {ifs}")
                 if not self.configure_network_interface(mgmt_ip=mgmt_ip, user=user, resource_type=component.get_type(),
                                                         ipv4_address=ifs.labels.ipv4,
                                                         ipv6_address=ifs.labels.ipv6,
@@ -515,43 +516,50 @@ class VMHandler(HandlerBase):
 
     def configure_network_interface(self, *, mgmt_ip: str, user: str, resource_type: str, mac_address: str,
                                     ipv4_address: str = None, ipv6_address: str = None, vlan: str = None) -> bool:
-        if ipv6_address is None and ipv4_address is None:
-            return False
 
-        # Construct the Key to use to fetch the Playbook Name from the config
-        playbook_key = f"{resource_type}-{user}"
-        if vlan is not None:
-            playbook_key = f"{playbook_key}-{AmConstants.VLAN}"
+        try:
+            if ipv6_address is None and ipv4_address is None:
+                return False
 
-        # Grab the playbook location
-        playbook_location = self.get_config()[AmConstants.PLAYBOOK_SECTION][AmConstants.PB_LOCATION]
+            # Construct the Key to use to fetch the Playbook Name from the config
+            playbook_key = f"{resource_type}-{user}"
+            if vlan is not None:
+                playbook_key = f"{playbook_key}-{AmConstants.VLAN}"
 
-        # Grab the playbook name
-        playbook = self.get_config()[AmConstants.PLAYBOOK_SECTION][playbook_key]
+            # Grab the playbook location
+            playbook_location = self.get_config()[AmConstants.PLAYBOOK_SECTION][AmConstants.PB_LOCATION]
 
-        # Construct the playbook path
-        playbook_path = f"{playbook_location}/{playbook}"
+            # Grab the playbook name
+            playbook = self.get_config()[AmConstants.PLAYBOOK_SECTION][playbook_key]
 
-        # Construct ansible helper
-        ansible_helper = AnsibleHelper(inventory_path=None, logger=self.get_logger(), sources=f"{mgmt_ip},")
+            # Construct the playbook path
+            playbook_path = f"{playbook_location}/{playbook}"
 
-        address_list = []
-        if ipv4_address is not None:
-            address_list.append(ipv4_address)
-        if ipv6_address is not None:
-            address_list.append(ipv6_address)
+            # Construct ansible helper
+            ansible_helper = AnsibleHelper(inventory_path=None, logger=self.get_logger(), sources=f"{mgmt_ip},")
 
-        # Set the variables
-        extra_vars = {AmConstants.VM_NAME: mgmt_ip,
-                      AmConstants.MAC: mac_address,
-                      AmConstants.IPV4_ADDRESS: ipv4_address,
-                      AmConstants.IPV6_ADDRESS: ipv6_address,
-                      AmConstants.ADDRESS_LIST: address_list,
-                      AmConstants.VLAN: vlan}
+            address_list = []
+            if ipv4_address is not None:
+                address_list.append(ipv4_address)
+            if ipv6_address is not None:
+                address_list.append(ipv6_address)
 
-        ansible_helper.set_extra_vars(extra_vars=extra_vars)
+            # Set the variables
+            extra_vars = {AmConstants.VM_NAME: mgmt_ip,
+                          AmConstants.MAC: mac_address,
+                          AmConstants.IPV4_ADDRESS: ipv4_address,
+                          AmConstants.IPV6_ADDRESS: ipv6_address,
+                          AmConstants.ADDRESS_LIST: address_list,
+                          AmConstants.VLAN: vlan,
+                          AmConstants.IMAGE: user}
 
-        admin_ssh_key = self.get_config()[AmConstants.PLAYBOOK_SECTION][AmConstants.ADMIN_SSH_KEY]
-        # Invoke the playbook
-        ansible_helper.run_playbook(playbook_path=playbook_path, user=user, private_key_file=admin_ssh_key)
-        return True
+            ansible_helper.set_extra_vars(extra_vars=extra_vars)
+
+            admin_ssh_key = self.get_config()[AmConstants.PLAYBOOK_SECTION][AmConstants.ADMIN_SSH_KEY]
+            # Invoke the playbook
+            self.get_logger().debug(f"Executing playbook {playbook_path} to configure interface extra_vars: {extra_vars}")
+            ansible_helper.run_playbook(playbook_path=playbook_path, user=user, private_key_file=admin_ssh_key)
+            return True
+        except Exception as e:
+            self.get_logger().error(f"Exception : {e}")
+            self.get_logger().error(traceback.format_exc())

@@ -25,6 +25,16 @@
 # Author: Komal Thareja (kthare10@renci.org)
 # /tasks/main.yml
 #
+- name: Install common software requirements
+  become: true
+  dnf:
+    state: present
+    name:
+      - net-tools
+      - network-manager
+      - network-manager-gnome
+  when: image == 'centos'
+
 - name: Install needed network manager libs
   apt:
     name:
@@ -33,6 +43,7 @@
       - network-manager-gnome
     state: present
     update_cache: yes
+  when: image == 'ubuntu'
 
 - name: Update the renderer to NetworkManager
   lineinfile:
