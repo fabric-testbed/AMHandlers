@@ -528,7 +528,7 @@ class VMHandler(HandlerBase):
             playbook = self.get_config()[AmConstants.PLAYBOOK_SECTION][AmConstants.PB_CONFIG][resource_type]
 
             # Construct the playbook path
-            playbook_path = f"{playbook_location}/{resource_type}"
+            playbook_path = f"{playbook_location}/{playbook}"
 
             # Construct ansible helper
             ansible_helper = AnsibleHelper(inventory_path=None, logger=self.get_logger(), sources=f"{mgmt_ip},")
@@ -542,10 +542,14 @@ class VMHandler(HandlerBase):
             # Set the variables
             extra_vars = {AmConstants.VM_NAME: mgmt_ip,
                           AmConstants.MAC: mac_address.lower(),
-                          AmConstants.IPV4_ADDRESS: ipv4_address,
-                          AmConstants.IPV6_ADDRESS: ipv6_address,
-                          AmConstants.VLAN: vlan,
                           AmConstants.IMAGE: user}
+
+            if ipv4_address is not None:
+                extra_vars[AmConstants.IPV4_ADDRESS] = ipv4_address
+            if ipv6_address is not None:
+                extra_vars[AmConstants.IPV6_ADDRESS] = ipv6_address
+            if vlan is not None:
+                extra_vars[AmConstants.VLAN] = vlan
 
             ansible_helper.set_extra_vars(extra_vars=extra_vars)
 
