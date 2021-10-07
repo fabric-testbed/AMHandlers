@@ -31,8 +31,7 @@
     state: present
     name:
       - net-tools
-      - network-manager
-      - network-manager-gnome
+      - NetworkManager
   when: image == 'centos'
 
 - name: Install needed network manager libs
@@ -52,15 +51,24 @@
     regexp: "renderer: NetworkManager"
     insertafter: "^network:"
     line: "    renderer: NetworkManager"
+  when: image == 'ubuntu'
 
 - name: Apply the netplan
   ansible.builtin.shell:
      netplan apply
+  when: image == 'ubuntu'
 
 - name: Start service network manager, if not started
   ansible.builtin.service:
     name: network-manager
     state: started
+  when: image == 'ubuntu'
+
+- name: Start service network manager, if not started
+  ansible.builtin.service:
+    name: NetworkManager
+    state: started
+  when: image == 'centos'
 
 - name: Determine the interface name identified by mac address
   set_fact:
@@ -94,8 +102,36 @@
     ip4: "{{ ipv4_address | default (None) }}"
     ip6: '{{ ipv6_address | default (None) }}'
     state: present
+  when: vlan is not defined
+
+- name: Add an Ethernet connection for the parent interface
+  community.general.nmcli:
+    conn_name: "{{ if_name }}"
+    ifname: "{{ if_name }}"
+    type: ethernet
+    state: present
+  when: vlan is defined
+
+- name: Add an Ethernet connection for the tagged interface
+  community.general.nmcli:
+    conn_name: "{{ if_name }}.{{ vlan }}"
+    ifname: "{{ if_name }}.{{ vlan }}"
+    type: vlan
+    vlanid: "{{ vlan }}"
+    vlandev: "{{ if_name }}"
+    ip4: "{{ ipv4_address | default (None) }}"
+    ip6: '{{ ipv6_address | default (None) }}'
+    state: present
+  when: vlan is defined
 
 - name: Start service network manager, if not started
   ansible.builtin.service:
     name: network-manager
     state: restarted
+  when: image == 'ubuntu'
+
+- name: Start service network manager, if not started
+  ansible.builtin.service:
+    name: NetworkManager
+    state: restarted
+  when: image == 'centos'
