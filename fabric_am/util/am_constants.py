@@ -32,6 +32,7 @@ class AmConstants:
 
     PLAYBOOK_SECTION = "playbooks"
     PB_LOCATION = "location"
+    PB_CONFIG = "config"
     PB_INVENTORY = "inventory_location"
     PB_HOSTNAME_SUFFIX = "hostname_suffix"
 

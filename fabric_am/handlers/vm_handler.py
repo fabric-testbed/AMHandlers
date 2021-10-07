@@ -521,19 +521,14 @@ class VMHandler(HandlerBase):
             if ipv6_address is None and ipv4_address is None:
                 return False
 
-            # Construct the Key to use to fetch the Playbook Name from the config
-            playbook_key = f"{resource_type}-{user}"
-            if vlan is not None:
-                playbook_key = f"{playbook_key}-{AmConstants.VLAN}"
-
             # Grab the playbook location
             playbook_location = self.get_config()[AmConstants.PLAYBOOK_SECTION][AmConstants.PB_LOCATION]
 
             # Grab the playbook name
-            playbook = self.get_config()[AmConstants.PLAYBOOK_SECTION][playbook_key]
+            playbook = self.get_config()[AmConstants.PLAYBOOK_SECTION][AmConstants.PB_CONFIG][resource_type]
 
             # Construct the playbook path
-            playbook_path = f"{playbook_location}/{playbook}"
+            playbook_path = f"{playbook_location}/{resource_type}"
 
             # Construct ansible helper
             ansible_helper = AnsibleHelper(inventory_path=None, logger=self.get_logger(), sources=f"{mgmt_ip},")
@@ -546,10 +541,9 @@ class VMHandler(HandlerBase):
 
             # Set the variables
             extra_vars = {AmConstants.VM_NAME: mgmt_ip,
-                          AmConstants.MAC: mac_address,
+                          AmConstants.MAC: mac_address.lower(),
                           AmConstants.IPV4_ADDRESS: ipv4_address,
                           AmConstants.IPV6_ADDRESS: ipv6_address,
-                          AmConstants.ADDRESS_LIST: address_list,
                           AmConstants.VLAN: vlan,
                           AmConstants.IMAGE: user}
 
