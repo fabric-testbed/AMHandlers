@@ -514,7 +514,8 @@ class VMHandler(HandlerBase):
             for ifs in ns.interface_info.interfaces.values():
                 self.get_logger().info(f"Configuring Interface  {ifs}")
                 self.configure_network_interface(mgmt_ip=mgmt_ip, user=user, resource_type=component.get_type().name,
-                                                 ipv4_address=ifs.labels.ipv4, ipv6_address=ifs.labels.ipv6,
+                                                 ipv4_address=ifs.label_allocations.ipv4,
+                                                 ipv6_address=ifs.label_allocations.ipv6,
                                                  mac_address=ifs.label_allocations.mac,
                                                  vlan=ifs.label_allocations.vlan)
 
@@ -555,7 +556,7 @@ class VMHandler(HandlerBase):
                 extra_vars[AmConstants.IPV4_ADDRESS] = ipv4_address
             if ipv6_address is not None:
                 extra_vars[AmConstants.IPV6_ADDRESS] = ipv6_address
-            if vlan is not None:
+            if vlan is not None and resource_type != ComponentType.SharedNIC.name:
                 extra_vars[AmConstants.VLAN] = vlan
 
             ansible_helper.set_extra_vars(extra_vars=extra_vars)
