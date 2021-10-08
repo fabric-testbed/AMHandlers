@@ -89,12 +89,12 @@
   set_fact:
     conn_name: "{{ connection_name.stdout }}"
 
-- name: Remove Ethernet connection for the parent interface
+- name: Remove Ethernet connection for the interface
   community.general.nmcli:
     conn_name: "{{ conn_name }}"
     state: absent
 
-- name: Add an Ethernet connection for the parent interface
+- name: Add an Ethernet connection for the interface
   community.general.nmcli:
     conn_name: "{{ if_name }}"
     ifname: "{{ if_name }}"

@@ -494,6 +494,15 @@ class VMHandler(HandlerBase):
         return AmConstants.ROOT_USER
 
     def configure_nic(self, *, component: ComponentSliver, mgmt_ip: str, user: str):
+        """
+        Configure Interfaces associated with SharedNIC or SmartNIC
+        :param component Component Sliver
+        :param mgmt_ip Management IP
+        :param user Default Linux user for the VM
+        """
+        # Only do this for SharedNIC and SmartNIC
+        if component.get_type() == ComponentType.SharedNIC and component.get_type() != ComponentType.SmartNIC:
+            return
 
         if component.network_service_info is None or component.network_service_info.network_services is None:
             return
@@ -504,19 +513,23 @@ class VMHandler(HandlerBase):
 
             for ifs in ns.interface_info.interfaces.values():
                 self.get_logger().info(f"Configuring Interface  {ifs}")
-                if not self.configure_network_interface(mgmt_ip=mgmt_ip, user=user, resource_type=component.get_type(),
-                                                        ipv4_address=ifs.labels.ipv4,
-                                                        ipv6_address=ifs.labels.ipv6,
-                                                        mac_address=ifs.label_allocations.mac,
-                                                        vlan=ifs.label_allocations.vlan):
-                    self.get_logger().error(
-                        f"Failed to configure Network Interface for VM: {mgmt_ip} NIC: {component.get_type()} "
-                        f"OS: {user} IPv4: {ifs.labels.ipv4} IPv6: {ifs.labels.ipv6} "
-                        f"VLAN: {ifs.label_allocations.vlan} MAC: {ifs.label_allocations.mac}")
+                self.configure_network_interface(mgmt_ip=mgmt_ip, user=user, resource_type=component.get_type().name,
+                                                 ipv4_address=ifs.labels.ipv4, ipv6_address=ifs.labels.ipv6,
+                                                 mac_address=ifs.label_allocations.mac,
+                                                 vlan=ifs.label_allocations.vlan)
 
     def configure_network_interface(self, *, mgmt_ip: str, user: str, resource_type: str, mac_address: str,
-                                    ipv4_address: str = None, ipv6_address: str = None, vlan: str = None) -> bool:
-
+                                    ipv4_address: str = None, ipv6_address: str = None, vlan: str = None):
+        """
+        Configure Network Interface inside the VM
+        :param mgmt_ip Management IP to access the VM
+        :param user Default Linux user to use for SSH/Ansible
+        :param resource_type Type of NIC card (SharedNIC or SmartNIC)
+        :param mac_address Mac address used to identify the interface
+        :param ipv4_address IPV4 address to assign
+        :param ipv6_address IPV6 address to assign
+        :param vlan Vlan tag in case of tagged interface
+        """
         try:
             if ipv6_address is None and ipv4_address is None:
                 return False
@@ -533,12 +546,6 @@ class VMHandler(HandlerBase):
             # Construct ansible helper
             ansible_helper = AnsibleHelper(inventory_path=None, logger=self.get_logger(), sources=f"{mgmt_ip},")
 
-            address_list = []
-            if ipv4_address is not None:
-                address_list.append(ipv4_address)
-            if ipv6_address is not None:
-                address_list.append(ipv6_address)
-
             # Set the variables
             extra_vars = {AmConstants.VM_NAME: mgmt_ip,
                           AmConstants.MAC: mac_address.lower(),
@@ -553,11 +560,13 @@ class VMHandler(HandlerBase):
 
             ansible_helper.set_extra_vars(extra_vars=extra_vars)
 
+            # Grab the SSH Key
             admin_ssh_key = self.get_config()[AmConstants.PLAYBOOK_SECTION][AmConstants.ADMIN_SSH_KEY]
+
             # Invoke the playbook
-            self.get_logger().debug(f"Executing playbook {playbook_path} to configure interface extra_vars: {extra_vars}")
+            self.get_logger().debug(f"Executing playbook {playbook_path} to configure interface extra_vars: "
+                                    f"{extra_vars}")
             ansible_helper.run_playbook(playbook_path=playbook_path, user=user, private_key_file=admin_ssh_key)
-            return True
         except Exception as e:
             self.get_logger().error(f"Exception : {e}")
             self.get_logger().error(traceback.format_exc())

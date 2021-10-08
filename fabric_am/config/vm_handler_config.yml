@@ -26,7 +26,6 @@ playbooks:
   location: fabric_am/playbooks
   inventory_location: fabric_am/playbooks/inventory
   admin_ssh_key: ~/.ssh/id_rsa_nova
-  hostname_suffix: .fabric-testbed.net
   VM: head_vm_provisioning.yml
   GPU: worker_pci_provisioning.yml
   SmartNIC: worker_pci_provisioning.yml
