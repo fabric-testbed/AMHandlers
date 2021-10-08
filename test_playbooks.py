@@ -37,8 +37,13 @@ from fabric_am.util.am_constants import AmConstants
 
 
 class TestPlaybooks:
-    log_config = {"log-directory": ".", "log-file": "handler.log","log-level": "DEBUG","log-retain": 5,
-                  "log-size": 5000000, "logger": __name__}
+    logger = logging.getLogger(__name__)
+    log_format = \
+        '%(asctime)s - %(name)s - {%(filename)s:%(lineno)d} - [%(threadName)s] - %(levelname)s - %(message)s'
+    logging.basicConfig(handlers=[logging.StreamHandler()], format=log_format, force=True)
+
+    prop = {AmConstants.CONFIG_PROPERTIES_FILE: 'fabric_am/config/vm_handler_config.yml'}
+    handler = VMHandler(logger=logger, properties=prop)
 
     @staticmethod
     def create_unit(include_pci: bool = True, include_image: bool = True, include_name: bool = True,
@@ -54,9 +59,9 @@ class TestPlaybooks:
         u = Unit(rid=ID(uid='rid-1'))
         sliver = NodeSliver()
         cap = Capacities()
-        cap.set_fields(core=4, ram=64, disk=500)
+        cap.set_fields(core=2, ram=8, disk=10)
         sliver.set_properties(type=NodeType.VM, site="RENC", capacity_allocations=cap)
-        sliver.label_allocations = Labels().set_fields(instance_parent="renc-w1")
+        sliver.label_allocations = Labels().set_fields(instance_parent="renc-w3")
         catalog = InstanceCatalog()
         instance_type = catalog.map_capacities_to_instance(cap=cap)
         cap_hints = CapacityHints().set_fields(instance_type=instance_type)
@@ -67,16 +72,16 @@ class TestPlaybooks:
             sliver.set_properties(name="n2")
 
         if include_image:
-            sliver.set_properties(image_type='qcow2', image_ref='default_centos_8')
+            sliver.set_properties(image_type='qcow2', image_ref='default_fedora')
 
         if include_pci:
             component = ComponentSliver()
             labels = Labels()
-            #labels.set_fields(bdf=["0000:41:00.0", "0000:41:00.1"])
-            #component.set_properties(type=ComponentType.SmartNIC, model='ConnectX-6', name='nic1',
-            #                         label_allocations=labels)
-            labels.set_fields(bdf="0000:81:00.0")
-            component.set_properties(type=ComponentType.GPU, model='Tesla T4', name='nic12', label_allocations=labels)
+            labels.set_fields(bdf=["0000:41:00.0", "0000:41:00.1"])
+            component.set_properties(type=ComponentType.SmartNIC, model='ConnectX-5', name='nic1',
+                                     label_allocations=labels)
+            #labels.set_fields(bdf="0000:81:00.0")
+            #component.set_properties(type=ComponentType.GPU, model='Tesla T4', name='nic12', label_allocations=labels)
             sliver.attached_components_info = AttachedComponentsInfo()
             sliver.attached_components_info.add_device(device_info=component)
 
@@ -93,10 +98,7 @@ class TestPlaybooks:
         """
         u = self.create_unit()
 
-        prop = {AmConstants.CONFIG_PROPERTIES_FILE: 'fabric_am/config/vm_handler_config.yml'}
-        handler = VMHandler(log_config=self.log_config, properties=prop)
-
-        r, u = handler.create(unit=u)
+        r, u = self.handler.create(unit=u)
         print(r)
         print(u.sliver)
         return u
@@ -108,10 +110,7 @@ class TestPlaybooks:
         """
         u = self.create_unit(include_pci=False)
 
-        prop = {AmConstants.CONFIG_PROPERTIES_FILE: 'fabric_am/config/vm_handler_config.yml'}
-        handler = VMHandler(log_config=self.log_config, properties=prop)
-
-        r, u = handler.create(unit=u)
+        r, u = self.handler.create(unit=u)
         print(r)
         print(u.sliver)
 
@@ -123,12 +122,9 @@ class TestPlaybooks:
         if u is None:
             u = self.create_unit(include_instance_name=True, include_name=True)
 
-        prop = {AmConstants.CONFIG_PROPERTIES_FILE: 'fabric_am/config/vm_handler_config.yml'}
-        handler = VMHandler(log_config=self.log_config, properties=prop)
-
-        r, u = handler.delete(unit=u)
+        r, u = self.handler.delete(unit=u)
         print(r)
-        print(u.sliver)
+        print(u.get_sliver())
 
     def test_delete_vm_success_no_pci(self):
         """
@@ -137,13 +133,19 @@ class TestPlaybooks:
         """
         u = self.create_unit(include_pci=False)
 
-        prop = {AmConstants.CONFIG_PROPERTIES_FILE: 'fabric_am/config/vm_handler_config.yml'}
-        handler = VMHandler(log_config=self.log_config, properties=prop)
-
-        r, u = handler.delete(unit=u)
+        r, u = self.handler.delete(unit=u)
         print(r)
-        print(u.sliver)
+        print(u.get_sliver())
 
+    def test_config_nw_interface(self):
+        self.handler.configure_network_interface(mgmt_ip="128.163.179.50", user=AmConstants.CENTOS_DEFAULT_USER,
+                                                 resource_type=str(ComponentType.SmartNIC), mac_address="0C:42:A1:78:F8:04",
+                                                 ipv4_address="192.168.11.2")
+
+    def test_config_nw_interface_tagged(self):
+        self.handler.configure_network_interface(mgmt_ip="128.163.179.50", user=AmConstants.CENTOS_DEFAULT_USER,
+                                                 resource_type=str(ComponentType.SmartNIC), mac_address="0C:42:A1:78:F8:04",
+                                                 ipv4_address="192.168.11.2", vlan="200")
 
 if __name__ == "__main__":
     import time
@@ -151,9 +153,12 @@ if __name__ == "__main__":
     #tpb.test_create_vm_success_no_pci()
 
     #time.sleep(10)
-    tpb.test_delete_vm_success_no_pci()
+    #tpb.test_delete_vm_success_no_pci()
     #time.sleep(10)
-    u = tpb.test_create_vm_success()
+    #u = tpb.test_create_vm_success()
 
     #time.sleep(10)
     #tpb.test_delete_vm_success(u=u)
+    #tpb.test_config_nw_interface_tagged()
+    tpb.test_config_nw_interface()
+

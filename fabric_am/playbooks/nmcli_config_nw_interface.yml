@@ -1,0 +1,12 @@
+---
+# file: nmcli_config_nw_interface.yml
+
+- hosts:
+    - "{{ vmname }}"
+
+  become: true
+
+  vars:
+
+  roles:
+    - nmcli_config_nw_interface
