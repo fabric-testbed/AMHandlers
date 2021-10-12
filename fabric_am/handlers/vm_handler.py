@@ -102,9 +102,15 @@ class VMHandler(HandlerBase):
                                               vm_name=vmname, image=image, flavor=flavor, worker_node=worker_node,
                                               unit_id=unit_id, ssh_key=ssh_key, init_script=init_script)
 
-            # Attach FIP
-            fip = self.__attach_fip(playbook_path=playbook_path_full, inventory_path=inventory_path,
-                                    vm_name=vmname, unit_id=unit_id)
+            disable_fip = self.get_config()[AmConstants.RUNTIME_SECTION][AmConstants.RT_DISABLE_FIP]
+
+            if disable_fip:
+                self.get_logger().info("Floating IP is disabled, using IPV6 Global Unicast Address")
+                fip = instance_props.get(AmConstants.SERVER_ACCESS_IPV6, None)
+            else:
+                # Attach FIP
+                fip = self.__attach_fip(playbook_path=playbook_path_full, inventory_path=inventory_path,
+                                        vm_name=vmname, unit_id=unit_id)
 
             sliver.label_allocations.instance = instance_props.get(AmConstants.SERVER_INSTANCE_NAME, None)
 
@@ -254,6 +260,8 @@ class VMHandler(HandlerBase):
             AmConstants.SERVER_INSTANCE_NAME: str(server[AmConstants.SERVER_INSTANCE_NAME]),
             AmConstants.SERVER_ACCESS_IPV4: str(server[AmConstants.SERVER_ACCESS_IPV4])
         }
+        if server[AmConstants.SERVER_ACCESS_IPV6] is not None:
+            result[AmConstants.SERVER_ACCESS_IPV6] = str(server[AmConstants.SERVER_ACCESS_IPV6])
         self.get_logger().debug(f"Returning properties {result}")
 
         return result
