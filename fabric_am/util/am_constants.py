@@ -30,6 +30,9 @@ class AmConstants:
 
     EC2_AVAILABILITY_ZONE = "availability_zone"
 
+    RUNTIME_SECTION = "runtime"
+    RT_DISABLE_FIP = "disable_fip"
+
     PLAYBOOK_SECTION = "playbooks"
     PB_LOCATION = "location"
     PB_CONFIG = "config"
