@@ -296,45 +296,49 @@ class VMHandler(HandlerBase):
         :param unit_id: Unit Id
         :return: floating ip assigned to the VM
         """
-        vmname = f"{unit_id}-{vm_name}"
-        ansible_helper = AnsibleHelper(inventory_path=inventory_path, logger=self.get_logger())
-        extra_vars = {AmConstants.VM_PROV_OP: AmConstants.VM_PROV_OP_ATTACH_FIP,
-                      AmConstants.VM_NAME: vmname}
-        ansible_helper.set_extra_vars(extra_vars=extra_vars)
+        try:
+            self.process_lock.acquire()
+            vmname = f"{unit_id}-{vm_name}"
+            ansible_helper = AnsibleHelper(inventory_path=inventory_path, logger=self.get_logger())
+            extra_vars = {AmConstants.VM_PROV_OP: AmConstants.VM_PROV_OP_ATTACH_FIP,
+                          AmConstants.VM_NAME: vmname}
+            ansible_helper.set_extra_vars(extra_vars=extra_vars)
 
-        self.get_logger().debug(f"Executing playbook {playbook_path} to attach FIP extra_vars: {extra_vars}")
-        ansible_helper.run_playbook(playbook_path=playbook_path)
+            self.get_logger().debug(f"Executing playbook {playbook_path} to attach FIP extra_vars: {extra_vars}")
+            ansible_helper.run_playbook(playbook_path=playbook_path)
 
-        ok = ansible_helper.get_result_callback().get_json_result_ok()
+            ok = ansible_helper.get_result_callback().get_json_result_ok()
 
-        if self.test_mode:
-            floating_ip = ok[AmConstants.ANSIBLE_FACTS][AmConstants.FLOATING_IP]
-            floating_ip = json.loads(floating_ip)
-            return floating_ip[AmConstants.FLOATING_IP_ADDRESS]
+            if self.test_mode:
+                floating_ip = ok[AmConstants.ANSIBLE_FACTS][AmConstants.FLOATING_IP]
+                floating_ip = json.loads(floating_ip)
+                return floating_ip[AmConstants.FLOATING_IP_ADDRESS]
 
-        floating_ip = ok[AmConstants.FLOATING_IP]
-        result = None
-        if floating_ip is None:
-            self.get_logger().info("Floating IP returned by attach was null, trying to get via get_vm")
-            ok = self.__get_vm(playbook_path=playbook_path, inventory_path=inventory_path, vm_name=vm_name,
-                               unit_id=unit_id)
-            self.get_logger().info(f"Info returned by __get_vm: {ok}")
-            servers = ok[AmConstants.OS_SERVERS]
-            self.get_logger().debug(f"Servers: {servers}")
-            if servers is not None and len(servers) == 1:
-                result = servers[0][AmConstants.SERVER_ACCESS_IPV4]
-                if result is None:
-                    result = servers[0][AmConstants.SERVER_ACCESS_IPV6]
+            floating_ip = ok[AmConstants.FLOATING_IP]
+            result = None
+            if floating_ip is None:
+                self.get_logger().info("Floating IP returned by attach was null, trying to get via get_vm")
+                ok = self.__get_vm(playbook_path=playbook_path, inventory_path=inventory_path, vm_name=vm_name,
+                                   unit_id=unit_id)
+                self.get_logger().info(f"Info returned by __get_vm: {ok}")
+                servers = ok[AmConstants.OS_SERVERS]
+                self.get_logger().debug(f"Servers: {servers}")
+                if servers is not None and len(servers) == 1:
+                    result = servers[0][AmConstants.SERVER_ACCESS_IPV4]
+                    if result is None:
+                        result = servers[0][AmConstants.SERVER_ACCESS_IPV6]
+                else:
+                    self.get_logger().error(f"No server found for {unit_id}-{vm_name}")
             else:
-                self.get_logger().error(f"No server found for {unit_id}-{vm_name}")
-        else:
-            result = floating_ip[AmConstants.FLOATING_IP_ADDRESS]
+                result = floating_ip[AmConstants.FLOATING_IP_ADDRESS]
 
-        if result is None:
-            raise VmHandlerException(f"Unable to get the Floating IP for {unit_id}-{vm_name}")
+            if result is None:
+                raise VmHandlerException(f"Unable to get the Floating IP for {unit_id}-{vm_name}")
 
-        self.get_logger().debug(f"Returning FIP {result} for {unit_id}-{vm_name}")
-        return str(result)
+            self.get_logger().debug(f"Returning FIP {result} for {unit_id}-{vm_name}")
+            return str(result)
+        finally:
+            self.process_lock.release()
 
     def __attach_detach_pci(self, *, playbook_path: str, inventory_path: str, host: str, instance_name: str,
                             device_name: str, component: ComponentSliver, user: str = None, mgmt_ip: str = None,
