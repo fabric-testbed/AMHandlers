@@ -26,7 +26,7 @@
 # Create a callback plugin so we can capture the output
 import os
 import traceback
-from typing import Tuple
+from typing import Tuple, List
 
 from ansible import context
 from ansible.executor.playbook_executor import PlaybookExecutor
@@ -156,10 +156,13 @@ class AnsibleHelper:
     """
     Helper class to invoke the Ansible Playbook
     """
-    def __init__(self, inventory_path: str, logger):
+    def __init__(self, inventory_path: str, logger, sources: str = None):
         self.results_callback = ResultsCollectorJSONCallback()
         self.loader = DataLoader()
-        self.inventory = InventoryManager(loader=self.loader, sources=[inventory_path])
+        if sources is None:
+            self.inventory = InventoryManager(loader=self.loader, sources=[inventory_path])
+        else:
+            self.inventory = InventoryManager(loader=self.loader, sources=sources)
         self.variable_manager = VariableManager(loader=self.loader, inventory=self.inventory)
         self.logger = logger
 
@@ -172,23 +175,38 @@ class AnsibleHelper:
         """
         self.variable_manager.set_host_variable(host=host, varname=var_name, value=value)
 
-    def run_playbook(self, playbook_path: str):
+    def run_playbook(self, playbook_path: str, private_key_file: str = None, user: str = None):
         """
         Run a playbook
         @param playbook_path path for the playbook
+        @param private_key_file SSH private key file
+        @param user Username
         @raises Exception in case of failure
         """
         if not os.path.exists(playbook_path):
             raise PlaybookException("Playbook not found")
 
-        context.CLIARGS = ImmutableDict(connection='smart', tags={}, listtags=False, listtasks=False, listhosts=False,
-                                        syntax=False,
-                                        module_path=None, forks=100, private_key_file=None,
-                                        ssh_common_args=None, ssh_extra_args='-o StrictHostKeyChecking=no',
-                                        sftp_extra_args=None,
-                                        scp_extra_args=None, become=False,
-                                        become_method='sudo', become_user='root', verbosity=True, check=False,
-                                        start_at_task=None)
+        if user is not None:
+            context.CLIARGS = ImmutableDict(connection='smart', tags={}, listtags=False, listtasks=False,
+                                            listhosts=False,
+                                            syntax=False,
+                                            module_path=None, forks=100, private_key_file=private_key_file,
+                                            ssh_common_args=None, ssh_extra_args='-o StrictHostKeyChecking=no',
+                                            sftp_extra_args=None, timeout = 60,
+                                            scp_extra_args=None, become=False,
+                                            become_method='sudo', become_user='root', verbosity=True, check=False,
+                                            start_at_task=None, user=user)
+        else:
+            context.CLIARGS = ImmutableDict(connection='smart', tags={}, listtags=False, listtasks=False,
+                                            listhosts=False,
+                                            syntax=False,
+                                            module_path=None, forks=100, private_key_file=private_key_file,
+                                            ssh_common_args=None, ssh_extra_args='-o StrictHostKeyChecking=no',
+                                            sftp_extra_args=None, timeout = 60,
+                                            scp_extra_args=None, become=False,
+                                            become_method='sudo', become_user='root', verbosity=True, check=False,
+                                            start_at_task=None)
+
         passwords = {}
 
         pbex = PlaybookExecutor(playbooks=[playbook_path], inventory=self.inventory,
