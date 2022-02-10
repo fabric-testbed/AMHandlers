@@ -24,6 +24,7 @@
 #
 # Author: Ilya Baldin (ibaldin@renci.org), Xi Yang (xiwang@es.net), Komal Thareja (kthare10@renci.org)
 import logging
+import threading
 import unittest
 import time
 import uuid
@@ -502,13 +503,13 @@ class TestNetHandler(unittest.TestCase):
         # create a NetworkService sliver for FABNetv4
         prop = {AmConstants.CONFIG_PROPERTIES_FILE: '../config/net_handler_config.yml'}
 
-        handler = NetHandler(log_config=self.log_config, properties=prop)
+        handler = NetHandler(logger=self.logger, properties=prop, process_lock=threading.Lock())
         #
         # create a network sliver for FABNetv4 and its interfaces
         #
         sliver = NetworkServiceSliver()
         # service name (set by user) - only guaranteed unique within a slice
-        sliver.set_name('L3-RENC-IPv4')
+        sliver.set_name('L3-UKY-IPv4')
         # if service name global uniqueness is a requirement use Labels.local_name for that (optional)
         # e.g. concatenate name + res id (or another unique id)
         # sliver.set_labels(Labels().set_fields(local_name='test-l2bridge-shortname'))
@@ -520,7 +521,7 @@ class TestNetHandler(unittest.TestCase):
         # can also be specified with ipv6/ipv6_subnet and mac is optional for both.
         # Q: does that mean that the advertisement needs to maintain information about multiple
         # subnet, gateway and mac tuples for each site?
-        sliver.set_gateway(Gateway(Labels(ipv4="192.168.0.1", ipv4_subnet="192.168.0.0/24")))
+        sliver.set_gateway(Gateway(Labels(ipv4="10.128.128.254", ipv4_subnet="10.128.128.0/24")))
 
         #
         # create a small number of Interface slivers, set their properties and link to service
@@ -600,13 +601,13 @@ class TestNetHandler(unittest.TestCase):
         # create a NetworkService sliver for FABNetv6
         prop = {AmConstants.CONFIG_PROPERTIES_FILE: '../config/net_handler_config.yml'}
 
-        handler = NetHandler(log_config=self.log_config, properties=prop)
+        handler = NetHandler(logger=self.logger, properties=prop, process_lock=threading.Lock())
         #
         # create a network sliver for FABNetv4 and its interfaces
         #
         sliver = NetworkServiceSliver()
         # service name (set by user) - only guaranteed unique within a slice
-        sliver.set_name('L3-RENC-IPv6')
+        sliver.set_name('L3-UKY-IPv6')
         # if service name global uniqueness is a requirement use Labels.local_name for that (optional)
         # e.g. concatenate name + res id (or another unique id)
         # sliver.set_labels(Labels().set_fields(local_name='test-l2bridge-shortname'))
@@ -618,7 +619,7 @@ class TestNetHandler(unittest.TestCase):
         # can also be specified with ipv6/ipv6_subnet and mac is optional for both.
         # Q: does that mean that the advertisement needs to maintain information about multiple
         # subnet, gateway and mac tuples for each site?
-        sliver.set_gateway(Gateway(Labels(ipv6="192.168.0.1", ipv6_subnet="192.168.0.0/24")))
+        sliver.set_gateway(Gateway(Labels(ipv6="2602:FCFB:0001::1", ipv6_subnet="2602:FCFB:0001::/64")))
 
         #
         # create a small number of Interface slivers, set their properties and link to service
