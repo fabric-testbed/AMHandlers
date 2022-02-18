@@ -20,7 +20,7 @@
           - name: "{{ service_name }}"
             group:
               service: "{{ service }}"
-    when: (service == 'l2ptp' or service == 'l2sts') and operation == 'create'
+    when: (service == 'l2ptp' or service == 'l2sts' or service == 'l3rt') and operation == 'create'
 
   - name: Create network service
     nso_config:
@@ -48,4 +48,4 @@
           idipa:idipa:
           - name: "{{ service_name }}"
             __state: absent
-    when: (service == 'l2ptp' or service == 'l2sts') and operation == 'delete'
+    when: (service == 'l2ptp' or service == 'l2sts' or service == 'l3rt') and operation == 'delete'
