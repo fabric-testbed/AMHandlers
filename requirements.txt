@@ -1,5 +1,5 @@
 ansible
-fabric-fim==1.1rc3
-fabric-cf==1.1b6
+fabric-fim==1.1
+fabric-cf==1.1
 Jinja2==2.11.3
 MarkupSafe==1.1.1
