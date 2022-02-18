@@ -29,3 +29,5 @@ playbooks:
   L2Bridge: netam_nso_data.yml
   L2PTP: netam_nso_data.yml
   L2STS: netam_nso_data.yml
+  FABNetv4: netam_nso_data.yml
+  FABNetv6: netam_nso_data.yml
