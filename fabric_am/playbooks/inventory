@@ -12,7 +12,7 @@ renc-hn.fabric-testbed.net password=
 renc-hn.fabric-testbed.net project_name=admin
 renc-hn.fabric-testbed.net username=admin
 renc-hn.fabric-testbed.net net_name=management-2004
-renc-hn.fabric-testbed.net security_group=fully-permissive
+renc-hn.fabric-testbed.net security_group=fabric-sliver
 renc-hn.fabric-testbed.net key_name=default
 renc-hn.fabric-testbed.net ext_network=public
 

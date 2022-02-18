@@ -10,7 +10,7 @@ localhost password=dummypassword
 localhost project_name=admin
 localhost username=admin
 localhost net_name=management-2004
-localhost security_group=fully-permissive
+localhost security_group=fabric-sliver
 localhost key_name=default
 localhost ext_network=public
 
