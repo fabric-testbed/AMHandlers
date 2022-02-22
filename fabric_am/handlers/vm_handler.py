@@ -50,7 +50,7 @@ class VMHandler(HandlerBase):
     VM Handler
     """
     DEFAULT_USERS = [AmConstants.FEDORA_DEFAULT_USER, AmConstants.CENTOS_DEFAULT_USER, AmConstants.UBUNTU_DEFAULT_USER,
-                     AmConstants.DEBIAN_DEFAULT_USER]
+                     AmConstants.DEBIAN_DEFAULT_USER, AmConstants.ROCKY_DEFAULT_USER]
     test_mode = False
 
     def create(self, unit: ConfigToken) -> Tuple[dict, ConfigToken]:

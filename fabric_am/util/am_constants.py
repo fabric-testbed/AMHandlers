@@ -84,6 +84,7 @@ class AmConstants:
     UBUNTU_DEFAULT_USER = "ubuntu"
     FEDORA_DEFAULT_USER = "fedora"
     DEBIAN_DEFAULT_USER = "debian"
+    ROCKY_DEFAULT_USER = "rocky"
     ROOT_USER = "root"
 
     VLAN = "vlan"
