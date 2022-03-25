@@ -35,7 +35,7 @@ from fabric_cf.actor.core.util.id import ID
 from fim.slivers.attached_components import ComponentSliver, ComponentType, AttachedComponentsInfo
 from fim.slivers.capacities_labels import Capacities, Labels, CapacityHints
 from fim.slivers.instance_catalog import InstanceCatalog
-from fim.slivers.network_service import NetworkServiceSliver, ServiceType, NSLayer
+from fim.slivers.network_service import NetworkServiceSliver, ServiceType, NSLayer, MirrorDirection
 from fim.slivers.interface_info import InterfaceSliver, InterfaceType, InterfaceInfo
 from fim.slivers.path_info import Path, PathInfo, ERO
 from fim.slivers.gateway import Gateway
@@ -696,4 +696,66 @@ class TestNetHandler(unittest.TestCase):
         self.assertEqual(r[Constants.PROPERTY_TARGET_RESULT_CODE], Constants.RESULT_CODE_OK)
 
     def test_PortMirror(self):
-        pass
+
+        # create a NetworkService sliver for FABNetv6
+        prop = {AmConstants.CONFIG_PROPERTIES_FILE: '../config/net_handler_config.yml'}
+
+        handler = NetHandler(logger=self.logger, properties=prop, process_lock=threading.Lock())
+        #
+        # create a network sliver for FABNetv4 and its interfaces
+        #
+        sliver = NetworkServiceSliver()
+        # service name (set by user) - only guaranteed unique within a slice
+        sliver.set_name('PortMirror-UKY')
+        sliver.set_type(ServiceType.PortMirror)
+        sliver.set_layer(NSLayer.L2)
+
+        # mirror_port is the name of the port being mirrored - actual name the way
+        # service definition needs it. It comes directly from ASM network service sliver
+        # whatever the right name is - user must to know it when creating a slice
+        sliver.mirror_port = "TwentyFiveGigE0/0/0/24"
+        # direction also comes from ASM network service sliver
+        sliver.mirror_direction = MirrorDirection.Both
+
+        #
+        # interface to which the mirrored traffic is directed to
+        # it is in the slice (ASM) model, the same way all other interfaces for network services are.
+        #
+        stp_to = InterfaceSliver()
+        stp_to.set_name('Interface_To_Which_We_Send_Mirrored_Traffic')
+        stp_to.set_type(InterfaceType.ServicePort)
+        sliver_labels = Labels(local_name='TwentyFiveGigE0/0/0/23/1', device_name='lbnl-data-sw')
+        sliver_capacities = Capacities(bw=2000)
+        stp_to.set_labels(sliver_labels)
+        stp_to.set_capacities(sliver_capacities)
+
+        # create interface info object, add populated interfaces to it
+        ifi = InterfaceInfo()
+        ifi.add_interface(stp_to)
+
+        # add interface info object to sliver. All of this happens automagically normally
+        sliver.interface_info = ifi
+
+        # set a fake unit reservation
+        uid = uuid.uuid3(uuid.NAMESPACE_DNS, 'test_PortMirror')
+        self.unit = Unit(rid=ID(uid=str(uid)))
+        self.unit.set_sliver(sliver=sliver)
+
+        #
+        # create a service (create needs to parse out sliver information
+        # into exact parameters the service ansible script needs)
+        #
+        r, updated_unit = handler.create(unit=self.unit)
+        self.assertEqual(r[Constants.PROPERTY_TARGET_NAME], Constants.TARGET_CREATE)
+        self.assertEqual(r[Constants.PROPERTY_ACTION_SEQUENCE_NUMBER], 0)
+        self.assertEqual(r[Constants.PROPERTY_TARGET_RESULT_CODE], Constants.RESULT_CODE_OK)
+
+        time.sleep(30)
+
+        #
+        # delete - need to make sure the updated unit has the right info to delete the service
+        #
+        r, updated_unit = handler.delete(updated_unit)
+        self.assertEqual(r[Constants.PROPERTY_TARGET_NAME], Constants.TARGET_DELETE)
+        self.assertEqual(r[Constants.PROPERTY_ACTION_SEQUENCE_NUMBER], 0)
+        self.assertEqual(r[Constants.PROPERTY_TARGET_RESULT_CODE], Constants.RESULT_CODE_OK)
