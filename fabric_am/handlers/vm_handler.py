@@ -79,7 +79,7 @@ class VMHandler(HandlerBase):
             image = sliver.get_image_ref()
             init_script = None
             # TODO uncomment when FIM change is available
-            #init_script = sliver.label_allocations.init_script
+            init_script = sliver.get_boot_script()
 
             if worker_node is None or flavor is None or vmname is None or image is None:
                 raise VmHandlerException(f"Missing required parameters workernode: {worker_node} "
