@@ -49,8 +49,6 @@ class VMHandler(HandlerBase):
     """
     VM Handler
     """
-    DEFAULT_USERS = [AmConstants.FEDORA_DEFAULT_USER, AmConstants.CENTOS_DEFAULT_USER, AmConstants.UBUNTU_DEFAULT_USER,
-                     AmConstants.DEBIAN_DEFAULT_USER, AmConstants.ROCKY_DEFAULT_USER]
     test_mode = False
 
     def create(self, unit: ConfigToken) -> Tuple[dict, ConfigToken]:
@@ -104,6 +102,8 @@ class VMHandler(HandlerBase):
 
             disable_fip = self.get_config()[AmConstants.RUNTIME_SECTION][AmConstants.RT_DISABLE_FIP]
 
+            user = self.__get_default_user(image=image)
+
             if disable_fip:
                 self.get_logger().info("Floating IP is disabled, using IPV6 Global Unicast Address")
                 fip = instance_props.get(AmConstants.SERVER_ACCESS_IPV6, None)
@@ -112,9 +112,9 @@ class VMHandler(HandlerBase):
                 fip = self.__attach_fip(playbook_path=playbook_path_full, inventory_path=inventory_path,
                                         vm_name=vmname, unit_id=unit_id)
 
-            sliver.label_allocations.instance = instance_props.get(AmConstants.SERVER_INSTANCE_NAME, None)
+                self.__post_boot_config(mgmt_ip=fip, user=user)
 
-            user = self.__get_default_user(image=image)
+            sliver.label_allocations.instance = instance_props.get(AmConstants.SERVER_INSTANCE_NAME, None)
 
             # Attach any attached PCI Devices
             if sliver.attached_components_info is not None:
@@ -494,15 +494,14 @@ class VMHandler(HandlerBase):
         ansible_helper.run_playbook(playbook_path=playbook_path)
         return ansible_helper.get_result_callback().get_json_result_ok()
 
-    @staticmethod
-    def __get_default_user(image: str) -> str:
+    def __get_default_user(self, *, image: str) -> str:
         """
         Return default SSH user name
         :return default ssh user name
         """
-        for user in VMHandler.DEFAULT_USERS:
-            if user in image:
-                return user
+        images = self.get_config()[AmConstants.RUNTIME_SECTION][AmConstants.RT_IMAGES]
+        if image in images:
+            return images[image]
         return AmConstants.ROOT_USER
 
     def configure_nic(self, *, component: ComponentSliver, mgmt_ip: str, user: str):
@@ -513,7 +512,7 @@ class VMHandler(HandlerBase):
         :param user Default Linux user for the VM
         """
         # Only do this for SharedNIC and SmartNIC
-        if component.get_type() == ComponentType.SharedNIC and component.get_type() != ComponentType.SmartNIC:
+        if component.get_type() != ComponentType.SharedNIC and component.get_type() != ComponentType.SmartNIC:
             return
 
         if component.network_service_info is None or component.network_service_info.network_services is None:
@@ -551,7 +550,7 @@ class VMHandler(HandlerBase):
             playbook_location = self.get_config()[AmConstants.PLAYBOOK_SECTION][AmConstants.PB_LOCATION]
 
             # Grab the playbook name
-            playbook = self.get_config()[AmConstants.PLAYBOOK_SECTION][AmConstants.PB_CONFIG][resource_type]
+            playbook = self.get_config()[AmConstants.PLAYBOOK_SECTION][AmConstants.PB_NW_CONFIG]
 
             # Construct the playbook path
             playbook_path = f"{playbook_location}/{playbook}"
@@ -578,6 +577,43 @@ class VMHandler(HandlerBase):
 
             # Invoke the playbook
             self.get_logger().debug(f"Executing playbook {playbook_path} to configure interface extra_vars: "
+                                    f"{extra_vars}")
+            ansible_helper.run_playbook(playbook_path=playbook_path, user=user, private_key_file=admin_ssh_key)
+        except Exception as e:
+            self.get_logger().error(f"Exception : {e}")
+            self.get_logger().error(traceback.format_exc())
+
+    def __post_boot_config(self, *, mgmt_ip: str, user: str):
+        """
+        Perform post boot configuration, install required software
+        :param mgmt_ip Management IP to access the VM
+        :param user Default Linux user to use for SSH/Ansible
+        """
+        try:
+
+            # Grab the playbook location
+            playbook_location = self.get_config()[AmConstants.PLAYBOOK_SECTION][AmConstants.PB_LOCATION]
+
+            # Grab the playbook name
+            playbook = self.get_config()[AmConstants.PLAYBOOK_SECTION][AmConstants.PB_POST_BOOT_CONFIG]
+
+            # Construct the playbook path
+            playbook_path = f"{playbook_location}/{playbook}"
+
+            # Construct ansible helper
+            ansible_helper = AnsibleHelper(inventory_path=None, logger=self.get_logger(), sources=f"{mgmt_ip},")
+
+            # Set the variables
+            extra_vars = {AmConstants.VM_NAME: mgmt_ip,
+                          AmConstants.IMAGE: user}
+
+            ansible_helper.set_extra_vars(extra_vars=extra_vars)
+
+            # Grab the SSH Key
+            admin_ssh_key = self.get_config()[AmConstants.PLAYBOOK_SECTION][AmConstants.ADMIN_SSH_KEY]
+
+            # Invoke the playbook
+            self.get_logger().debug(f"Executing playbook {playbook_path} to do post boot config extra_vars: "
                                     f"{extra_vars}")
             ansible_helper.run_playbook(playbook_path=playbook_path, user=user, private_key_file=admin_ssh_key)
         except Exception as e:

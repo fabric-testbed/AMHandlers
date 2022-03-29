@@ -1,3 +1,4 @@
+---
 # MIT License
 #
 # Copyright (c) 2020 FABRIC Testbed
@@ -22,31 +23,42 @@
 #
 #
 # Author: Komal Thareja (kthare10@renci.org)
-runtime:
-  # Attach Floating IP should be disabled for Sites which only allow IPV6 Address as (Global Unicast Address)
-  # Refer https://docs.openstack.org/liberty/networking-guide/adv-config-ipv6.html  for more details
-  disable_fip: False
-  images:
-    default_centos8_stream: centos
-    default_centos9_stream: centos
-    default_centos_7: centos
-    default_centos_8: centos
-    default_debian_10: debian
-    default_fedora_35: fedora
-    default_rocky_8: rocky
-    default_ubuntu_18: ubuntu
-    default_ubuntu_20: ubuntu
-    default_ubuntu_21: ubuntu
-    default_ubuntu_22: ubuntu
-playbooks:
-  location: fabric_am/playbooks
-  inventory_location: fabric_am/playbooks/inventory
-  admin_ssh_key: ~/.ssh/id_rsa_nova
-  VM: head_vm_provisioning.yml
-  GPU: worker_pci_provisioning.yml
-  SmartNIC: worker_pci_provisioning.yml
-  SharedNIC: worker_pci_provisioning.yml
-  FPGA: worker_pci_provisioning.yml
-  NVME: worker_pci_provisioning.yml
-  post_boot_config: head_vm_post_boot_config.yml
-  nw_config: nmcli_config_nw_interface.yml
+# /tasks/main.yml
+#
+- name: Install needed network manager libs
+  become: true
+  dnf:
+    state: present
+    name:
+      - net-tools
+      - NetworkManager
+  when: image == 'centos' or image == 'rocky'
+
+- name: Install needed network manager libs
+  apt:
+    name:
+      - net-tools
+      - network-manager
+      - network-manager-gnome
+    state: present
+    update_cache: yes
+  when: image == 'ubuntu'
+
+- name: Update the renderer to NetworkManager
+  lineinfile:
+    state: present
+    path: /etc/netplan/50-cloud-init.yaml
+    regexp: "renderer: NetworkManager"
+    insertafter: "^network:"
+    line: "    renderer: NetworkManager"
+  when: image == 'ubuntu'
+
+- name: Apply the netplan
+  ansible.builtin.shell:
+     netplan apply
+  when: image == 'ubuntu'
+
+- name: Start service network manager, if not started
+  ansible.builtin.service:
+    name: NetworkManager
+    state: started
