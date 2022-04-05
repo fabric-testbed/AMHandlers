@@ -358,6 +358,14 @@ class VMHandler(HandlerBase):
         self.get_logger().debug("__attach_detach_pci IN")
         try:
             pci_device_list = None
+            mac = None
+            if component.get_type() == ComponentType.SharedNIC:
+                for ns in component.network_service_info.network_services.values():
+                    if ns.interface_info is None or ns.interface_info.interfaces is None:
+                        continue
+
+                    for ifs in ns.interface_info.interfaces.values():
+                        mac = ifs.label_allocations.mac
             if isinstance(component.label_allocations.bdf, str):
                 pci_device_list = [component.label_allocations.bdf]
             else:
@@ -384,6 +392,9 @@ class VMHandler(HandlerBase):
                 ansible_helper.add_vars(host=worker_node, var_name=AmConstants.PCI_BUS, value=device_char_arr[1])
                 ansible_helper.add_vars(host=worker_node, var_name=AmConstants.PCI_SLOT, value=device_char_arr[2])
                 ansible_helper.add_vars(host=worker_node, var_name=AmConstants.PCI_FUNCTION, value=device_char_arr[3])
+
+                if mac is not None:
+                    ansible_helper.add_vars(host=worker_node, var_name=AmConstants.MAC, value=mac)
 
                 self.get_logger().debug(f"Executing playbook {playbook_path} to attach({attach})/detach({not attach}) "
                                         f"PCI device ({device}) extra_vars: {extra_vars}")
