@@ -193,7 +193,13 @@ class VMHandler(HandlerBase):
                   Constants.PROPERTY_ACTION_SEQUENCE_NUMBER: 0}
         try:
             self.get_logger().info(f"Modify invoked for unit: {unit}")
-            # TODO
+            sliver = unit.get_modified()
+            if sliver.attached_components_info is not None:
+                for component in sliver.attached_components_info.devices.values():
+                    if component.get_type() not in [ComponentType.SharedNIC, ComponentType.SmartNIC]:
+                        continue
+                    user = self.__get_default_user(image=sliver.get_image_ref())
+                    self.configure_nic(component=component, mgmt_ip=sliver.management_ip, user=user)
         except Exception as e:
             self.get_logger().error(e)
             self.get_logger().error(traceback.format_exc())
