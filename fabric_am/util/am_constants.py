@@ -32,10 +32,12 @@ class AmConstants:
 
     RUNTIME_SECTION = "runtime"
     RT_DISABLE_FIP = "disable_fip"
+    RT_IMAGES = "images"
 
     PLAYBOOK_SECTION = "playbooks"
     PB_LOCATION = "location"
-    PB_CONFIG = "config"
+    PB_POST_BOOT_CONFIG = "post_boot_config"
+    PB_NW_CONFIG = "nw_config"
     PB_INVENTORY = "inventory_location"
     PB_HOSTNAME_SUFFIX = "hostname_suffix"
 
@@ -80,11 +82,6 @@ class AmConstants:
     DEFAULT_USER = "default_user"
     INIT_SCRIPT = "init_script"
 
-    CENTOS_DEFAULT_USER = "centos"
-    UBUNTU_DEFAULT_USER = "ubuntu"
-    FEDORA_DEFAULT_USER = "fedora"
-    DEBIAN_DEFAULT_USER = "debian"
-    ROCKY_DEFAULT_USER = "rocky"
     ROOT_USER = "root"
 
     VLAN = "vlan"
