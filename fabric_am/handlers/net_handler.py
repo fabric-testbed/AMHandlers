@@ -32,7 +32,7 @@ from fabric_cf.actor.core.common.constants import Constants
 from fabric_cf.actor.core.plugins.handlers.config_token import ConfigToken
 from fabric_cf.actor.handlers.handler_base import HandlerBase
 from fim.slivers.capacities_labels import Labels, Capacities
-from fim.slivers.network_service import NetworkServiceSliver
+from fim.slivers.network_service import NetworkServiceSliver, MirrorDirection
 
 from fabric_am.util.am_constants import AmConstants
 from fabric_am.util.ansible_helper import AnsibleHelper
@@ -99,6 +99,9 @@ class NetHandler(HandlerBase):
             elif service_type == 'fabnetv6':
                 service_data = self.__fabnetv6_create_data(sliver, service_name)
                 service_type = 'l3rt'
+            elif service_type == 'portmirror':
+                service_data = self.__portmirror_create_data(sliver, service_name)
+                service_type = 'port-mirror'
             else:
                 raise NetHandlerException(f'unrecognized network service type "{service_type}"')
             data = {
@@ -181,6 +184,8 @@ class NetHandler(HandlerBase):
         service_type = resource_type.lower()
         if service_type == 'fabnetv4' or service_type == 'fabnetv6':
             service_type = 'l3rt'
+        elif service_type == 'portmirror':
+            service_type = 'port-mirror'
         data = {
             "tailf-ncs:services": {
                 f'{service_type}:{service_type}': [{
@@ -501,3 +506,33 @@ class NetHandler(HandlerBase):
         if gateway.lab.mac is not None:
             data['gateway-mac-address'] = gateway.lab.mac
         return data
+
+    def __portmirror_create_data(self, sliver: NetworkServiceSliver, service_name: str) -> dict:
+        if not sliver.mirror_port:
+            raise NetHandlerException('port_mirror - mirror_port component in sliver')
+        direction = "both"
+        if sliver.mirror_direction:
+            direction = str(sliver.mirror_direction).lower()
+        data = {"name": service_name,
+                "from-interface": self.parse_interface_name(sliver.mirror_port),
+                "direction": direction}
+        if len(sliver.interface_info.interfaces) != 1:
+            raise NetHandlerException(
+                f'port_mirror - requires 1 destination interface but was given {len(sliver.interface_info.interfaces)}')
+        for interface_name in sliver.interface_info.interfaces:
+            interface_sliver = sliver.interface_info.interfaces[interface_name]
+            labs: Labels = interface_sliver.get_labels()
+            if labs.device_name is None:
+                raise NetHandlerException(f'port_mirror - destination interface "{interface_name}" has no "device_name" label')
+            data['device'] = labs.device_name
+            if labs.local_name is None:
+                raise NetHandlerException(f'port_mirror - interface "{interface_name}" has no "local_name" label')
+            data['to-interface'] = self.parse_interface_name(labs.local_name)
+        return data
+
+    def parse_interface_name(self, interface_name: str) -> dict:
+        interface_type_id = re.findall(r'(\w+)(\d.+)', interface_name)
+        if not interface_type_id or len(interface_type_id[0]) != 2:
+            raise NetHandlerException(f'interface name "{interface_name}" is malformed')
+        interface = {'type': interface_type_id[0][0], 'id': interface_type_id[0][1]}
+        return interface

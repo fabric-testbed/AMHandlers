@@ -31,3 +31,4 @@ playbooks:
   L2STS: netam_nso_data.yml
   FABNetv4: netam_nso_data.yml
   FABNetv6: netam_nso_data.yml
+  PortMirror: netam_nso_data.yml
