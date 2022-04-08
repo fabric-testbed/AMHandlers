@@ -7,6 +7,14 @@
     src: device.j2
     dest: /tmp/{{ device }}.yml
     mode: 0600
+  when: mac is not defined
+
+- name: Create file to add device
+  template:
+    src: device_with_mac.j2
+    dest: /tmp/{{ device }}.yml
+    mode: 0600
+  when: mac is defined
 
 - name: Add PCI Card to VM
   ansible.builtin.shell: 

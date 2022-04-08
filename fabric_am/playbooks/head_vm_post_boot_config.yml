@@ -1,0 +1,12 @@
+---
+# file: head_vm_post_boot_config.yml
+
+- hosts:
+    - "{{ vmname }}"
+
+  become: true
+
+  vars:
+
+  roles:
+    - head_vm_post_boot_config
