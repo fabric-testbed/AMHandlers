@@ -25,9 +25,11 @@
 # Author: Komal Thareja (kthare10@renci.org)
 import json
 import re
+import time
 import traceback
 from typing import Tuple, List
 
+import paramiko
 from fabric_cf.actor.core.common.constants import Constants
 from fabric_cf.actor.core.plugins.handlers.config_token import ConfigToken
 from fabric_cf.actor.handlers.handler_base import HandlerBase
@@ -49,8 +51,6 @@ class VMHandler(HandlerBase):
     """
     VM Handler
     """
-    DEFAULT_USERS = [AmConstants.FEDORA_DEFAULT_USER, AmConstants.CENTOS_DEFAULT_USER, AmConstants.UBUNTU_DEFAULT_USER,
-                     AmConstants.DEBIAN_DEFAULT_USER, AmConstants.ROCKY_DEFAULT_USER]
     test_mode = False
 
     def create(self, unit: ConfigToken) -> Tuple[dict, ConfigToken]:
@@ -79,9 +79,7 @@ class VMHandler(HandlerBase):
             flavor = sliver.get_capacity_hints().instance_type
             vmname = sliver.get_name()
             image = sliver.get_image_ref()
-            init_script = None
-            # TODO uncomment when FIM change is available
-            #init_script = sliver.label_allocations.init_script
+            init_script = sliver.get_boot_script()
 
             if worker_node is None or flavor is None or vmname is None or image is None:
                 raise VmHandlerException(f"Missing required parameters workernode: {worker_node} "
@@ -104,6 +102,8 @@ class VMHandler(HandlerBase):
 
             disable_fip = self.get_config()[AmConstants.RUNTIME_SECTION][AmConstants.RT_DISABLE_FIP]
 
+            user = self.__get_default_user(image=image)
+
             if disable_fip:
                 self.get_logger().info("Floating IP is disabled, using IPV6 Global Unicast Address")
                 fip = instance_props.get(AmConstants.SERVER_ACCESS_IPV6, None)
@@ -112,9 +112,10 @@ class VMHandler(HandlerBase):
                 fip = self.__attach_fip(playbook_path=playbook_path_full, inventory_path=inventory_path,
                                         vm_name=vmname, unit_id=unit_id)
 
-            sliver.label_allocations.instance = instance_props.get(AmConstants.SERVER_INSTANCE_NAME, None)
+                self.__verify_ssh(mgmt_ip=fip, user=user)
+                self.__post_boot_config(mgmt_ip=fip, user=user)
 
-            user = self.__get_default_user(image=image)
+            sliver.label_allocations.instance = instance_props.get(AmConstants.SERVER_INSTANCE_NAME, None)
 
             # Attach any attached PCI Devices
             if sliver.attached_components_info is not None:
@@ -193,7 +194,13 @@ class VMHandler(HandlerBase):
                   Constants.PROPERTY_ACTION_SEQUENCE_NUMBER: 0}
         try:
             self.get_logger().info(f"Modify invoked for unit: {unit}")
-            # TODO
+            sliver = unit.get_modified()
+            if sliver.attached_components_info is not None:
+                for component in sliver.attached_components_info.devices.values():
+                    if component.get_type() not in [ComponentType.SharedNIC, ComponentType.SmartNIC]:
+                        continue
+                    user = self.__get_default_user(image=sliver.get_image_ref())
+                    self.configure_nic(component=component, mgmt_ip=sliver.management_ip, user=user)
         except Exception as e:
             self.get_logger().error(e)
             self.get_logger().error(traceback.format_exc())
@@ -245,7 +252,7 @@ class VMHandler(HandlerBase):
         }
         ansible_helper.set_extra_vars(extra_vars=extra_vars)
 
-        self.get_logger().debug(f"Executing playbook {playbook_path} to create VM extra_vars: {extra_vars}")
+        self.get_logger().info(f"Executing playbook {playbook_path} to create VM extra_vars: {extra_vars}")
         ansible_helper.run_playbook(playbook_path=playbook_path)
         ok = ansible_helper.get_result_callback().get_json_result_ok()
 
@@ -282,7 +289,7 @@ class VMHandler(HandlerBase):
                       AmConstants.VM_NAME: vm_name}
         ansible_helper.set_extra_vars(extra_vars=extra_vars)
 
-        self.get_logger().debug(f"Executing playbook {playbook_path} to delete VM extra_vars: {extra_vars}")
+        self.get_logger().info(f"Executing playbook {playbook_path} to delete VM extra_vars: {extra_vars}")
         ansible_helper.run_playbook(playbook_path=playbook_path)
         return True
 
@@ -304,7 +311,7 @@ class VMHandler(HandlerBase):
                           AmConstants.VM_NAME: vmname}
             ansible_helper.set_extra_vars(extra_vars=extra_vars)
 
-            self.get_logger().debug(f"Executing playbook {playbook_path} to attach FIP extra_vars: {extra_vars}")
+            self.get_logger().info(f"Executing playbook {playbook_path} to attach FIP extra_vars: {extra_vars}")
             ansible_helper.run_playbook(playbook_path=playbook_path)
 
             ok = ansible_helper.get_result_callback().get_json_result_ok()
@@ -335,7 +342,7 @@ class VMHandler(HandlerBase):
             if result is None:
                 raise VmHandlerException(f"Unable to get the Floating IP for {unit_id}-{vm_name}")
 
-            self.get_logger().debug(f"Returning FIP {result} for {unit_id}-{vm_name}")
+            self.get_logger().info(f"Returning FIP {result} for {unit_id}-{vm_name}")
             return str(result)
         finally:
             self.process_lock.release()
@@ -358,6 +365,14 @@ class VMHandler(HandlerBase):
         self.get_logger().debug("__attach_detach_pci IN")
         try:
             pci_device_list = None
+            mac = None
+            if component.get_type() == ComponentType.SharedNIC:
+                for ns in component.network_service_info.network_services.values():
+                    if ns.interface_info is None or ns.interface_info.interfaces is None:
+                        continue
+
+                    for ifs in ns.interface_info.interfaces.values():
+                        mac = ifs.label_allocations.mac
             if isinstance(component.label_allocations.bdf, str):
                 pci_device_list = [component.label_allocations.bdf]
             else:
@@ -372,7 +387,7 @@ class VMHandler(HandlerBase):
             else:
                 extra_vars[AmConstants.PCI_OPERATION] = AmConstants.PCI_PROV_DETACH
 
-            self.get_logger().debug(f"Device List Size: {len(pci_device_list)} List: {pci_device_list}")
+            self.get_logger().info(f"Device List Size: {len(pci_device_list)} List: {pci_device_list}")
             index = 0
             for device in pci_device_list:
                 ansible_helper = AnsibleHelper(inventory_path=inventory_path, logger=self.get_logger())
@@ -385,7 +400,10 @@ class VMHandler(HandlerBase):
                 ansible_helper.add_vars(host=worker_node, var_name=AmConstants.PCI_SLOT, value=device_char_arr[2])
                 ansible_helper.add_vars(host=worker_node, var_name=AmConstants.PCI_FUNCTION, value=device_char_arr[3])
 
-                self.get_logger().debug(f"Executing playbook {playbook_path} to attach({attach})/detach({not attach}) "
+                if mac is not None:
+                    ansible_helper.add_vars(host=worker_node, var_name=AmConstants.MAC, value=mac)
+
+                self.get_logger().info(f"Executing playbook {playbook_path} to attach({attach})/detach({not attach}) "
                                         f"PCI device ({device}) extra_vars: {extra_vars}")
 
                 ansible_helper.run_playbook(playbook_path=playbook_path)
@@ -427,7 +445,7 @@ class VMHandler(HandlerBase):
 
                         if device.label_allocations.bdf is None:
                             raise VmHandlerException(f"Missing required parameters bdf: {device.label_allocations.bdf}")
-                        self.get_logger().debug(f"Attaching/Detaching Devices {full_playbook_path}")
+                        self.get_logger().info(f"Attaching/Detaching Devices {full_playbook_path}")
                         self.__attach_detach_pci(playbook_path=full_playbook_path, inventory_path=inventory_path,
                                                  instance_name=instance_name, host=worker_node,
                                                  device_name=unit_id,
@@ -490,19 +508,18 @@ class VMHandler(HandlerBase):
                       AmConstants.VM_NAME: vm_name}
         ansible_helper.set_extra_vars(extra_vars=extra_vars)
 
-        self.get_logger().debug(f"Executing playbook {playbook_path} to get VM extra_vars: {extra_vars}")
+        self.get_logger().info(f"Executing playbook {playbook_path} to get VM extra_vars: {extra_vars}")
         ansible_helper.run_playbook(playbook_path=playbook_path)
         return ansible_helper.get_result_callback().get_json_result_ok()
 
-    @staticmethod
-    def __get_default_user(image: str) -> str:
+    def __get_default_user(self, *, image: str) -> str:
         """
         Return default SSH user name
         :return default ssh user name
         """
-        for user in VMHandler.DEFAULT_USERS:
-            if user in image:
-                return user
+        images = self.get_config()[AmConstants.RUNTIME_SECTION][AmConstants.RT_IMAGES]
+        if image in images:
+            return images[image]
         return AmConstants.ROOT_USER
 
     def configure_nic(self, *, component: ComponentSliver, mgmt_ip: str, user: str):
@@ -513,7 +530,7 @@ class VMHandler(HandlerBase):
         :param user Default Linux user for the VM
         """
         # Only do this for SharedNIC and SmartNIC
-        if component.get_type() == ComponentType.SharedNIC and component.get_type() != ComponentType.SmartNIC:
+        if component.get_type() != ComponentType.SharedNIC and component.get_type() != ComponentType.SmartNIC:
             return
 
         if component.network_service_info is None or component.network_service_info.network_services is None:
@@ -551,7 +568,7 @@ class VMHandler(HandlerBase):
             playbook_location = self.get_config()[AmConstants.PLAYBOOK_SECTION][AmConstants.PB_LOCATION]
 
             # Grab the playbook name
-            playbook = self.get_config()[AmConstants.PLAYBOOK_SECTION][AmConstants.PB_CONFIG][resource_type]
+            playbook = self.get_config()[AmConstants.PLAYBOOK_SECTION][AmConstants.PB_NW_CONFIG]
 
             # Construct the playbook path
             playbook_path = f"{playbook_location}/{playbook}"
@@ -577,9 +594,99 @@ class VMHandler(HandlerBase):
             admin_ssh_key = self.get_config()[AmConstants.PLAYBOOK_SECTION][AmConstants.ADMIN_SSH_KEY]
 
             # Invoke the playbook
-            self.get_logger().debug(f"Executing playbook {playbook_path} to configure interface extra_vars: "
+            self.get_logger().info(f"Executing playbook {playbook_path} to configure interface extra_vars: "
                                     f"{extra_vars}")
             ansible_helper.run_playbook(playbook_path=playbook_path, user=user, private_key_file=admin_ssh_key)
         except Exception as e:
             self.get_logger().error(f"Exception : {e}")
             self.get_logger().error(traceback.format_exc())
+
+    def __post_boot_config(self, *, mgmt_ip: str, user: str):
+        """
+        Perform post boot configuration, install required software
+        :param mgmt_ip Management IP to access the VM
+        :param user Default Linux user to use for SSH/Ansible
+        """
+        try:
+
+            # Grab the playbook location
+            playbook_location = self.get_config()[AmConstants.PLAYBOOK_SECTION][AmConstants.PB_LOCATION]
+
+            # Grab the playbook name
+            playbook = self.get_config()[AmConstants.PLAYBOOK_SECTION][AmConstants.PB_POST_BOOT_CONFIG]
+
+            # Construct the playbook path
+            playbook_path = f"{playbook_location}/{playbook}"
+
+            # Construct ansible helper
+            ansible_helper = AnsibleHelper(inventory_path=None, logger=self.get_logger(), sources=f"{mgmt_ip},")
+
+            # Set the variables
+            extra_vars = {AmConstants.VM_NAME: mgmt_ip,
+                          AmConstants.IMAGE: user}
+
+            ansible_helper.set_extra_vars(extra_vars=extra_vars)
+
+            # Grab the SSH Key
+            admin_ssh_key = self.get_config()[AmConstants.PLAYBOOK_SECTION][AmConstants.ADMIN_SSH_KEY]
+
+            # Invoke the playbook
+            self.get_logger().info(f"Executing playbook {playbook_path} to do post boot config extra_vars: "
+                                    f"{extra_vars}")
+            ansible_helper.run_playbook(playbook_path=playbook_path, user=user, private_key_file=admin_ssh_key)
+        except Exception as e:
+            self.get_logger().error(f"Exception : {e}")
+            self.get_logger().error(traceback.format_exc())
+
+    def __execute_command(self, *, mgmt_ip: str, user: str, command: str, timeout: int = 60, retry: int = 3):
+        """
+        Execute a command on the VM
+        :param mgmt_ip Management IP to access the VM
+        :param user Default Linux user to use for SSH/Ansible
+        :param command Command to execute
+        :param timeout Timeout in seconds
+        :param retry Number of retries
+        :return:
+        """
+        for i in range(retry):
+            try:
+                # Construct the SSH client
+                ssh = paramiko.SSHClient()
+                ssh.set_missing_host_key_policy(paramiko.AutoAddPolicy())
+                key_file = self.get_config()[AmConstants.PLAYBOOK_SECTION][AmConstants.ADMIN_SSH_KEY]
+                pkey = paramiko.RSAKey.from_private_key_file(key_file)
+                ssh.connect(mgmt_ip, username=user, timeout=timeout, pkey=pkey)
+
+                # Execute the command
+                stdin, stdout, stderr = ssh.exec_command(command)
+                output = stdout.readlines()
+                ssh.close()
+                return output
+            except Exception as e:
+                self.get_logger().error(f"Exception : {e}")
+                self.get_logger().error(traceback.format_exc())
+                if i < retry - 1:
+                    time.sleep(timeout)
+                    self.get_logger().info(f"Retrying command {command} on VM {mgmt_ip}")
+                else:
+                    self.get_logger().error(f"Failed to execute command {command} on VM {mgmt_ip}")
+                    raise e
+
+    def __verify_ssh(self, *, mgmt_ip: str, user: str, timeout: int = 60, retry: int = 10):
+        """
+        Verify that the VM is accessible via SSH
+        :param mgmt_ip Management IP to access the VM
+        :param user Default Linux user to use for SSH/Ansible
+        :param retry Number of retries
+        :param retry_interval Timeout in seconds
+
+        """
+        command = f"echo test ssh from {mgmt_ip} > /tmp/fabric_execute_script.sh; " \
+                  f"chmod +x /tmp/fabric_execute_script.sh; /tmp/fabric_execute_script.sh"
+
+        try:
+            output = self.__execute_command(mgmt_ip=mgmt_ip, user=user, command=command,
+                                            timeout=timeout, retry=retry)
+            self.get_logger().info(f"Output: {output}")
+        except Exception as e:
+            pass
