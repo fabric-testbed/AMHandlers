@@ -541,6 +541,8 @@ class VMHandler(HandlerBase):
                 continue
 
             for ifs in ns.interface_info.interfaces.values():
+                if ifs.flags is None or not ifs.flags.auto_config:
+                    continue
                 self.get_logger().info(f"Configuring Interface  {ifs}")
                 self.configure_network_interface(mgmt_ip=mgmt_ip, user=user, resource_type=component.get_type().name,
                                                  ipv4_address=ifs.label_allocations.ipv4,
