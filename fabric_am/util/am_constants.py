@@ -87,6 +87,8 @@ class AmConstants:
     VLAN = "vlan"
     MAC = "mac"
     IPV4_ADDRESS = "ipv4_address"
+    IPV4_PREFIX = "ipv4_prefix"
     IPV6_ADDRESS = "ipv6_address"
+    IPV6_PREFIX = "ipv6_prefix"
     ADDRESS_LIST = "address_list"
     ADMIN_SSH_KEY = "admin_ssh_key"
