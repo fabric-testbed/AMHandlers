@@ -114,7 +114,6 @@ class VMHandler(HandlerBase):
 
             ssh_retries = self.get_config()[AmConstants.RUNTIME_SECTION][AmConstants.RT_SSH_RETRIES]
             self.__verify_ssh(mgmt_ip=fip, user=user, retry=ssh_retries)
-            self.__post_boot_config(mgmt_ip=fip, user=user)
 
             sliver.label_allocations.instance = instance_props.get(AmConstants.SERVER_INSTANCE_NAME, None)
 
