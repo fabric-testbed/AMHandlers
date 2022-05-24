@@ -92,7 +92,7 @@
     conn_name: "{{ if_name }}"
     ifname: "{{ if_name }}"
     type: ethernet
-    ip4: "{{ ipv4_address }}/24"
+    ip4: "{{ ipv4_address }}/{{ ipv4_prefix }}"
     state: present
   when: vlan is not defined and ipv4_address is defined
 
@@ -101,7 +101,7 @@
     conn_name: "{{ if_name }}"
     ifname: "{{ if_name }}"
     type: ethernet
-    ip6: '{{ ipv6_address }}/64'
+    ip6: '{{ ipv6_address }}/{{ ipv6_prefix }}'
     state: present
   when: vlan is not defined and ipv6_address is defined
 
@@ -120,7 +120,7 @@
     type: vlan
     vlanid: "{{ vlan }}"
     vlandev: "{{ if_name }}"
-    ip4: "{{ ipv4_address}}/24"
+    ip4: "{{ ipv4_address}}/{{ ipv4_prefix }}"
     state: present
   when: vlan is defined and ipv4_address is defined
 
@@ -131,7 +131,7 @@
     type: vlan
     vlanid: "{{ vlan }}"
     vlandev: "{{ if_name }}"
-    ip6: '{{ ipv6_address }}/64'
+    ip6: '{{ ipv6_address }}/{{ ipv6_prefix }}'
     state: present
   when: vlan is defined and ipv6_address is defined
 

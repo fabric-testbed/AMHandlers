@@ -59,7 +59,7 @@ class NetHandler(HandlerBase):
                   Constants.PROPERTY_TARGET_RESULT_CODE: Constants.RESULT_CODE_OK,
                   Constants.PROPERTY_ACTION_SEQUENCE_NUMBER: 0}
         sliver = None
-
+        unit_id = None
         try:
             self.get_logger().info(f"Create invoked for unit: {unit}")
             sliver = unit.get_sliver()
@@ -226,7 +226,7 @@ class NetHandler(HandlerBase):
                     self.get_logger().info(f'network service {service_name} was cleaned up ok but without change')
 
         except Exception as e:
-            self.get_logger().error(f"Exception occurred in cleanup {e}")
+            self.get_logger().error(f"Exception occurred in cleanup {unit_id} error: {e}")
             self.get_logger().error(traceback.format_exc())
             if raise_exception:
                 raise e

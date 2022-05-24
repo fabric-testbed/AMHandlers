@@ -112,8 +112,8 @@ class VMHandler(HandlerBase):
                 fip = self.__attach_fip(playbook_path=playbook_path_full, inventory_path=inventory_path,
                                         vm_name=vmname, unit_id=unit_id)
 
-                self.__verify_ssh(mgmt_ip=fip, user=user)
-                self.__post_boot_config(mgmt_ip=fip, user=user)
+            ssh_retries = self.get_config()[AmConstants.RUNTIME_SECTION][AmConstants.RT_SSH_RETRIES]
+            self.__verify_ssh(mgmt_ip=fip, user=user, retry=ssh_retries)
 
             sliver.label_allocations.instance = instance_props.get(AmConstants.SERVER_INSTANCE_NAME, None)
 
@@ -467,7 +467,7 @@ class VMHandler(HandlerBase):
             self.__delete_vm(playbook_path=full_playbook_path, inventory_path=inventory_path,
                              vm_name=sliver.get_name(), unit_id=unit_id)
         except Exception as e:
-            self.get_logger().error(f"Exception occurred in cleanup {e}")
+            self.get_logger().error(f"Exception occurred in cleanup {unit_id} error: {e}")
             self.get_logger().error(traceback.format_exc())
             if raise_exception:
                 raise e
@@ -546,12 +546,15 @@ class VMHandler(HandlerBase):
                 self.get_logger().info(f"Configuring Interface  {ifs}")
                 self.configure_network_interface(mgmt_ip=mgmt_ip, user=user, resource_type=component.get_type().name,
                                                  ipv4_address=ifs.label_allocations.ipv4,
+                                                 ipv4_subnet=ifs.label_allocations.ipv4_subnet,
                                                  ipv6_address=ifs.label_allocations.ipv6,
+                                                 ipv6_subnet=ifs.label_allocations.ipv6_subnet,
                                                  mac_address=ifs.label_allocations.mac,
                                                  vlan=ifs.label_allocations.vlan)
 
     def configure_network_interface(self, *, mgmt_ip: str, user: str, resource_type: str, mac_address: str,
-                                    ipv4_address: str = None, ipv6_address: str = None, vlan: str = None):
+                                    ipv4_address: str = None, ipv4_subnet: str = None, ipv6_address: str = None,
+                                    ipv6_subnet: str = None, vlan: str = None):
         """
         Configure Network Interface inside the VM
         :param mgmt_ip Management IP to access the VM
@@ -559,7 +562,9 @@ class VMHandler(HandlerBase):
         :param resource_type Type of NIC card (SharedNIC or SmartNIC)
         :param mac_address Mac address used to identify the interface
         :param ipv4_address IPV4 address to assign
+        :param ipv4_subnet IPV4 subnet to assign
         :param ipv6_address IPV6 address to assign
+        :param ipv6_subnet IPV6 subnet to assign
         :param vlan Vlan tag in case of tagged interface
         """
         try:
@@ -583,10 +588,14 @@ class VMHandler(HandlerBase):
                           AmConstants.MAC: mac_address.lower(),
                           AmConstants.IMAGE: user}
 
+            ipv4_prefix = ipv4_subnet.split("/")[1] if ipv4_subnet is not None else "24"
+            ipv6_prefix = ipv6_subnet.split("/")[1] if ipv6_subnet is not None else "64"
             if ipv4_address is not None:
                 extra_vars[AmConstants.IPV4_ADDRESS] = ipv4_address
+                extra_vars[AmConstants.IPV4_PREFIX] = ipv4_prefix
             if ipv6_address is not None:
                 extra_vars[AmConstants.IPV6_ADDRESS] = ipv6_address
+                extra_vars[AmConstants.IPV6_PREFIX] = ipv6_prefix
             if vlan is not None and resource_type != ComponentType.SharedNIC.name:
                 extra_vars[AmConstants.VLAN] = vlan
 
@@ -634,7 +643,7 @@ class VMHandler(HandlerBase):
 
             # Invoke the playbook
             self.get_logger().info(f"Executing playbook {playbook_path} to do post boot config extra_vars: "
-                                    f"{extra_vars}")
+                                   f"{extra_vars}")
             ansible_helper.run_playbook(playbook_path=playbook_path, user=user, private_key_file=admin_ssh_key)
         except Exception as e:
             self.get_logger().error(f"Exception : {e}")
