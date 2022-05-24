@@ -25,12 +25,6 @@
 # Author: Komal Thareja (kthare10@renci.org)
 # /tasks/main.yml
 #
-- name: Wait for ssh to come up
-  wait_for_connection:
-    delay: 60
-    sleep: 60
-    timeout: 2000
-
 - name: Install needed network manager libs
   become: true
   dnf:
