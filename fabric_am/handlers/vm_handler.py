@@ -133,8 +133,8 @@ class VMHandler(HandlerBase):
                                              host=worker_node, instance_name=sliver.label_allocations.instance,
                                              device_name=str(unit.get_id()), component=component, user=user,
                                              mgmt_ip=fip)
-
             sliver.management_ip = fip
+            self.__configure_interfaces(sliver=sliver)
 
         except Exception as e:
             self.get_logger().error(e)
@@ -182,6 +182,18 @@ class VMHandler(HandlerBase):
             self.get_logger().info(f"Delete completed")
         return result, unit
 
+    def __configure_interfaces(self, sliver: NodeSliver):
+        try:
+            if sliver.attached_components_info is not None:
+                for component in sliver.attached_components_info.devices.values():
+                    if component.get_type() not in [ComponentType.SharedNIC, ComponentType.SmartNIC]:
+                        continue
+                    user = self.__get_default_user(image=sliver.get_image_ref())
+                    self.configure_nic(component=component, mgmt_ip=sliver.management_ip, user=user)
+        except Exception as e:
+            self.get_logger().error(e)
+            self.get_logger().error(traceback.format_exc())
+
     def modify(self, unit: ConfigToken) -> Tuple[dict, ConfigToken]:
         """
         Modify a provisioned Unit
@@ -195,16 +207,10 @@ class VMHandler(HandlerBase):
         try:
             self.get_logger().info(f"Modify invoked for unit: {unit}")
             sliver = unit.get_modified()
-            if sliver.attached_components_info is not None:
-                for component in sliver.attached_components_info.devices.values():
-                    if component.get_type() not in [ComponentType.SharedNIC, ComponentType.SmartNIC]:
-                        continue
-                    user = self.__get_default_user(image=sliver.get_image_ref())
-                    self.configure_nic(component=component, mgmt_ip=sliver.management_ip, user=user)
+            self.__configure_interfaces(sliver=sliver)
         except Exception as e:
             self.get_logger().error(e)
             self.get_logger().error(traceback.format_exc())
-            # TODO
             result = {Constants.PROPERTY_TARGET_NAME: Constants.TARGET_MODIFY,
                       Constants.PROPERTY_TARGET_RESULT_CODE: Constants.RESULT_CODE_EXCEPTION,
                       Constants.PROPERTY_ACTION_SEQUENCE_NUMBER: 0,
@@ -407,10 +413,6 @@ class VMHandler(HandlerBase):
                                         f"PCI device ({device}) extra_vars: {extra_vars}")
 
                 ansible_helper.run_playbook(playbook_path=playbook_path)
-
-            # Configure the Network Interface card
-            if attach:
-                self.configure_nic(component=component, mgmt_ip=mgmt_ip, user=user)
         finally:
             self.get_logger().debug("__attach_detach_pci OUT")
 
@@ -445,7 +447,7 @@ class VMHandler(HandlerBase):
 
                         if device.label_allocations.bdf is None:
                             raise VmHandlerException(f"Missing required parameters bdf: {device.label_allocations.bdf}")
-                        self.get_logger().info(f"Attaching/Detaching Devices {full_playbook_path}")
+                        self.get_logger().info(f"Detaching Devices {full_playbook_path}")
                         self.__attach_detach_pci(playbook_path=full_playbook_path, inventory_path=inventory_path,
                                                  instance_name=instance_name, host=worker_node,
                                                  device_name=unit_id,
@@ -539,10 +541,13 @@ class VMHandler(HandlerBase):
         for ns in component.network_service_info.network_services.values():
             if ns.interface_info is None or ns.interface_info.interfaces is None:
                 continue
-
+            installed_nw_mgr = False
             for ifs in ns.interface_info.interfaces.values():
                 if ifs.flags is None or not ifs.flags.auto_config:
                     continue
+                if not installed_nw_mgr:
+                    self.__post_boot_config(mgmt_ip=mgmt_ip, user=user)
+                    installed_nw_mgr = True
                 self.get_logger().info(f"Configuring Interface  {ifs}")
                 self.configure_network_interface(mgmt_ip=mgmt_ip, user=user, resource_type=component.get_type().name,
                                                  ipv4_address=ifs.label_allocations.ipv4,
