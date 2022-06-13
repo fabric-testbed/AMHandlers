@@ -120,7 +120,7 @@ class VMHandler(HandlerBase):
             # Attach any attached PCI Devices
             if sliver.attached_components_info is not None:
                 for component in sliver.attached_components_info.devices.values():
-                    self.__attach_detach_pci(playbook_path=playbook_path_full, inventory_path=inventory_path,
+                    self.__attach_detach_pci(playbook_path=playbook_path, inventory_path=inventory_path,
                                              host=worker_node, instance_name=sliver.label_allocations.instance,
                                              device_name=str(unit.get_id()), component=component)
             sliver.management_ip = fip

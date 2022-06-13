@@ -11,7 +11,7 @@
   set_fact:
     device_name: "{{ device_name.stdout }}"
 
-- name: Determine the Block Device Name for the provided
+- name: Format the Block Device
   ansible.builtin.shell:
     cmd: /usr/sbin/nvme format /dev/{{ device_name }}
   register: output
