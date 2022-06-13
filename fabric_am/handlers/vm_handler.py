@@ -120,19 +120,9 @@ class VMHandler(HandlerBase):
             # Attach any attached PCI Devices
             if sliver.attached_components_info is not None:
                 for component in sliver.attached_components_info.devices.values():
-                    resource_type = str(component.get_type())
-                    playbook = self.get_config()[AmConstants.PLAYBOOK_SECTION][resource_type]
-                    if playbook is None:
-                        raise VmHandlerException(f"Missing parameters playbook: {playbook} "
-                                                 f"resource_type: {resource_type} component: {component} "
-                                                 f"sliver: {sliver}")
-
-                    playbook_path_full = f"{playbook_path}/{playbook}"
-                    self.get_logger().debug(f"Attaching Devices {playbook_path_full}")
                     self.__attach_detach_pci(playbook_path=playbook_path_full, inventory_path=inventory_path,
                                              host=worker_node, instance_name=sliver.label_allocations.instance,
-                                             device_name=str(unit.get_id()), component=component, user=user,
-                                             mgmt_ip=fip)
+                                             device_name=str(unit.get_id()), component=component)
             sliver.management_ip = fip
             self.__configure_interfaces(sliver=sliver)
 
@@ -354,8 +344,7 @@ class VMHandler(HandlerBase):
             self.process_lock.release()
 
     def __attach_detach_pci(self, *, playbook_path: str, inventory_path: str, host: str, instance_name: str,
-                            device_name: str, component: ComponentSliver, user: str = None, mgmt_ip: str = None,
-                            attach: bool = True):
+                            device_name: str, component: ComponentSliver, attach: bool = True):
         """
         Invoke ansible playbook to attach/detach a PCI device to a provisioned VM
         :param playbook_path: playbook location
@@ -364,13 +353,18 @@ class VMHandler(HandlerBase):
         :param instance_name: Instance Name
         :param device_name: Device Name
         :param component: Component Sliver
-        :param mgmt_ip: Management IP of the VM to which the component is attached
         :param attach: True for attach and False for detach
         :return:
         """
         self.get_logger().debug("__attach_detach_pci IN")
         try:
-            pci_device_list = None
+            resource_type = str(component.get_type())
+            playbook = self.get_config()[AmConstants.PLAYBOOK_SECTION][resource_type]
+            if playbook is None or inventory_path is None:
+                raise VmHandlerException(f"Missing config parameters playbook: {playbook} "
+                                         f"playbook_path: {playbook_path} inventory_path: {inventory_path}")
+            full_playbook_path = f"{playbook_path}/{playbook}"
+
             mac = None
             if component.get_type() == ComponentType.SharedNIC:
                 for ns in component.network_service_info.network_services.values():
@@ -394,7 +388,6 @@ class VMHandler(HandlerBase):
                 extra_vars[AmConstants.PCI_OPERATION] = AmConstants.PCI_PROV_DETACH
 
             self.get_logger().info(f"Device List Size: {len(pci_device_list)} List: {pci_device_list}")
-            index = 0
             for device in pci_device_list:
                 ansible_helper = AnsibleHelper(inventory_path=inventory_path, logger=self.get_logger())
                 ansible_helper.set_extra_vars(extra_vars=extra_vars)
@@ -409,12 +402,55 @@ class VMHandler(HandlerBase):
                 if mac is not None:
                     ansible_helper.add_vars(host=worker_node, var_name=AmConstants.MAC, value=mac)
 
-                self.get_logger().info(f"Executing playbook {playbook_path} to attach({attach})/detach({not attach}) "
-                                        f"PCI device ({device}) extra_vars: {extra_vars}")
+                self.get_logger().info(f"Executing playbook {full_playbook_path} to attach({attach})/detach({not attach}) "
+                                       f"PCI device ({device}) extra_vars: {extra_vars}")
 
                 ansible_helper.run_playbook(playbook_path=playbook_path)
         finally:
             self.get_logger().debug("__attach_detach_pci OUT")
+
+    def __cleanup_pci(self, *, playbook_path: str, inventory_path: str, host: str, component: ComponentSliver):
+        """
+        Invoke ansible playbook to cleanup a PCI device
+        :param playbook_path: playbook location
+        :param inventory_path: inventory location
+        :param host: host
+        :param component: Component Sliver
+        :return:
+        """
+        self.get_logger().debug("__cleanup_pci IN")
+        try:
+            resource_type = str(component.get_type())
+            cleanup_playbooks = self.get_config()[AmConstants.PLAYBOOK_SECTION][AmConstants.PB_CLEANUP]
+            playbook = cleanup_playbooks.get(resource_type)
+            if playbook is None:
+                self.logger.info(f"No cleanup required for {resource_type}")
+                return
+
+            if playbook is None or inventory_path is None:
+                raise VmHandlerException(f"Missing config parameters playbook: {playbook} "
+                                         f"playbook_path: {playbook_path} inventory_path: {inventory_path}")
+            full_playbook_path = f"{playbook_path}/{playbook}"
+
+            worker_node = host
+
+            extra_vars = {AmConstants.WORKER_NODE_NAME: worker_node}
+            if isinstance(component.label_allocations.bdf, str):
+                pci_device_list = [component.label_allocations.bdf]
+            else:
+                pci_device_list = component.label_allocations.bdf
+
+            self.get_logger().info(f"Device List Size: {len(pci_device_list)} List: {pci_device_list}")
+            for device in pci_device_list:
+                self.get_logger().info(f"Executing playbook {playbook_path} to cleanup "
+                                       f"PCI device ({device}) extra_vars: {extra_vars}")
+
+                extra_vars[AmConstants.PCI_PROV_DEVICE] = device
+                ansible_helper = AnsibleHelper(inventory_path=inventory_path, logger=self.get_logger())
+                ansible_helper.set_extra_vars(extra_vars=extra_vars)
+                ansible_helper.run_playbook(playbook_path=full_playbook_path)
+        finally:
+            self.get_logger().debug("__cleanup_pci OUT")
 
     def __cleanup(self, *, sliver: NodeSliver, unit_id: str, raise_exception: bool = False):
         """
@@ -438,17 +474,14 @@ class VMHandler(HandlerBase):
             if sliver.attached_components_info is not None and worker_node is not None and instance_name is not None:
                 for device in sliver.attached_components_info.devices.values():
                     try:
-                        resource_type = str(device.get_type())
-                        playbook = self.get_config()[AmConstants.PLAYBOOK_SECTION][resource_type]
-                        if playbook is None or inventory_path is None:
-                            raise VmHandlerException(f"Missing config parameters playbook: {playbook} "
-                                                     f"playbook_path: {playbook_path} inventory_path: {inventory_path}")
-                        full_playbook_path = f"{playbook_path}/{playbook}"
-
-                        if device.label_allocations.bdf is None:
-                            raise VmHandlerException(f"Missing required parameters bdf: {device.label_allocations.bdf}")
-                        self.get_logger().info(f"Detaching Devices {full_playbook_path}")
-                        self.__attach_detach_pci(playbook_path=full_playbook_path, inventory_path=inventory_path,
+                        self.__cleanup_pci(playbook_path=playbook_path, inventory_path=inventory_path,
+                                           host=worker_node, component=device)
+                    except Exception as e:
+                        self.get_logger().error(f"Error occurred cleaning device: {device}")
+                        if raise_exception:
+                            raise e
+                    try:
+                        self.__attach_detach_pci(playbook_path=playbook_path, inventory_path=inventory_path,
                                                  instance_name=instance_name, host=worker_node,
                                                  device_name=unit_id,
                                                  component=device,

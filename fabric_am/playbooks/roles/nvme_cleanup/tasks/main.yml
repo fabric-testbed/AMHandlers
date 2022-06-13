@@ -4,14 +4,14 @@
 
 - name: Determine the Block Device Name for the provided
   ansible.builtin.shell:
-    cmd: ls -ld /sys/class/nvme/* | grep "{{ pci_address }}" /usr/bin/awk -F '/' '{ print $NF }'
+    cmd: ls -ld /sys/class/nvme/* | grep "{{ device }}" | /usr/bin/awk -F '/' '{ print $NF }'
   register: device_name
 
 - name: Set the name for the device
   set_fact:
     device_name: "{{ device_name.stdout }}"
 
-- name: Prints two lines of messages, but only if there is an environment value set
-  ansible.builtin.debug:
-    msg:
-    - "device_name: {{ device_name }}"
+- name: Determine the Block Device Name for the provided
+  ansible.builtin.shell:
+    cmd: /usr/sbin/nvme format /dev/{{ device_name }}
+  register: output
