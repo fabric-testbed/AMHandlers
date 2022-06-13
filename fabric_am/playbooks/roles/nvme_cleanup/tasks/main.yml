@@ -4,9 +4,8 @@
 
 - name: Determine the Block Device Name for the provided
   ansible.builtin.shell:
-    cmd: ls -ld /sys/class/nvme/* | grep 0000:21:00.0 | /usr/bin/awk -F '/' '{ print $NF }'
+    cmd: ls -ld /sys/class/nvme/* | grep "{{ pci_address }}" /usr/bin/awk -F '/' '{ print $NF }'
   register: device_name
-
 
 - name: Set the name for the device
   set_fact:
