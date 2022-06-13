@@ -1,0 +1,18 @@
+---
+# /tasks/main.yml
+#
+
+- name: Determine the Block Device Name for the provided
+  ansible.builtin.shell:
+    cmd: ls -ld /sys/class/nvme/* | grep 0000:21:00.0 | /usr/bin/awk -F '/' '{ print $NF }'
+  register: device_name
+
+
+- name: Set the name for the device
+  set_fact:
+    device_name: "{{ device_name.stdout }}"
+
+- name: Prints two lines of messages, but only if there is an environment value set
+  ansible.builtin.debug:
+    msg:
+    - "device_name: {{ device_name }}"
