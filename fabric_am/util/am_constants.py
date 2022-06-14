@@ -41,6 +41,7 @@ class AmConstants:
     PB_NW_CONFIG = "nw_config"
     PB_INVENTORY = "inventory_location"
     PB_HOSTNAME_SUFFIX = "hostname_suffix"
+    PB_CLEANUP = "cleanup"
 
     VM_PROV_OP = "vm_prov_op"
     VM_PROV_OP_CREATE = "create"

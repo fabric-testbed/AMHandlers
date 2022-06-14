@@ -1,0 +1,18 @@
+---
+# /tasks/main.yml
+#
+
+- name: Determine the Block Device Name for the provided
+  ansible.builtin.shell:
+    cmd: ls -ld /sys/block/* | grep "{{ device }}" | /usr/bin/awk -F '/' '{ print $NF }'
+  register: device_name
+
+- name: Set the name for the device
+  set_fact:
+    device_name: "{{ device_name.stdout }}"
+
+- name: Format the Block Device
+  ansible.builtin.shell:
+    cmd: /usr/sbin/nvme format /dev/{{ device_name }} --force
+  register: output
+  when: device_name is defined and device_name != ""
