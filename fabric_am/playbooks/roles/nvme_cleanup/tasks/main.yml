@@ -4,7 +4,7 @@
 
 - name: Determine the Block Device Name for the provided
   ansible.builtin.shell:
-    cmd: ls -ld /sys/class/nvme/* | grep "{{ device }}" | /usr/bin/awk -F '/' '{ print $NF }'
+    cmd: ls -ld /sys/block/* | grep "{{ device }}" | /usr/bin/awk -F '/' '{ print $NF }'
   register: device_name
 
 - name: Set the name for the device
@@ -15,3 +15,4 @@
   ansible.builtin.shell:
     cmd: /usr/sbin/nvme format /dev/{{ device_name }}
   register: output
+  when: device_name is defined and device_name != ""

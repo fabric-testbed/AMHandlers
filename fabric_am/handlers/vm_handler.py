@@ -159,7 +159,7 @@ class VMHandler(HandlerBase):
                 raise VmHandlerException(f"Unit # {unit} has no assigned slivers")
 
             unit_id = str(unit.get_reservation_id())
-            self.__cleanup(sliver=sliver, raise_exception=True, unit_id=unit_id)
+            self.__cleanup(sliver=sliver, unit_id=unit_id)
         except Exception as e:
             result = {Constants.PROPERTY_TARGET_NAME: Constants.TARGET_DELETE,
                       Constants.PROPERTY_TARGET_RESULT_CODE: Constants.RESULT_CODE_EXCEPTION,
@@ -405,7 +405,7 @@ class VMHandler(HandlerBase):
                 self.get_logger().info(f"Executing playbook {full_playbook_path} to attach({attach})/detach({not attach}) "
                                        f"PCI device ({device}) extra_vars: {extra_vars}")
 
-                ansible_helper.run_playbook(playbook_path=playbook_path)
+                ansible_helper.run_playbook(playbook_path=full_playbook_path)
         finally:
             self.get_logger().debug("__attach_detach_pci OUT")
 
@@ -474,13 +474,6 @@ class VMHandler(HandlerBase):
             if sliver.attached_components_info is not None and worker_node is not None and instance_name is not None:
                 for device in sliver.attached_components_info.devices.values():
                     try:
-                        self.__cleanup_pci(playbook_path=playbook_path, inventory_path=inventory_path,
-                                           host=worker_node, component=device)
-                    except Exception as e:
-                        self.get_logger().error(f"Error occurred cleaning device: {device}")
-                        if raise_exception:
-                            raise e
-                    try:
                         self.__attach_detach_pci(playbook_path=playbook_path, inventory_path=inventory_path,
                                                  instance_name=instance_name, host=worker_node,
                                                  device_name=unit_id,
@@ -488,6 +481,13 @@ class VMHandler(HandlerBase):
                                                  attach=False)
                     except Exception as e:
                         self.get_logger().error(f"Error occurred detaching device: {device}")
+                        if raise_exception:
+                            raise e
+                    try:
+                        self.__cleanup_pci(playbook_path=playbook_path, inventory_path=inventory_path,
+                                           host=worker_node, component=device)
+                    except Exception as e:
+                        self.get_logger().error(f"Error occurred cleaning device: {device}")
                         if raise_exception:
                             raise e
 
