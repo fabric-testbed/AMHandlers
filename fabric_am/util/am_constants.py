@@ -44,10 +44,13 @@ class AmConstants:
     PB_CLEANUP = "cleanup"
 
     VM_PROV_OP = "vm_prov_op"
-    VM_PROV_OP_CREATE = "create"
-    VM_PROV_OP_DELETE = "delete"
+    PROV_OP_CREATE = "create"
+    PROV_OP_DELETE = "delete"
     VM_PROV_OP_ATTACH_FIP = "attach_fip"
-    VM_PROV_OP_GET = "get"
+    PROV_OP_GET = "get"
+
+    VOL_PROV_OP = "vol_prov_op"
+    VOL_NAME = "volume_name"
 
     SERVER = "server"
     SERVER_VM_STATE = "vm_state"
@@ -69,9 +72,9 @@ class AmConstants:
     PCI_SLOT = "slot"
     PCI_FUNCTION = "function"
     PCI_OPERATION = "pci_prov_op"
-    PCI_PROV_ATTACH = "attach"
-    PCI_PROV_DETACH = "detach"
-    PCI_PROV_DEVICE = "device"
+    PROV_ATTACH = "attach"
+    PROV_DETACH = "detach"
+    PROV_DEVICE = "device"
     WORKER_NODE_NAME = "worker_node_name"
 
     ANSIBLE_FACTS = "ansible_facts"
