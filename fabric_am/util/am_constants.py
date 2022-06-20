@@ -37,11 +37,11 @@ class AmConstants:
 
     PLAYBOOK_SECTION = "playbooks"
     PB_LOCATION = "location"
-    PB_POST_BOOT_CONFIG = "post_boot_config"
-    PB_NW_CONFIG = "nw_config"
+    PB_POST_BOOT = "post_boot"
     PB_INVENTORY = "inventory_location"
     PB_HOSTNAME_SUFFIX = "hostname_suffix"
     PB_CLEANUP = "cleanup"
+    PB_CONFIG = "config"
 
     VM_PROV_OP = "vm_prov_op"
     PROV_OP_CREATE = "create"
@@ -52,6 +52,7 @@ class AmConstants:
     VOL_PROV_OP = "vol_prov_op"
     VOL_NAME = "vol_name"
     ATTACHMENTS = "attachments"
+    PROV_OP_MOUNT = "mount"
 
     SERVER = "server"
     SERVER_VM_STATE = "vm_state"

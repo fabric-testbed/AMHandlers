@@ -128,7 +128,7 @@ class VMHandler(HandlerBase):
                                              device_name=unit_id, component=component, vm_name=vmname,
                                              project_id=project_id)
             sliver.management_ip = fip
-            self.__configure_interfaces(sliver=sliver)
+            self.__configure_components(sliver=sliver)
 
         except Exception as e:
             self.get_logger().error(e)
@@ -178,14 +178,17 @@ class VMHandler(HandlerBase):
             self.get_logger().info(f"Delete completed")
         return result, unit
 
-    def __configure_interfaces(self, sliver: NodeSliver):
+    def __configure_components(self, sliver: NodeSliver):
         try:
             if sliver.attached_components_info is not None:
                 for component in sliver.attached_components_info.devices.values():
-                    if component.get_type() not in [ComponentType.SharedNIC, ComponentType.SmartNIC]:
+                    if component.get_type() not in [ComponentType.SharedNIC, ComponentType.SmartNIC, ComponentType.Storage]:
                         continue
                     user = self.__get_default_user(image=sliver.get_image_ref())
-                    self.configure_nic(component=component, mgmt_ip=sliver.management_ip, user=user)
+                    if component.get_type() == ComponentType.Storage:
+                        self.__mount_storage(component=component, mgmt_ip=sliver.management_ip, user=user)
+                    else:
+                        self.configure_nic(component=component, mgmt_ip=sliver.management_ip, user=user)
         except Exception as e:
             self.get_logger().error(e)
             self.get_logger().error(traceback.format_exc())
@@ -203,7 +206,7 @@ class VMHandler(HandlerBase):
         try:
             self.get_logger().info(f"Modify invoked for unit: {unit}")
             sliver = unit.get_modified()
-            self.__configure_interfaces(sliver=sliver)
+            self.__configure_components(sliver=sliver)
         except Exception as e:
             self.get_logger().error(e)
             self.get_logger().error(traceback.format_exc())
@@ -349,6 +352,45 @@ class VMHandler(HandlerBase):
         finally:
             self.process_lock.release()
 
+    def __mount_storage(self, *, component: ComponentSliver, mgmt_ip: str, user: str):
+        if component.get_type() != ComponentType.Storage or not component.flags.auto_mount:
+            return
+
+        self.get_logger().debug("__mount_storage IN")
+        try:
+            # Grab the playbook location
+            playbook_location = self.get_config()[AmConstants.PLAYBOOK_SECTION][AmConstants.PB_LOCATION]
+
+            # Grab the playbook name
+            resource_type = str(component.get_type())
+            playbook = self.get_config()[AmConstants.PLAYBOOK_SECTION][AmConstants.PB_CONFIG][resource_type]
+
+            # Construct the playbook path
+            playbook_path = f"{playbook_location}/{playbook}"
+
+            # Construct ansible helper
+            ansible_helper = AnsibleHelper(inventory_path=None, logger=self.get_logger(), sources=f"{mgmt_ip},")
+
+            # Set the variables
+            extra_vars = {AmConstants.VOL_PROV_OP: AmConstants.PROV_OP_MOUNT,
+                          AmConstants.VOL_NAME: component.label_allocations.local_name,
+                          AmConstants.PROV_DEVICE: component.label_allocations.device_name,
+                          AmConstants.VM_NAME: mgmt_ip}
+
+            ansible_helper.set_extra_vars(extra_vars=extra_vars)
+
+            # Grab the SSH Key
+            admin_ssh_key = self.get_config()[AmConstants.PLAYBOOK_SECTION][AmConstants.ADMIN_SSH_KEY]
+            self.get_logger().info(f"Executing playbook {playbook_path} to mount volume: "
+                                   f"{component.label_allocations.device_name} "
+                                   f"on: {mgmt_ip}")
+            ansible_helper.run_playbook(playbook_path=playbook_path, user=user, private_key_file=admin_ssh_key)
+
+        except Exception as e:
+            self.get_logger().error(f"Failed to mount the volume, we ignore the failure: {e}")
+        finally:
+            self.get_logger().debug("__mount_storage OUT")
+
     def __attach_detach_storage(self, *, playbook_path: str, inventory_path: str, vm_name: str,
                                 unit_id: str, component: ComponentSliver, project_id: str, attach: bool = True):
         self.get_logger().debug("__attach_detach_storage IN")
@@ -381,7 +423,6 @@ class VMHandler(HandlerBase):
                     self.get_logger().info(f"Storage volume: {component.get_name()} for project: {project_id} attached "
                                            f"as device: {a.get(AmConstants.PROV_DEVICE)}")
                     component.label_allocations.device_name = str(a.get(AmConstants.PROV_DEVICE))
-
         finally:
             self.get_logger().debug("__attach_detach_storage OUT")
 
@@ -666,7 +707,7 @@ class VMHandler(HandlerBase):
             playbook_location = self.get_config()[AmConstants.PLAYBOOK_SECTION][AmConstants.PB_LOCATION]
 
             # Grab the playbook name
-            playbook = self.get_config()[AmConstants.PLAYBOOK_SECTION][AmConstants.PB_NW_CONFIG]
+            playbook = self.get_config()[AmConstants.PLAYBOOK_SECTION][AmConstants.PB_CONFIG][resource_type]
 
             # Construct the playbook path
             playbook_path = f"{playbook_location}/{playbook}"
@@ -697,7 +738,7 @@ class VMHandler(HandlerBase):
 
             # Invoke the playbook
             self.get_logger().info(f"Executing playbook {playbook_path} to configure interface extra_vars: "
-                                    f"{extra_vars}")
+                                   f"{extra_vars}")
             ansible_helper.run_playbook(playbook_path=playbook_path, user=user, private_key_file=admin_ssh_key)
         except Exception as e:
             self.get_logger().error(f"Exception : {e}")
@@ -715,7 +756,7 @@ class VMHandler(HandlerBase):
             playbook_location = self.get_config()[AmConstants.PLAYBOOK_SECTION][AmConstants.PB_LOCATION]
 
             # Grab the playbook name
-            playbook = self.get_config()[AmConstants.PLAYBOOK_SECTION][AmConstants.PB_POST_BOOT_CONFIG]
+            playbook = self.get_config()[AmConstants.PLAYBOOK_SECTION][AmConstants.PB_CONFIG][AmConstants.PB_POST_BOOT]
 
             # Construct the playbook path
             playbook_path = f"{playbook_location}/{playbook}"
