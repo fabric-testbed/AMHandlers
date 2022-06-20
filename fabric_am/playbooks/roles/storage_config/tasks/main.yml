@@ -26,13 +26,23 @@
 # /tasks/main.yml
 #
 
+- name: Determine the Block Device Name for the provided
+  ansible.builtin.shell:
+    cmd: lsblk "{{ device }}" -fno FSTYPE
+  register: fs_type
+  when: vol_prov_op == 'mount'
+
+- name: Set the name for the device
+  set_fact:
+    fs_type: "{{ fs_type.stdout }}"
+  when: vol_prov_op == 'mount'
+
 - name: Mount the volume
-  #ansible.builtin.shell:
-  #  'mount "{{ device }}" "/{{ vol_name }}"'
+  become: yes
   ansible.posix.mount:
     path: "/{{ vol_name }}"
     src: "{{ device }}"
-    fstype: none
-    state: present
-  when: vol_prov_op == 'mount'
+    fstype: "{{ fs_type }}"
+    state: mounted
+  when: vol_prov_op == 'mount' and fs_type is defined and fs_type != ""
 
