@@ -35,6 +35,7 @@ from fabric_cf.actor.core.plugins.handlers.config_token import ConfigToken
 from fabric_cf.actor.handlers.handler_base import HandlerBase
 from fim.slivers.attached_components import ComponentSliver, ComponentType
 from fim.slivers.network_node import NodeSliver
+from fim.user import Labels
 
 from fabric_am.util.am_constants import AmConstants
 from fabric_am.util.ansible_helper import AnsibleHelper
@@ -162,7 +163,9 @@ class VMHandler(HandlerBase):
                 raise VmHandlerException(f"Unit # {unit} has no assigned slivers")
 
             unit_id = str(unit.get_reservation_id())
-            self.__cleanup(sliver=sliver, unit_id=unit_id)
+            unit_properties = unit.get_properties()
+            project_id = unit_properties.get(Constants.PROJECT_ID, None)
+            self.__cleanup(sliver=sliver, unit_id=unit_id, project_id=project_id)
         except Exception as e:
             result = {Constants.PROPERTY_TARGET_NAME: Constants.TARGET_DELETE,
                       Constants.PROPERTY_TARGET_RESULT_CODE: Constants.RESULT_CODE_EXCEPTION,
@@ -360,16 +363,25 @@ class VMHandler(HandlerBase):
             extra_vars = {
                 AmConstants.VOL_PROV_OP: AmConstants.PROV_DETACH,
                 AmConstants.VM_NAME: f"{unit_id}-{vm_name}",
-                AmConstants.VOL_NAME: f"{project_id}-{component.get_name()}",
+                AmConstants.VOL_NAME: f"{component.get_label_allocations().local_name}",
+                Constants.PROJECT_ID: f"{project_id}"
             }
             if attach:
-                extra_vars[AmConstants.VM_PROV_OP] = AmConstants.PROV_ATTACH
-                extra_vars[AmConstants.VOL_NAME] = component.get_name()
-                extra_vars[AmConstants.PROV_DEVICE] = component.get_labels().local_name
+                extra_vars[AmConstants.VOL_PROV_OP] = AmConstants.PROV_ATTACH
 
+            self.get_logger().info(f"Executing playbook {full_playbook_path} to attach({attach})/detach({not attach}) "
+                                   f"extra_vars: {extra_vars}")
             ansible_helper = AnsibleHelper(inventory_path=inventory_path, logger=self.get_logger())
             ansible_helper.set_extra_vars(extra_vars=extra_vars)
             ansible_helper.run_playbook(playbook_path=full_playbook_path)
+            ok = ansible_helper.get_result_callback().get_json_result_ok()
+            attachments = ok.get(AmConstants.ATTACHMENTS, None)
+            if attachments is not None:
+                for a in attachments:
+                    self.get_logger().info(f"Storage volume: {component.get_name()} for project: {project_id} attached "
+                                           f"as device: {a.get(AmConstants.PROV_DEVICE)}")
+                    component.label_allocations.device_name = str(a.get(AmConstants.PROV_DEVICE))
+
         finally:
             self.get_logger().debug("__attach_detach_storage OUT")
 

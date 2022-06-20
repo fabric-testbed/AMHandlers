@@ -33,4 +33,4 @@
   vars:
 
   roles:
-    - head_vm_provisioning
+    - head_volume_provisioning

@@ -50,7 +50,8 @@ class AmConstants:
     PROV_OP_GET = "get"
 
     VOL_PROV_OP = "vol_prov_op"
-    VOL_NAME = "volume_name"
+    VOL_NAME = "vol_name"
+    ATTACHMENTS = "attachments"
 
     SERVER = "server"
     SERVER_VM_STATE = "vm_state"

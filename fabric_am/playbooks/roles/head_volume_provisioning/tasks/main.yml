@@ -36,7 +36,7 @@
       username: "{{ username }}"
     size: "{{ vol_size }}"
     display_name: "{{ project_id }}-{{ vol_name }}"
-    meta_data:
+    metadata:
       fabric_project_id: "{{ project_id }}"
       expected_lifetime: "{{ life_time }}"
       fabric_volume_name: "{{ vol_name }}"
@@ -50,7 +50,7 @@
       password: "{{ password }}"
       project_name: "{{ project_name }}"
       username: "{{ username }}"
-    display_name: "{{ vol_name }}"
+    display_name: "{{ project_id }}-{{ vol_name }}"
   when: vol_prov_op == 'delete'
 
 - name: Attach a volume
@@ -62,8 +62,7 @@
       project_name: "{{ project_name }}"
       username: "{{ username }}"
     server: "{{ vmname }}"
-    volume: "{{ volume_name }}"
-    device: "{{ device }}"
+    volume: "{{ project_id }}-{{ vol_name }}"
   when: vol_prov_op == 'attach'
 
 - name: Detach a volume
@@ -74,6 +73,6 @@
       password: "{{ password }}"
       project_name: "{{ project_name }}"
       username: "{{ username }}"
-    server: "{{ vm_name }}"
-    volume: "{{ volume_name }}"
+    server: "{{ vmname }}"
+    volume: "{{ project_id }}-{{ vol_name }}"
   when: vol_prov_op == 'detach'

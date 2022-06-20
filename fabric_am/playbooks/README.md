@@ -121,3 +121,109 @@ Returns (for successful run):
                                 "Device detached successfully"
                             ]
 ```
+
+#### Cleanup
+Cleanup procedure to be executed for the components. So far, only NVME cleanup support has been added.
+##### NVME Cleanup
+`nvme_cleanup.yml` ansible script supports cleaning up the NVME drive at the Slice deletion.
+
+Parameters required:
+- device: PCI Address of the NVME drive
+
+Example command to cleanup NVME
+```
+ansible-playbook -i inventory nvme_cleanup.yml --extra-vars 'worker_node_name=renc-w1.fabric-testbed.net device=0000:21:00.0'
+```
+
+#### Storage
+`head_volume_provisioning.yml` ansible script supports rotating storage operations. 
+##### Create a Volume
+Create a Volume for a project. This is done out of band of CF manually by the administrator. 
+
+CF requires the volume names to follow the convention:
+- Volume Name: `{project-id}-{name}`
+
+Parameters needed:
+- Project Id
+- Volume Size
+- Volume Name
+- Life time
+- Operation
+
+Example command to create a volume 
+```
+ansible-playbook head_volume_provisioning.yml -i inventory --extra-vars 'project_id=b9847fa1-13ef-49f9-9e07-ae6ad06cda3f vol_size=10 vol_name=vol1 life_time=10 vol_prov_op=create'
+```
+Created volume would like as below:
+```
+[root@renc-hn playbooks(keystone_admin)]# openstack volume show b9847fa1-13ef-49f9-9e07-ae6ad06cda3f-vol1 -f json
+{
+  "attachments": [],
+  "availability_zone": "nova",
+  "bootable": "false",
+  "consistencygroup_id": null,
+  "created_at": "2022-06-20T17:40:34.000000",
+  "description": null,
+  "encrypted": false,
+  "id": "9674170f-5cff-4336-8ada-7a2ce484420c",
+  "migration_status": null,
+  "multiattach": false,
+  "name": "b9847fa1-13ef-49f9-9e07-ae6ad06cda3f-vol1",
+  "os-vol-host-attr:host": "renc-hn.fabric-testbed.net@lvm#lvm",
+  "os-vol-mig-status-attr:migstat": null,
+  "os-vol-mig-status-attr:name_id": null,
+  "os-vol-tenant-attr:tenant_id": "3b774ebff5f845898dfcca448d9c658f",
+  "properties": {
+    "fabric_project_id": "b9847fa1-13ef-49f9-9e07-ae6ad06cda3f",
+    "expected_lifetime": "10",
+    "fabric_volume_name": "vol1"
+  },
+  "replication_status": null,
+  "size": 10,
+  "snapshot_id": null,
+  "source_volid": null,
+  "status": "available",
+  "type": "iscsi",
+  "updated_at": "2022-06-20T17:40:36.000000",
+  "user_id": "ec1f88832d8a48adb95ace6895b49bef"
+}
+```
+##### Delete a Volume
+Delete a Volume for a project. This is done out of band of CF manually by the administrator. 
+
+Parameters needed:
+- Project Id
+- Volume Name
+- Operation
+ 
+Example command to delete a volume
+```
+ansible-playbook head_volume_provisioning.yml -i inventory --extra-vars 'project_id=b9847fa1-13ef-49f9-9e07-ae6ad06cda3f vol_name=vol1 vol_prov_op=delete'
+```
+##### Attach a Volume
+Attach a Volume to the VM
+
+Parameters needed:
+- Project Id
+- VM Name
+- Volume Name
+- Operation
+
+Example command to detach a volume
+```
+ansible-playbook head_volume_provisioning.yml -i inventory --extra-vars 'project_id=b9847fa1-13ef-49f9-9e07-ae6ad06cda3f vmname=255c7e8b-2ba2-4a99-8f16-66eada8332a8-node-0 vol_name=vol1 vol_prov_op=attach'
+```
+
+##### Detach a Volume
+Attach a Volume to the VM
+
+Parameters needed:
+- Project Id
+- VM Name
+- Volume Name
+- Operation
+
+Example command to detach a volume
+```
+ansible-playbook head_volume_provisioning.yml -i inventory --extra-vars 'project_id=b9847fa1-13ef-49f9-9e07-ae6ad06cda3f vmname=255c7e8b-2ba2-4a99-8f16-66eada8332a8-node-0 vol_name=vol1 vol_prov_op=detach'
+```
