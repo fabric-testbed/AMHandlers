@@ -49,6 +49,7 @@ playbooks:
   SharedNIC: worker_pci_provisioning.yml
   FPGA: worker_pci_provisioning.yml
   NVME: worker_pci_provisioning.yml
+  Storage: head_volume_provisioning.yml
   post_boot_config: head_vm_post_boot_config.yml
   nw_config: nmcli_config_nw_interface.yml
   cleanup:
