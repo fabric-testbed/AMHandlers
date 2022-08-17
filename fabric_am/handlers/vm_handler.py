@@ -53,6 +53,10 @@ class VMHandler(HandlerBase):
     """
     test_mode = False
 
+    def get_ansible_python_interpreter(self) -> str:
+        return self.get_config()[AmConstants.ANSIBLE_SECTION][
+                AmConstants.ANSIBLE_PYTHON_INTERPRETER]
+
     def create(self, unit: ConfigToken) -> Tuple[dict, ConfigToken]:
         """
         Create a VM
@@ -131,8 +135,7 @@ class VMHandler(HandlerBase):
                     self.get_logger().debug(f"Attaching Devices {playbook_path_full}")
                     self.__attach_detach_pci(playbook_path=playbook_path_full, inventory_path=inventory_path,
                                              host=worker_node, instance_name=sliver.label_allocations.instance,
-                                             device_name=str(unit.get_id()), component=component, user=user,
-                                             mgmt_ip=fip)
+                                             device_name=str(unit.get_id()), component=component)
             sliver.management_ip = fip
             self.__configure_interfaces(sliver=sliver)
 
@@ -169,7 +172,7 @@ class VMHandler(HandlerBase):
                 raise VmHandlerException(f"Unit # {unit} has no assigned slivers")
 
             unit_id = str(unit.get_reservation_id())
-            self.__cleanup(sliver=sliver, raise_exception=True, unit_id=unit_id)
+            self.__cleanup(sliver=sliver, unit_id=unit_id)
         except Exception as e:
             result = {Constants.PROPERTY_TARGET_NAME: Constants.TARGET_DELETE,
                       Constants.PROPERTY_TARGET_RESULT_CODE: Constants.RESULT_CODE_EXCEPTION,
@@ -235,7 +238,6 @@ class VMHandler(HandlerBase):
         :param init_script: Init Script
         :return: dictionary containing created instance details
         """
-        ansible_helper = AnsibleHelper(inventory_path=inventory_path, logger=self.get_logger())
         vm_name_combined = f"{unit_id}-{vm_name}"
 
         avail_zone = f"nova:{worker_node}"
@@ -256,11 +258,9 @@ class VMHandler(HandlerBase):
             AmConstants.DEFAULT_USER: default_user,
             AmConstants.INIT_SCRIPT: init_script
         }
-        ansible_helper.set_extra_vars(extra_vars=extra_vars)
-
-        self.get_logger().info(f"Executing playbook {playbook_path} to create VM extra_vars: {extra_vars}")
-        ansible_helper.run_playbook(playbook_path=playbook_path)
-        ok = ansible_helper.get_result_callback().get_json_result_ok()
+        ok = self.__execute_ansible(inventory_path=inventory_path,
+                                    playbook_path=playbook_path,
+                                    extra_vars=extra_vars)
 
         server = ok.get(AmConstants.SERVER, None)
         # Added this code for enabling test suite
@@ -288,15 +288,13 @@ class VMHandler(HandlerBase):
         :param unit_id: Unit Id
         :return: True or False representing success/failure
         """
-        ansible_helper = AnsibleHelper(inventory_path=inventory_path, logger=self.get_logger())
         vm_name = f"{unit_id}-{vm_name}"
 
         extra_vars = {AmConstants.VM_PROV_OP: AmConstants.VM_PROV_OP_DELETE,
                       AmConstants.VM_NAME: vm_name}
-        ansible_helper.set_extra_vars(extra_vars=extra_vars)
 
-        self.get_logger().info(f"Executing playbook {playbook_path} to delete VM extra_vars: {extra_vars}")
-        ansible_helper.run_playbook(playbook_path=playbook_path)
+        self.__execute_ansible(inventory_path=inventory_path, playbook_path=playbook_path,
+                               extra_vars=extra_vars)
         return True
 
     def __attach_fip(self, *, playbook_path: str, inventory_path: str, vm_name: str, unit_id: str) -> str:
@@ -312,15 +310,12 @@ class VMHandler(HandlerBase):
         try:
             self.process_lock.acquire()
             vmname = f"{unit_id}-{vm_name}"
-            ansible_helper = AnsibleHelper(inventory_path=inventory_path, logger=self.get_logger())
+
             extra_vars = {AmConstants.VM_PROV_OP: AmConstants.VM_PROV_OP_ATTACH_FIP,
                           AmConstants.VM_NAME: vmname}
-            ansible_helper.set_extra_vars(extra_vars=extra_vars)
 
-            self.get_logger().info(f"Executing playbook {playbook_path} to attach FIP extra_vars: {extra_vars}")
-            ansible_helper.run_playbook(playbook_path=playbook_path)
-
-            ok = ansible_helper.get_result_callback().get_json_result_ok()
+            ok = self.__execute_ansible(inventory_path=inventory_path, playbook_path=playbook_path,
+                                        extra_vars=extra_vars)
 
             if self.test_mode:
                 floating_ip = ok[AmConstants.ANSIBLE_FACTS][AmConstants.FLOATING_IP]
@@ -354,8 +349,7 @@ class VMHandler(HandlerBase):
             self.process_lock.release()
 
     def __attach_detach_pci(self, *, playbook_path: str, inventory_path: str, host: str, instance_name: str,
-                            device_name: str, component: ComponentSliver, user: str = None, mgmt_ip: str = None,
-                            attach: bool = True):
+                            device_name: str, component: ComponentSliver, attach: bool = True):
         """
         Invoke ansible playbook to attach/detach a PCI device to a provisioned VM
         :param playbook_path: playbook location
@@ -396,23 +390,20 @@ class VMHandler(HandlerBase):
             self.get_logger().info(f"Device List Size: {len(pci_device_list)} List: {pci_device_list}")
             index = 0
             for device in pci_device_list:
-                ansible_helper = AnsibleHelper(inventory_path=inventory_path, logger=self.get_logger())
-                ansible_helper.set_extra_vars(extra_vars=extra_vars)
-
                 device_char_arr = self.__extract_device_addr_octets(device_address=device)
-                ansible_helper.add_vars(host=worker_node, var_name=AmConstants.KVM_GUEST_NAME, value=instance_name)
-                ansible_helper.add_vars(host=worker_node, var_name=AmConstants.PCI_DOMAIN, value=device_char_arr[0])
-                ansible_helper.add_vars(host=worker_node, var_name=AmConstants.PCI_BUS, value=device_char_arr[1])
-                ansible_helper.add_vars(host=worker_node, var_name=AmConstants.PCI_SLOT, value=device_char_arr[2])
-                ansible_helper.add_vars(host=worker_node, var_name=AmConstants.PCI_FUNCTION, value=device_char_arr[3])
+                host_vars = {
+                    AmConstants.KVM_GUEST_NAME: instance_name,
+                    AmConstants.PCI_DOMAIN: device_char_arr[0],
+                    AmConstants.PCI_BUS: device_char_arr[1],
+                    AmConstants.PCI_SLOT: device_char_arr[2],
+                    AmConstants.PCI_FUNCTION: device_char_arr[3],
+                }
 
                 if mac is not None:
-                    ansible_helper.add_vars(host=worker_node, var_name=AmConstants.MAC, value=mac)
+                    host_vars[AmConstants.MAC] = mac
 
-                self.get_logger().info(f"Executing playbook {playbook_path} to attach({attach})/detach({not attach}) "
-                                        f"PCI device ({device}) extra_vars: {extra_vars}")
-
-                ansible_helper.run_playbook(playbook_path=playbook_path)
+                self.__execute_ansible(inventory_path=inventory_path, playbook_path=playbook_path,
+                                       extra_vars=extra_vars, host=worker_node, host_vars=host_vars)
         finally:
             self.get_logger().debug("__attach_detach_pci OUT")
 
@@ -503,16 +494,11 @@ class VMHandler(HandlerBase):
         :param unit_id: Unit Id
         :return: OK result
         """
-        ansible_helper = AnsibleHelper(inventory_path=inventory_path, logger=self.get_logger())
         vm_name = f"{unit_id}-{vm_name}"
 
         extra_vars = {AmConstants.VM_PROV_OP: AmConstants.VM_PROV_OP_GET,
                       AmConstants.VM_NAME: vm_name}
-        ansible_helper.set_extra_vars(extra_vars=extra_vars)
-
-        self.get_logger().info(f"Executing playbook {playbook_path} to get VM extra_vars: {extra_vars}")
-        ansible_helper.run_playbook(playbook_path=playbook_path)
-        return ansible_helper.get_result_callback().get_json_result_ok()
+        return self.__execute_ansible(inventory_path=inventory_path, playbook_path=playbook_path, extra_vars=extra_vars)
 
     def __get_default_user(self, *, image: str) -> str:
         """
@@ -585,9 +571,6 @@ class VMHandler(HandlerBase):
             # Construct the playbook path
             playbook_path = f"{playbook_location}/{playbook}"
 
-            # Construct ansible helper
-            ansible_helper = AnsibleHelper(inventory_path=None, logger=self.get_logger(), sources=f"{mgmt_ip},")
-
             # Set the variables
             extra_vars = {AmConstants.VM_NAME: mgmt_ip,
                           AmConstants.MAC: mac_address.lower(),
@@ -604,15 +587,11 @@ class VMHandler(HandlerBase):
             if vlan is not None and resource_type != ComponentType.SharedNIC.name:
                 extra_vars[AmConstants.VLAN] = vlan
 
-            ansible_helper.set_extra_vars(extra_vars=extra_vars)
-
             # Grab the SSH Key
             admin_ssh_key = self.get_config()[AmConstants.PLAYBOOK_SECTION][AmConstants.ADMIN_SSH_KEY]
 
-            # Invoke the playbook
-            self.get_logger().info(f"Executing playbook {playbook_path} to configure interface extra_vars: "
-                                    f"{extra_vars}")
-            ansible_helper.run_playbook(playbook_path=playbook_path, user=user, private_key_file=admin_ssh_key)
+            self.__execute_ansible(inventory_path=None, playbook_path=playbook_path, extra_vars=extra_vars,
+                                   sources=f"{mgmt_ip},", private_key_file=admin_ssh_key, user=user)
         except Exception as e:
             self.get_logger().error(f"Exception : {e}")
             self.get_logger().error(traceback.format_exc())
@@ -634,22 +613,15 @@ class VMHandler(HandlerBase):
             # Construct the playbook path
             playbook_path = f"{playbook_location}/{playbook}"
 
-            # Construct ansible helper
-            ansible_helper = AnsibleHelper(inventory_path=None, logger=self.get_logger(), sources=f"{mgmt_ip},")
-
             # Set the variables
             extra_vars = {AmConstants.VM_NAME: mgmt_ip,
                           AmConstants.IMAGE: user}
 
-            ansible_helper.set_extra_vars(extra_vars=extra_vars)
-
             # Grab the SSH Key
             admin_ssh_key = self.get_config()[AmConstants.PLAYBOOK_SECTION][AmConstants.ADMIN_SSH_KEY]
 
-            # Invoke the playbook
-            self.get_logger().info(f"Executing playbook {playbook_path} to do post boot config extra_vars: "
-                                   f"{extra_vars}")
-            ansible_helper.run_playbook(playbook_path=playbook_path, user=user, private_key_file=admin_ssh_key)
+            self.__execute_ansible(inventory_path=None, playbook_path=playbook_path, extra_vars=extra_vars,
+                                   sources=f"{mgmt_ip},", private_key_file=admin_ssh_key, user=user)
         except Exception as e:
             self.get_logger().error(f"Exception : {e}")
             self.get_logger().error(traceback.format_exc())
@@ -706,3 +678,19 @@ class VMHandler(HandlerBase):
             self.get_logger().info(f"Output: {output}")
         except Exception as e:
             pass
+
+    def __execute_ansible(self, *, inventory_path: str, playbook_path: str, extra_vars: dict, sources: str = None,
+                          private_key_file: str = None, host_vars: dict = None, host: str = None, user: str = None):
+        ansible_helper = AnsibleHelper(inventory_path=inventory_path, logger=self.get_logger(),
+                                       ansible_python_interpreter=self.get_ansible_python_interpreter(),
+                                       sources=sources)
+
+        ansible_helper.set_extra_vars(extra_vars=extra_vars)
+
+        if host is not None and host_vars is not None and len(host_vars) > 0:
+            for key, value in host_vars.items():
+                ansible_helper.add_vars(host=host, var_name=key, value=value)
+
+        self.get_logger().info(f"Executing playbook {playbook_path} extra_vars: {extra_vars} host_vars: {host_vars}")
+        ansible_helper.run_playbook(playbook_path=playbook_path, private_key_file=private_key_file, user=user)
+        return ansible_helper.get_result_callback().get_json_result_ok()
