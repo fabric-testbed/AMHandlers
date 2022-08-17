@@ -22,6 +22,8 @@
 #
 #
 # Author: Komal Thareja (kthare10@renci.org)
+ansible:
+  ansible_python_interpreter: /usr/bin/python3.6
 runtime:
   # Attach Floating IP should be disabled for Sites which only allow IPV6 Address as (Global Unicast Address)
   # Refer https://docs.openstack.org/liberty/networking-guide/adv-config-ipv6.html  for more details
