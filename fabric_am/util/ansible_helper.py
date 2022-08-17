@@ -156,7 +156,7 @@ class AnsibleHelper:
     """
     Helper class to invoke the Ansible Playbook
     """
-    def __init__(self, inventory_path: str, logger, sources: str = None):
+    def __init__(self, inventory_path: str, logger, sources: str = None, ansible_python_interpreter: str = None):
         self.results_callback = ResultsCollectorJSONCallback()
         self.loader = DataLoader()
         if sources is None:
@@ -165,6 +165,7 @@ class AnsibleHelper:
             self.inventory = InventoryManager(loader=self.loader, sources=sources)
         self.variable_manager = VariableManager(loader=self.loader, inventory=self.inventory)
         self.logger = logger
+        self.ansible_python_interpreter = ansible_python_interpreter
 
     def add_vars(self, host: str, var_name: str, value: str):
         """
@@ -208,6 +209,9 @@ class AnsibleHelper:
                                             start_at_task=None)
 
         passwords = {}
+
+        if self.ansible_python_interpreter is not None and self.ansible_python_interpreter != '':
+            self.variable_manager._extra_vars['ansible_python_interpreter'] = self.ansible_python_interpreter
 
         pbex = PlaybookExecutor(playbooks=[playbook_path], inventory=self.inventory,
                                 variable_manager=self.variable_manager,

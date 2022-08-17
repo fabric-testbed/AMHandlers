@@ -30,6 +30,9 @@ class AmConstants:
 
     EC2_AVAILABILITY_ZONE = "availability_zone"
 
+    ANSIBLE_SECTION = "ansible"
+    ANSIBLE_PYTHON_INTERPRETER = "ansible_python_interpreter"
+
     RUNTIME_SECTION = "runtime"
     RT_DISABLE_FIP = "disable_fip"
     RT_SSH_RETRIES = "ssh_retries"
