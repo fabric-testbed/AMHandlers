@@ -257,9 +257,7 @@ class VMHandler(HandlerBase):
             AmConstants.DEFAULT_USER: default_user,
             AmConstants.INIT_SCRIPT: init_script
         }
-        ok = self.__execute_ansible(inventory_path=inventory_path,
-                                    playbook_path=playbook_path,
-                                    extra_vars=extra_vars)
+        ok = self.__execute_ansible(inventory_path=inventory_path, playbook_path=playbook_path, extra_vars=extra_vars)
 
         server = ok.get(AmConstants.SERVER, None)
         # Added this code for enabling test suite
