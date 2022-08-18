@@ -796,8 +796,12 @@ class VMHandler(HandlerBase):
 
     def __execute_ansible(self, *, inventory_path: str, playbook_path: str, extra_vars: dict, sources: str = None,
                           private_key_file: str = None, host_vars: dict = None, host: str = None, user: str = None):
+        ansible_python_interpreter = None
+        # Head node or Worker
+        if inventory_path is not None:
+            ansible_python_interpreter = self.get_ansible_python_interpreter()
         ansible_helper = AnsibleHelper(inventory_path=inventory_path, logger=self.get_logger(),
-                                       ansible_python_interpreter=self.get_ansible_python_interpreter(),
+                                       ansible_python_interpreter=ansible_python_interpreter,
                                        sources=sources)
 
         ansible_helper.set_extra_vars(extra_vars=extra_vars)
