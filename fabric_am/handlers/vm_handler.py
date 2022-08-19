@@ -73,6 +73,9 @@ class VMHandler(HandlerBase):
         try:
             self.get_logger().info(f"Create invoked for unit: {unit}")
             sliver = unit.get_sliver()
+            if not isinstance(sliver, NodeSliver):
+                raise VmHandlerException(f"Invalid Sliver type {type(sliver)}")
+
             unit_id = str(unit.get_reservation_id())
             if sliver is None:
                 raise VmHandlerException(f"Unit # {unit} has no assigned slivers")
@@ -129,7 +132,7 @@ class VMHandler(HandlerBase):
                     self.__attach_detach_pci(playbook_path=playbook_path, inventory_path=inventory_path,
                                              host=worker_node, instance_name=sliver.label_allocations.instance,
                                              device_name=unit_id, component=component, vm_name=vmname,
-                                             project_id=project_id)
+                                             project_id=project_id, raise_exception=True)
             sliver.management_ip = fip
             self.__configure_components(sliver=sliver)
 
@@ -139,7 +142,7 @@ class VMHandler(HandlerBase):
             # Delete VM in case of failure
             if sliver is not None and unit_id is not None:
                 self.__cleanup(sliver=sliver, unit_id=unit_id, project_id=project_id)
-                unit.sliver.label_allocations.instance = None
+                unit.get_sliver().label_allocations.instance = None
 
             result = {Constants.PROPERTY_TARGET_NAME: Constants.TARGET_CREATE,
                       Constants.PROPERTY_TARGET_RESULT_CODE: Constants.RESULT_CODE_EXCEPTION,
@@ -165,6 +168,9 @@ class VMHandler(HandlerBase):
             if sliver is None:
                 raise VmHandlerException(f"Unit # {unit} has no assigned slivers")
 
+            if not isinstance(sliver, NodeSliver):
+                raise VmHandlerException(f"Invalid Sliver type {type(sliver)}")
+
             unit_id = str(unit.get_reservation_id())
             unit_properties = unit.get_properties()
             project_id = unit_properties.get(Constants.PROJECT_ID, None)
@@ -181,17 +187,26 @@ class VMHandler(HandlerBase):
             self.get_logger().info(f"Delete completed")
         return result, unit
 
+    def __configure_component(self, *, component: ComponentSliver, user: str, mgmt_ip: str):
+        try:
+            if component.get_type() not in [ComponentType.SharedNIC, ComponentType.SmartNIC, ComponentType.Storage]:
+                return
+            if component.get_type() == ComponentType.Storage:
+                self.__mount_storage(component=component, mgmt_ip=mgmt_ip, user=user)
+            else:
+                self.configure_nic(component=component, mgmt_ip=mgmt_ip, user=user)
+        except Exception as e:
+            self.get_logger().error(e)
+            self.get_logger().error(traceback.format_exc())
+
     def __configure_components(self, sliver: NodeSliver):
         try:
             if sliver.attached_components_info is not None:
                 for component in sliver.attached_components_info.devices.values():
-                    if component.get_type() not in [ComponentType.SharedNIC, ComponentType.SmartNIC, ComponentType.Storage]:
-                        continue
                     user = self.__get_default_user(image=sliver.get_image_ref())
-                    if component.get_type() == ComponentType.Storage:
-                        self.__mount_storage(component=component, mgmt_ip=sliver.management_ip, user=user)
-                    else:
-                        self.configure_nic(component=component, mgmt_ip=sliver.management_ip, user=user)
+                    self.__configure_component(component=component,
+                                               mgmt_ip=sliver.management_ip,
+                                               user=user)
         except Exception as e:
             self.get_logger().error(e)
             self.get_logger().error(traceback.format_exc())
@@ -200,7 +215,6 @@ class VMHandler(HandlerBase):
         """
         Modify a provisioned Unit
         :param unit: unit representing VM
-        :param properties: properties
         :return: tuple of result status and the unit
         """
         result = {Constants.PROPERTY_TARGET_NAME: Constants.TARGET_MODIFY,
@@ -208,8 +222,44 @@ class VMHandler(HandlerBase):
                   Constants.PROPERTY_ACTION_SEQUENCE_NUMBER: 0}
         try:
             self.get_logger().info(f"Modify invoked for unit: {unit}")
-            sliver = unit.get_modified()
-            self.__configure_components(sliver=sliver)
+            current_sliver = unit.get_sliver()
+            modified_sliver = unit.get_modified()
+
+            if not isinstance(current_sliver, NodeSliver) or not isinstance(modified_sliver, NodeSliver):
+                raise VmHandlerException(f"Invalid Sliver type {type(current_sliver)}  {type(modified_sliver)}")
+
+            playbook_path = self.get_config()[AmConstants.PLAYBOOK_SECTION][AmConstants.PB_LOCATION]
+            inventory_path = self.get_config()[AmConstants.PLAYBOOK_SECTION][AmConstants.PB_INVENTORY]
+            project_id = unit.get_properties().get(Constants.PROJECT_ID, None)
+
+            diff = current_sliver.diff(other_sliver=modified_sliver)
+            if diff is not None:
+                # Modify topology
+                for x in diff.added.components:
+                    component = modified_sliver.attached_components_info.devices[x]
+                    self.__attach_detach_pci(playbook_path=playbook_path, inventory_path=inventory_path,
+                                             host=current_sliver.label_allocations.instance_parent,
+                                             instance_name=current_sliver.label_allocations.instance,
+                                             device_name=str(unit.get_reservation_id()),
+                                             component=component, vm_name=current_sliver.get_name(),
+                                             project_id=project_id)
+
+                    user = self.__get_default_user(image=current_sliver.get_image_ref())
+                    self.__configure_component(component=component,
+                                               mgmt_ip=current_sliver.management_ip,
+                                               user=user)
+
+                for x in diff.removed.components:
+                    component = modified_sliver.attached_components_info.devices[x]
+                    self.__attach_detach_pci(playbook_path=playbook_path, inventory_path=inventory_path,
+                                             host=current_sliver.label_allocations.instance_parent,
+                                             instance_name=current_sliver.label_allocations.instance,
+                                             device_name=str(unit.get_reservation_id()),
+                                             component=component, vm_name=current_sliver.get_name(),
+                                             project_id=project_id, attach=False)
+            else:
+                # Modify configuration
+                self.__configure_components(sliver=modified_sliver)
         except Exception as e:
             self.get_logger().error(e)
             self.get_logger().error(traceback.format_exc())
@@ -412,7 +462,7 @@ class VMHandler(HandlerBase):
 
     def __attach_detach_pci(self, *, playbook_path: str, inventory_path: str, host: str, instance_name: str,
                             device_name: str, component: ComponentSliver, vm_name: str, project_id: str,
-                            attach: bool = True):
+                            attach: bool = True, raise_exception: bool = False):
         """
         Invoke ansible playbook to attach/detach a PCI device to a provisioned VM
         :param playbook_path: playbook location
@@ -478,10 +528,15 @@ class VMHandler(HandlerBase):
 
                 self.__execute_ansible(inventory_path=inventory_path, playbook_path=full_playbook_path,
                                        extra_vars=extra_vars, host=worker_node, host_vars=host_vars)
+        except Exception as e:
+            self.get_logger().error(f"Error occurred attach:{attach}/detach: {not attach} device: {component}")
+            if raise_exception:
+                raise e
         finally:
             self.get_logger().debug("__attach_detach_pci OUT")
 
-    def __cleanup_pci(self, *, playbook_path: str, inventory_path: str, host: str, component: ComponentSliver):
+    def __cleanup_pci(self, *, playbook_path: str, inventory_path: str, host: str, component: ComponentSliver,
+                      raise_exception: bool = False):
         """
         Invoke ansible playbook to cleanup a PCI device
         :param playbook_path: playbook location
@@ -517,6 +572,10 @@ class VMHandler(HandlerBase):
                 extra_vars[AmConstants.PROV_DEVICE] = device
                 self.__execute_ansible(inventory_path=inventory_path, playbook_path=full_playbook_path,
                                        extra_vars=extra_vars)
+        except Exception as e:
+            self.get_logger().error(f"Error occurred cleaning device: {component}")
+            if raise_exception:
+                raise e
         finally:
             self.get_logger().debug("__cleanup_pci OUT")
 
@@ -542,25 +601,16 @@ class VMHandler(HandlerBase):
 
             if sliver.attached_components_info is not None and worker_node is not None and instance_name is not None:
                 for device in sliver.attached_components_info.devices.values():
-                    try:
-                        self.__attach_detach_pci(playbook_path=playbook_path, inventory_path=inventory_path,
-                                                 instance_name=instance_name, host=worker_node,
-                                                 device_name=unit_id,
-                                                 component=device,
-                                                 vm_name=sliver.get_name(),
-                                                 project_id=project_id,
-                                                 attach=False)
-                    except Exception as e:
-                        self.get_logger().error(f"Error occurred detaching device: {device}")
-                        if raise_exception:
-                            raise e
-                    try:
-                        self.__cleanup_pci(playbook_path=playbook_path, inventory_path=inventory_path,
-                                           host=worker_node, component=device)
-                    except Exception as e:
-                        self.get_logger().error(f"Error occurred cleaning device: {device}")
-                        if raise_exception:
-                            raise e
+                    self.__attach_detach_pci(playbook_path=playbook_path, inventory_path=inventory_path,
+                                             instance_name=instance_name, host=worker_node,
+                                             device_name=unit_id,
+                                             component=device,
+                                             vm_name=sliver.get_name(),
+                                             project_id=project_id,
+                                             attach=False, raise_exception=raise_exception)
+
+                    self.__cleanup_pci(playbook_path=playbook_path, inventory_path=inventory_path,
+                                       host=worker_node, component=device, raise_exception=raise_exception)
 
             resource_type = str(sliver.get_type())
             playbook = self.get_config()[AmConstants.PLAYBOOK_SECTION][resource_type]
