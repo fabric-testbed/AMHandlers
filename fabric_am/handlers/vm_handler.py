@@ -434,13 +434,6 @@ class VMHandler(HandlerBase):
                                 unit_id: str, component: ComponentSliver, project_id: str, attach: bool = True):
         self.get_logger().debug("__attach_detach_storage IN")
         try:
-            resource_type = str(component.get_type())
-            playbook = self.get_config()[AmConstants.PLAYBOOK_SECTION][resource_type]
-            if playbook is None or inventory_path is None:
-                raise VmHandlerException(f"Missing config parameters playbook: {playbook} "
-                                         f"playbook_path: {playbook_path} inventory_path: {inventory_path}")
-            full_playbook_path = f"{playbook_path}/{playbook}"
-
             extra_vars = {
                 AmConstants.VOL_PROV_OP: AmConstants.PROV_DETACH,
                 AmConstants.VM_NAME: f"{unit_id}-{vm_name}",
@@ -478,11 +471,6 @@ class VMHandler(HandlerBase):
         """
         self.get_logger().debug("__attach_detach_pci IN")
         try:
-            if component.get_type() == ComponentType.Storage:
-                self.__attach_detach_storage(playbook_path=playbook_path, inventory_path=inventory_path,
-                                             vm_name=vm_name, unit_id=device_name, component=component,
-                                             project_id=project_id, attach=attach)
-                return
             resource_type = str(component.get_type())
             playbook = self.get_config()[AmConstants.PLAYBOOK_SECTION][resource_type]
             if playbook is None or inventory_path is None:
@@ -490,6 +478,11 @@ class VMHandler(HandlerBase):
                                          f"playbook_path: {playbook_path} inventory_path: {inventory_path}")
             full_playbook_path = f"{playbook_path}/{playbook}"
 
+            if component.get_type() == ComponentType.Storage:
+                self.__attach_detach_storage(playbook_path=full_playbook_path, inventory_path=inventory_path,
+                                             vm_name=vm_name, unit_id=device_name, component=component,
+                                             project_id=project_id, attach=attach)
+                return
             mac = None
             if component.get_type() == ComponentType.SharedNIC:
                 for ns in component.network_service_info.network_services.values():
