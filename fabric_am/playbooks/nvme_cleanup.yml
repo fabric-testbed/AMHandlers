@@ -1,0 +1,10 @@
+---
+# file: nvme_cleanup.yml
+
+- hosts:
+    - "{{ worker_node_name }}"
+
+  vars:
+
+  roles:
+    - nvme_cleanup

@@ -49,11 +49,6 @@ class NetHandler(HandlerBase):
     """
     Network Handler
     """
-
-    def get_ansible_python_interpreter(self) -> str:
-        return self.get_config()[AmConstants.ANSIBLE_SECTION][
-            AmConstants.ANSIBLE_PYTHON_INTERPRETER]
-
     def create(self, unit: ConfigToken) -> Tuple[dict, ConfigToken]:
         """
         Create a Network Service
@@ -121,8 +116,7 @@ class NetHandler(HandlerBase):
                 "data": data
             }
             print(json.dumps(extra_vars))
-            ansible_helper = AnsibleHelper(inventory_path=inventory_path, logger=self.get_logger(),
-                                           ansible_python_interpreter=self.get_ansible_python_interpreter())
+            ansible_helper = AnsibleHelper(inventory_path=inventory_path, logger=self.get_logger())
             ansible_helper.set_extra_vars(extra_vars=extra_vars)
             self.get_logger().debug(f"Executing playbook {playbook_path_full} to create Network Service")
             ansible_helper.run_playbook(playbook_path=playbook_path_full)
@@ -214,8 +208,7 @@ class NetHandler(HandlerBase):
                 raise NetHandlerException(f"Missing config parameters playbook: {playbook} "
                                           f"playbook_path: {playbook_path} inventory_path: {inventory_path}")
             playbook_path_full = f"{playbook_path}/{playbook}"
-            ansible_helper = AnsibleHelper(inventory_path=inventory_path, logger=self.get_logger(),
-                                           ansible_python_interpreter=self.get_ansible_python_interpreter())
+            ansible_helper = AnsibleHelper(inventory_path=inventory_path, logger=self.get_logger())
             ansible_helper.set_extra_vars(extra_vars=extra_vars)
             self.get_logger().debug(f"Executing playbook {playbook_path_full} to delete Network Service")
             ansible_helper.run_playbook(playbook_path=playbook_path_full)
