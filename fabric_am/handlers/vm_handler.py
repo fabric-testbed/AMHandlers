@@ -61,9 +61,11 @@ class VMHandler(HandlerBase):
         self.get_logger().debug("Clean restart - begin")
         try:
             playbook_path = self.get_config()[AmConstants.PLAYBOOK_SECTION][AmConstants.PB_LOCATION]
-            inventory_path = self.get_config()[AmConstants.PLAYBOOK_SECTION][AmConstants.PB_INVENTORY][AmConstants.CLEAN_ALL]
+            cleanup_section = self.get_config()[AmConstants.PLAYBOOK_SECTION][AmConstants.PB_CLEANUP]
+            cleanup_playbook = f"{playbook_path}/{cleanup_section[AmConstants.CLEAN_ALL]}"
+            inventory_path = self.get_config()[AmConstants.PLAYBOOK_SECTION][AmConstants.PB_INVENTORY]
             extra_vars = {AmConstants.VM_PROV_OP: AmConstants.PROV_OP_DELETE_ALL}
-            self.__execute_ansible(inventory_path=inventory_path, playbook_path=playbook_path,
+            self.__execute_ansible(inventory_path=inventory_path, playbook_path=cleanup_playbook,
                                    extra_vars=extra_vars)
         except Exception as e:
             self.get_logger().error(f"Failure to clean up existing VMs: {e}")
