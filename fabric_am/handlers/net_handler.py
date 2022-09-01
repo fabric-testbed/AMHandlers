@@ -49,6 +49,12 @@ class NetHandler(HandlerBase):
     """
     Network Handler
     """
+    def clean_restart(self):
+        """
+        Clean up all existing services on clean restart
+        """
+        pass
+
     def create(self, unit: ConfigToken) -> Tuple[dict, ConfigToken]:
         """
         Create a Network Service

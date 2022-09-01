@@ -57,6 +57,23 @@ class VMHandler(HandlerBase):
         return self.get_config()[AmConstants.ANSIBLE_SECTION][
                 AmConstants.ANSIBLE_PYTHON_INTERPRETER]
 
+    def clean_restart(self):
+        try:
+            playbook_path = self.get_config()[AmConstants.PLAYBOOK_SECTION][AmConstants.PB_LOCATION]
+            inventory_path = self.get_config()[AmConstants.PLAYBOOK_SECTION][AmConstants.PB_INVENTORY][AmConstants.CLEAN_ALL]
+            extra_vars = {AmConstants.VM_PROV_OP: AmConstants.PROV_OP_DELETE_ALL}
+            self.__execute_ansible(inventory_path=inventory_path, playbook_path=playbook_path,
+                                   extra_vars=extra_vars)
+        except Exception as e:
+            self.get_logger().error(f"Failure to clean up existing VMs: {e}")
+            self.get_logger().error(traceback.format_exc())
+
+        result = {Constants.PROPERTY_TARGET_NAME: Constants.TARGET_,
+                  Constants.PROPERTY_TARGET_RESULT_CODE: Constants.RESULT_CODE_EXCEPTION,
+                  Constants.PROPERTY_ACTION_SEQUENCE_NUMBER: 0,
+                  Constants.PROPERTY_EXCEPTION_MESSAGE: e}
+        return result
+
     def create(self, unit: ConfigToken) -> Tuple[dict, ConfigToken]:
         """
         Create a VM
