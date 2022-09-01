@@ -58,6 +58,7 @@ class VMHandler(HandlerBase):
                 AmConstants.ANSIBLE_PYTHON_INTERPRETER]
 
     def clean_restart(self):
+        self.get_logger().debug("Clean restart - begin")
         try:
             playbook_path = self.get_config()[AmConstants.PLAYBOOK_SECTION][AmConstants.PB_LOCATION]
             inventory_path = self.get_config()[AmConstants.PLAYBOOK_SECTION][AmConstants.PB_INVENTORY][AmConstants.CLEAN_ALL]
@@ -67,11 +68,12 @@ class VMHandler(HandlerBase):
         except Exception as e:
             self.get_logger().error(f"Failure to clean up existing VMs: {e}")
             self.get_logger().error(traceback.format_exc())
+        finally:
+            self.get_logger().debug("Clean restart - end")
 
-        result = {Constants.PROPERTY_TARGET_NAME: Constants.TARGET_,
+        result = {Constants.PROPERTY_TARGET_NAME: Constants.TARGET_CLEAN_RESTART,
                   Constants.PROPERTY_TARGET_RESULT_CODE: Constants.RESULT_CODE_EXCEPTION,
-                  Constants.PROPERTY_ACTION_SEQUENCE_NUMBER: 0,
-                  Constants.PROPERTY_EXCEPTION_MESSAGE: e}
+                  Constants.PROPERTY_ACTION_SEQUENCE_NUMBER: 0}
         return result
 
     def create(self, unit: ConfigToken) -> Tuple[dict, ConfigToken]:
