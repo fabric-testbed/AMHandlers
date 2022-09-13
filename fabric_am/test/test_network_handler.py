@@ -108,24 +108,9 @@ class TestNetHandler(unittest.TestCase):
         # name and peer interface sliver name.
         isl1.set_type(InterfaceType.ServicePort)
 
-        sliver_labels = Labels()
-        sliver_capacities = Capacities()
+        sliver_labels = Labels(vlan='100', local_name='HundredGigE0/0/0/17', device_name='uky-data-sw')
+        sliver_capacities = Capacities(bw=1)
         # inner_vlan - not used for now - user would fill it in directly on the sliver Labels -
-        # need to discuss.
-        # sl1labs.set_fields(inner_vlan='3')
-
-        # vlan - source: (c)
-        sliver_labels.set_fields(vlan='100')
-
-        # local_name source: (a)
-        sliver_labels.set_fields(local_name='HundredGigE0/0/0/17')
-
-        # NSO device name source: (a) - need to find the owner switch of the network service in CBM
-        # and take its .name or labels.local_name
-        sliver_labels.set_fields(device_name='uky-data-sw')
-
-        # capacities (bw in Gbps, burst size is in Mbytes) source: (b)
-        sliver_capacities.set_fields(bw=1)
 
         # assign labels and capacities
         isl1.set_labels(sliver_labels)
@@ -138,14 +123,10 @@ class TestNetHandler(unittest.TestCase):
         isl2.set_name('Interface2')
         isl2.set_type(InterfaceType.ServicePort)
 
-        sliver_labels = Labels()
-        sliver_capacities = Capacities()
+        sliver_labels = Labels(local_name='TwentyFiveGigE0/0/0/23/1', device_name='uky-data-sw')
+        sliver_capacities = Capacities(bw=1)
 
-        # sliver_labels.set_fields(vlan='102')
-        sliver_labels.set_fields(local_name='TwentyFiveGigE0/0/0/23/1')
-        sliver_labels.set_fields(device_name='uky-data-sw')
-
-        sliver_capacities.set_fields(bw=1)
+        # sliver_labels = Labels.update(sliver_labels, vlan='102')
 
         isl2.set_labels(sliver_labels)
         isl2.set_capacities(sliver_capacities)
@@ -185,7 +166,7 @@ class TestNetHandler(unittest.TestCase):
         # create a NetworkService sliver for L2Bridge
         prop = {AmConstants.CONFIG_PROPERTIES_FILE: '../config/net_handler_config.yml'}
 
-        handler = NetHandler(logger=self.logger, properties=prop)
+        handler = NetHandler(logger=self.logger, properties=prop, process_lock=threading.Lock())
         #
         # create a network sliver for L2Bridge and its interfaces
         #
@@ -199,31 +180,6 @@ class TestNetHandler(unittest.TestCase):
         sliver.set_type(ServiceType.L2Bridge)
         sliver.set_layer(NSLayer.L2)
 
-        # Interface properties
-        #
-        # The service definitions make a distinction between interface which requires
-        # type = parse(InterfaceSliver.Labels.local_name)
-        # id = parse(InterfaceSliver.Labels.local_name)
-        # outervlan = InterfaceSliver.Labels.vlan
-        # innervlan = InterfaceSliver.Labels.inner_vlan
-        # bw = InterfaceSliver.Capacities.bw (0 - best-effort)
-        # burst size = InterfaceSliver.Capacities.burst_size
-        #
-        # and STP which in addition also requires NSO device name.
-        # In deep network sliver NSO Device name goes on *each* interface, then handler.create can parse
-        # out the interfaces and figure out which STP each interface goes with based on that.
-        # NSO device name = InterfaceSliver.Labels.device_name
-        #
-        # The properties of InterfaceSlivers noted above must be copied by Orchestrator from various places
-        # a) the switch TrunkPort port the ASM ServicePort maps to in CBM
-        # b) the Shared or Dedicated ASM port on the card the ServicePort peers with in ASM
-        # c) the Shared or Dedicated CBM port the peer ASM port maps to
-        # Below for each property comments indicate where they come from by a, b, c
-
-        # Orchestrator determines peer ports in ASM (between ServicePort and corresponding Shared/Dedicated card port)
-        # and sets nodemaps to point from ASM ServicePort to corresponding CBM TrunkPort
-        # as well as between Shared/Dedicated ASM port on the NIC and the corresponding CBM Shared/Dedicated port
-
         #
         # create a small number of Interface slivers, set their properties and link to service
         #
@@ -235,24 +191,8 @@ class TestNetHandler(unittest.TestCase):
         # name and peer interface sliver name.
         isl1.set_type(InterfaceType.ServicePort)
 
-        sliver_labels = Labels()
-        sliver_capacities = Capacities()
-        # inner_vlan - not used for now - user would fill it in directly on the sliver Labels -
-        # need to discuss.
-        # sl1labs.set_fields(inner_vlan='3')
-
-        # vlan - source: (c)
-        sliver_labels.set_fields(vlan='101')
-
-        # local_name source: (a)
-        sliver_labels.set_fields(local_name='HundredGigE0/0/0/5')
-
-        # NSO device name source: (a) - need to find the owner switch of the network service in CBM
-        # and take its .name or labels.local_name
-        sliver_labels.set_fields(device_name='uky-data-sw')
-
-        # capacities (bw in Gbps, burst size is in Mbytes) source: (b)
-        sliver_capacities.set_fields(bw=1)
+        sliver_labels = Labels(vlan='101', local_name='HundredGigE0/0/0/5', device_name='uky-data-sw')
+        sliver_capacities = Capacities(bw=1)
 
         # assign labels and capacities
         isl1.set_labels(sliver_labels)
@@ -430,7 +370,7 @@ class TestNetHandler(unittest.TestCase):
         # create a NetworkService sliver for L2PTP
         prop = {AmConstants.CONFIG_PROPERTIES_FILE: '../config/net_handler_config.yml'}
 
-        handler = NetHandler(logger=self.logger, properties=prop)
+        handler = NetHandler(logger=self.logger, properties=prop, process_lock=threading.Lock())
 
         #
         # create a network sliver for L2Bridge and its interfaces
@@ -522,7 +462,7 @@ class TestNetHandler(unittest.TestCase):
         # create a NetworkService sliver for L2STS
         prop = {AmConstants.CONFIG_PROPERTIES_FILE: '../config/net_handler_config.yml'}
 
-        handler = NetHandler(logger=self.logger, properties=prop)
+        handler = NetHandler(logger=self.logger, properties=prop, process_lock=threading.Lock())
 
         #
         # create a network sliver for L2Bridge and its interfaces
