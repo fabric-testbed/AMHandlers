@@ -310,6 +310,122 @@ class TestNetHandler(unittest.TestCase):
         self.assertEqual(r[Constants.PROPERTY_TARGET_RESULT_CODE], Constants.RESULT_CODE_OK)
 
 
+
+    def test_L2Bridge_Modify(self):
+        # create a NetworkService sliver for L2Bridge
+        prop = {AmConstants.CONFIG_PROPERTIES_FILE: '../config/net_handler_config.yml'}
+
+        handler = NetHandler(logger=self.logger, properties=prop, process_lock=threading.Lock())
+        #
+        # create a network sliver for L2Bridge and its interfaces
+        #
+        sliver = NetworkServiceSliver()
+        # service name (set by user) - only guaranteed unique within a slice
+        sliver.set_name('L2BridgeServiceTest')
+        # if service name global uniqueness is a requirement use Labels.local_name for that (optional)
+        # e.g. concatenate name + res id (or another unique id)
+        # sliver.set_labels(Labels().set_fields(local_name='test-l2bridge-shortname'))
+        # per @xiyang he uses unit id for service name so this is not needed.
+        sliver.set_type(ServiceType.L2Bridge)
+        sliver.set_layer(NSLayer.L2)
+
+        isl1 = InterfaceSliver()
+        # the name is set by FIM as '-' concatenation of service name
+        isl1.set_name('Interface1')
+        # this will be a ServicePort in the network service sliver. It is created by FIM automatically when
+        # the user adds a NetworkService to the ASM. The name is set by the FIM as '-' concatenation of service
+        # name and peer interface sliver name.
+        isl1.set_type(InterfaceType.ServicePort)
+
+        sliver_labels = Labels()
+
+        sliver_labels = Labels.update(sliver_labels, vlan='100', local_name='HundredGigE0/0/0/17', device_name='uky-data-sw')
+
+        sliver_capacities = Capacities(bw=1)
+
+        # assign labels and capacities
+        isl1.set_labels(sliver_labels)
+        isl1.set_capacities(sliver_capacities)
+
+        #
+        # Second interface (comments for field info origin omitted below)
+        #
+        isl2 = InterfaceSliver()
+        isl2.set_name('Interface2')
+        isl2.set_type(InterfaceType.ServicePort)
+
+        sliver_labels = Labels()
+
+        # sliver_labels.set_fields(vlan='102')
+        sliver_labels = Labels.update(sliver_labels, vlan='100', local_name='TwentyFiveGigE0/0/0/23/1', device_name='uky-data-sw')
+
+        sliver_capacities = Capacities(bw=1)
+
+        isl2.set_labels(sliver_labels)
+        isl2.set_capacities(sliver_capacities)
+
+        # create interface info object, add populated interfaces to it
+        ifi = InterfaceInfo()
+        ifi.add_interface(isl1)
+        ifi.add_interface(isl2)
+
+        # add interface info object to sliver. All of this happens automagically normally
+        sliver.interface_info = ifi
+        # set a fake unit reservation
+        uid = uuid.uuid3(uuid.NAMESPACE_DNS, 'test_L2Bridge')
+        self.unit = Unit(rid=ID(uid=str(uid)))
+        self.unit.set_sliver(sliver=sliver)
+
+        #
+        # create a service (create needs to parse out sliver information
+        # into exact parameters the service ansible script needs)
+        #
+        r, updated_unit = handler.create(unit=self.unit)
+        self.assertEqual(r[Constants.PROPERTY_TARGET_NAME], Constants.TARGET_CREATE)
+        self.assertEqual(r[Constants.PROPERTY_ACTION_SEQUENCE_NUMBER], 0)
+        self.assertEqual(r[Constants.PROPERTY_TARGET_RESULT_CODE], Constants.RESULT_CODE_OK)
+
+        time.sleep(30)
+
+        # remove Interface2
+        sliver.interface_info.remove_interface('Interface2')
+
+        # add Interface3
+        isl3 = InterfaceSliver()
+        isl3.set_name('Interface3')
+        isl3.set_type(InterfaceType.ServicePort)
+
+        sliver_labels = Labels()
+
+        sliver_labels = Labels.update(sliver_labels, vlan='200', local_name='TwentyFiveGigE0/0/0/23/2', device_name='uky-data-sw')
+
+        sliver_capacities = Capacities(bw=1)
+
+        isl3.set_labels(sliver_labels)
+        isl3.set_capacities(sliver_capacities)
+
+        sliver.interface_info.add_interface(isl3)
+
+        updated_unit.set_modified(modified=sliver)
+
+        #
+        # delete - need to make sure the updated unit has the right info to delete the service
+        #
+        r, updated_unit = handler.modify(updated_unit)
+        self.assertEqual(r[Constants.PROPERTY_TARGET_NAME], Constants.TARGET_MODIFY)
+        self.assertEqual(r[Constants.PROPERTY_ACTION_SEQUENCE_NUMBER], 0)
+        self.assertEqual(r[Constants.PROPERTY_TARGET_RESULT_CODE], Constants.RESULT_CODE_OK)
+
+        time.sleep(30)
+
+        #
+        # delete - need to make sure the updated unit has the right info to delete the service
+        #
+        r, updated_unit = handler.delete(updated_unit)
+        self.assertEqual(r[Constants.PROPERTY_TARGET_NAME], Constants.TARGET_DELETE)
+        self.assertEqual(r[Constants.PROPERTY_ACTION_SEQUENCE_NUMBER], 0)
+        self.assertEqual(r[Constants.PROPERTY_TARGET_RESULT_CODE], Constants.RESULT_CODE_OK)
+
     def test_L2PTP(self):
         # create a NetworkService sliver for L2PTP
         prop = {AmConstants.CONFIG_PROPERTIES_FILE: '../config/net_handler_config.yml'}
