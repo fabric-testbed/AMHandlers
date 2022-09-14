@@ -249,8 +249,6 @@ class TestNetHandler(unittest.TestCase):
         self.assertEqual(r[Constants.PROPERTY_ACTION_SEQUENCE_NUMBER], 0)
         self.assertEqual(r[Constants.PROPERTY_TARGET_RESULT_CODE], Constants.RESULT_CODE_OK)
 
-
-
     def test_L2Bridge_Modify(self):
         # create a NetworkService sliver for L2Bridge
         prop = {AmConstants.CONFIG_PROPERTIES_FILE: '../config/net_handler_config.yml'}
@@ -277,9 +275,7 @@ class TestNetHandler(unittest.TestCase):
         # name and peer interface sliver name.
         isl1.set_type(InterfaceType.ServicePort)
 
-        sliver_labels = Labels()
-
-        sliver_labels = Labels.update(sliver_labels, vlan='100', local_name='HundredGigE0/0/0/17', device_name='uky-data-sw')
+        sliver_labels = Labels(vlan='100', local_name='HundredGigE0/0/0/17', device_name='uky-data-sw')
 
         sliver_capacities = Capacities(bw=1)
 
@@ -294,10 +290,7 @@ class TestNetHandler(unittest.TestCase):
         isl2.set_name('Interface2')
         isl2.set_type(InterfaceType.ServicePort)
 
-        sliver_labels = Labels()
-
-        # sliver_labels.set_fields(vlan='102')
-        sliver_labels = Labels.update(sliver_labels, vlan='100', local_name='TwentyFiveGigE0/0/0/23/1', device_name='uky-data-sw')
+        sliver_labels = Labels(vlan='100', local_name='TwentyFiveGigE0/0/0/23/1', device_name='uky-data-sw')
 
         sliver_capacities = Capacities(bw=1)
 
@@ -327,26 +320,28 @@ class TestNetHandler(unittest.TestCase):
 
         time.sleep(30)
 
-        # remove Interface2
-        sliver.interface_info.remove_interface('Interface2')
+        modified_sliver = NetworkServiceSliver()
+        # service name (set by user) - only guaranteed unique within a slice
+        modified_sliver.set_name('L2BridgeServiceTest')  # must be the same name
+        modified_sliver.set_type(ServiceType.L2Bridge)
+        modified_sliver.set_layer(NSLayer.L2)
+
+        ifi = InterfaceInfo()  # started over
+        ifi.add_interface(isl1)  # Add Interface1 (reused)
 
         # add Interface3
         isl3 = InterfaceSliver()
         isl3.set_name('Interface3')
         isl3.set_type(InterfaceType.ServicePort)
-
-        sliver_labels = Labels()
-
-        sliver_labels = Labels.update(sliver_labels, vlan='200', local_name='TwentyFiveGigE0/0/0/23/2', device_name='uky-data-sw')
-
+        sliver_labels = Labels(vlan='200', local_name='TwentyFiveGigE0/0/0/23/2', device_name='uky-data-sw')
         sliver_capacities = Capacities(bw=1)
-
         isl3.set_labels(sliver_labels)
         isl3.set_capacities(sliver_capacities)
 
-        sliver.interface_info.add_interface(isl3)
+        ifi.add_interface(isl3)
+        modified_sliver.interface_info = ifi
 
-        updated_unit.set_modified(modified=sliver)
+        updated_unit.set_modified(modified=modified_sliver)
 
         #
         # delete - need to make sure the updated unit has the right info to delete the service
@@ -752,7 +747,6 @@ class TestNetHandler(unittest.TestCase):
         self.assertEqual(r[Constants.PROPERTY_TARGET_RESULT_CODE], Constants.RESULT_CODE_OK)
 
     def test_PortMirror(self):
-
         # create a NetworkService sliver for FABNetv6
         prop = {AmConstants.CONFIG_PROPERTIES_FILE: '../config/net_handler_config.yml'}
 

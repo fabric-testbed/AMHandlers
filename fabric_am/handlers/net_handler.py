@@ -192,14 +192,20 @@ class NetHandler(HandlerBase):
             modified_sliver = unit.get_modified()
 
             if sliver is None or modified_sliver is None:
-                raise NetHandlerException(f"Unit # {unit} has no assigned slivers")
+                raise NetHandlerException(f"Unit # {unit} has no assigned slivers for modify")
 
             if not isinstance(sliver, NetworkServiceSliver) or not isinstance(modified_sliver, NetworkServiceSliver):
                 raise NetHandlerException(f"Invalid Sliver type {type(sliver)}  {type(modified_sliver)}")
 
+            if sliver.get_type() != modified_sliver.get_type():
+                raise NetHandlerException(f"Modify cannot change Sliver type {sliver.get_type()}  into {modified_sliver.get_type()}")
+
+            if sliver.get_name() != modified_sliver.get_name():
+                raise NetHandlerException(f"Modify cannot change Sliver name {sliver.get_name()}  into {modified_sliver.get_name()}")
+
             unit_id = str(unit.get_reservation_id())
 
-            resource_type = str(sliver.get_type())
+            resource_type = str(modified_sliver.get_type())
 
             playbook_path = self.get_config()[AmConstants.PLAYBOOK_SECTION][AmConstants.PB_LOCATION]
             inventory_path = self.get_config()[AmConstants.PLAYBOOK_SECTION][AmConstants.PB_INVENTORY]
@@ -210,6 +216,7 @@ class NetHandler(HandlerBase):
                                           f"playbook_path: {playbook_path} inventory_path: {inventory_path}")
             playbook_path_full = f"{playbook_path}/{playbook}"
 
+            # same name for sliver and modified_sliver
             if sliver.get_labels() is None or sliver.get_labels().local_name is None:
                 # truncate service_name length to no greater than 53 (36+1+16)
                 sliver_name = sliver.get_name()[:16] if len(sliver.get_name()) > 16 else sliver.get_name()
@@ -218,19 +225,19 @@ class NetHandler(HandlerBase):
                 service_name = sliver.get_labels().local_name
             service_type = resource_type.lower()
             if service_type == 'l2bridge':
-                service_data = self.__l2bridge_create_data(sliver, service_name)
+                service_data = self.__l2bridge_create_data(modified_sliver, service_name)
             elif service_type == 'l2ptp':
-                service_data = self.__l2ptp_create_data(sliver, service_name)
+                service_data = self.__l2ptp_create_data(modified_sliver, service_name)
             elif service_type == 'l2sts':
-                service_data = self.__l2sts_create_data(sliver, service_name)
+                service_data = self.__l2sts_create_data(modified_sliver, service_name)
             elif service_type == 'fabnetv4':
-                service_data = self.__fabnetv4_create_data(sliver, service_name)
+                service_data = self.__fabnetv4_create_data(modified_sliver, service_name)
                 service_type = 'l3rt'
             elif service_type == 'fabnetv6':
-                service_data = self.__fabnetv6_create_data(sliver, service_name)
+                service_data = self.__fabnetv6_create_data(modified_sliver, service_name)
                 service_type = 'l3rt'
             elif service_type == 'portmirror':
-                service_data = self.__portmirror_create_data(sliver, service_name)
+                service_data = self.__portmirror_create_data(modified_sliver, service_name)
                 service_type = 'port-mirror'
             else:
                 raise NetHandlerException(f'unrecognized network service type "{service_type}"')
