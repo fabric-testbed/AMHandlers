@@ -27,6 +27,8 @@ import json
 import re
 import traceback
 from typing import Tuple
+from configparser import ConfigParser
+import requests
 
 from fabric_cf.actor.core.common.constants import Constants
 from fabric_cf.actor.core.plugins.handlers.config_token import ConfigToken
@@ -49,11 +51,67 @@ class NetHandler(HandlerBase):
     """
     Network Handler
     """
+
     def clean_restart(self):
         """
-        Clean up all existing services on clean restart
+        Clean up all existing NSO services on clean restart
         """
-        pass
+        import urllib3
+        urllib3.disable_warnings(urllib3.exceptions.SecurityWarning)
+        hdrs = {"Content-type": "application/yang-data+json",
+                "Accept": "application/yang-data+json"}
+
+        self.get_logger().debug("Clean restart - begin")
+
+        # Get NSO RESTConf URL base and user/password from inventory file
+        inventory_path = self.get_config()[AmConstants.PLAYBOOK_SECTION][AmConstants.PB_INVENTORY]
+        cfg = ConfigParser(allow_no_value=True)
+        cfg.read(inventory_path)
+        nso_cfg = cfg['fabric_site_nso']
+        if "netam.fabric-testbed.net url" not in nso_cfg:
+            self.get_logger().error(f"Failure to clean up NSO services: fabric_site_nso config error")
+            raise NetHandlerException(
+                f"[fabric_site_nso] / netam.fabric-testbed.net url not configured in inventory file")
+        url = nso_cfg['netam.fabric-testbed.net url']
+        if "jsonrpc" not in url:
+            self.get_logger().error(f"Failure to clean up NSO services: fabric_site_nso config error")
+            raise NetHandlerException(f"[fabric_site_nso] / netam.fabric-testbed.net url does not end in jsonrpc")
+        url = url.replace("jsonrpc", "data/tailf-ncs:services")
+        if "netam.fabric-testbed.net username" not in nso_cfg:
+            self.get_logger().error(f"Failure to clean up NSO services: fabric_site_nso config error")
+            raise NetHandlerException(
+                f"[fabric_site_nso] / netam.fabric-testbed.net username not configured in inventory file")
+        user = nso_cfg['netam.fabric-testbed.net username']
+        if "netam.fabric-testbed.net password" not in nso_cfg:
+            self.get_logger().error(f"Failure to clean up NSO services: fabric_site_nso config error")
+            raise NetHandlerException(
+                f"[fabric_site_nso] / netam.fabric-testbed.net password not configured in inventory file")
+        pw = nso_cfg['netam.fabric-testbed.net password']
+
+        # -X DELETE all ncs:services
+        try:
+            res = requests.delete(url, headers=hdrs, auth=(user, pw), verify=False)
+        except Exception as e:
+            self.get_logger().error(f"Failure to clean up NSO services: {e}")
+
+        # -X POST recover ncs:services/logging default logger
+        logger_data = {
+            "logger": {
+                "name": "default",
+                "log-entry-level": "info"
+            }
+        }
+        try:
+            res = requests.post(url + '/logging', headers=hdrs, data=json.dumps(logger_data), auth=(user, pw), verify=False)
+        except Exception as e:
+            self.get_logger().error(f"Failure to clean up NSO services: {e}")
+
+        self.get_logger().debug("Clean restart - end")
+
+        result = {Constants.PROPERTY_TARGET_NAME: Constants.TARGET_CLEAN_RESTART,
+                  Constants.PROPERTY_TARGET_RESULT_CODE: Constants.RESULT_CODE_EXCEPTION,
+                  Constants.PROPERTY_ACTION_SEQUENCE_NUMBER: 0}
+        return result
 
     def create(self, unit: ConfigToken) -> Tuple[dict, ConfigToken]:
         """
@@ -268,9 +326,9 @@ class NetHandler(HandlerBase):
             if int(interface['outervlan']) > 0 and labs.inner_vlan is not None:
                 interface['innervlan'] = labs.inner_vlan
             if caps is not None and caps.bw is not None and caps.bw != 0:
-                interface['bandwidth'] = caps.bw # default unit = gbps
+                interface['bandwidth'] = caps.bw  # default unit = gbps
                 if caps.burst_size is not None and caps.burst_size != 0:
-                    interface['burst-size'] = caps.burst_size # default unit = mbytes
+                    interface['burst-size'] = caps.burst_size  # default unit = mbytes
             interfaces.append(interface)
         if not interfaces:
             raise NetHandlerException(f'l2bridge - none valid interface is defined in sliver')
@@ -299,7 +357,8 @@ class NetHandler(HandlerBase):
             interface['type'] = interface_type_id[0][0]
             interface['id'] = interface_type_id[0][1]
             if labs.vlan is None or labs.vlan == 0:
-                raise NetHandlerException(f'l2ptp - interface "{interface_name}" must be tagged (with vlan label in 1..4095)')
+                raise NetHandlerException(
+                    f'l2ptp - interface "{interface_name}" must be tagged (with vlan label in 1..4095)')
             interface['outervlan'] = labs.vlan
             if labs.inner_vlan is not None:
                 interface['innervlan'] = labs.inner_vlan
@@ -529,7 +588,8 @@ class NetHandler(HandlerBase):
             interface_sliver = sliver.interface_info.interfaces[interface_name]
             labs: Labels = interface_sliver.get_labels()
             if labs.device_name is None:
-                raise NetHandlerException(f'port_mirror - destination interface "{interface_name}" has no "device_name" label')
+                raise NetHandlerException(
+                    f'port_mirror - destination interface "{interface_name}" has no "device_name" label')
             data['device'] = labs.device_name
             if labs.local_name is None:
                 raise NetHandlerException(f'port_mirror - interface "{interface_name}" has no "local_name" label')
