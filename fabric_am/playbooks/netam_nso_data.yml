@@ -38,6 +38,15 @@
       data: "{{ data }}"
     when: operation == 'delete'
 
+  - name: Modify network service
+    nso_config:
+      url: "{{ url }}"
+      username: "{{ username }}"
+      password: "{{ password }}"
+      data: "{{ data }}"
+    when: operation == 'modify'
+
+
   - name: Delete idipa service
     nso_config:
       url: "{{ url }}"
