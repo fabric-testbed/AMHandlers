@@ -235,7 +235,112 @@ class NetHandler(HandlerBase):
         return result, unit
 
     def modify(self, unit: ConfigToken) -> Tuple[dict, ConfigToken]:
-        raise NetHandlerException(f"NetworkServiceSliver modify action is not supported yet...")
+        """
+        Modify a Network Service
+        :param unit: unit representing an NSO Network Service
+        :return: tuple of result status and the unit
+        """
+        result = {Constants.PROPERTY_TARGET_NAME: Constants.TARGET_MODIFY,
+                  Constants.PROPERTY_TARGET_RESULT_CODE: Constants.RESULT_CODE_OK,
+                  Constants.PROPERTY_ACTION_SEQUENCE_NUMBER: 0}
+        try:
+            self.get_logger().info(f"Modify invoked for unit: {unit}")
+            sliver = unit.get_sliver()
+            modified_sliver = unit.get_modified()
+
+            if sliver is None or modified_sliver is None:
+                raise NetHandlerException(f"Unit # {unit} has no assigned slivers for modify")
+
+            if not isinstance(sliver, NetworkServiceSliver) or not isinstance(modified_sliver, NetworkServiceSliver):
+                raise NetHandlerException(f"Invalid Sliver type {type(sliver)}  {type(modified_sliver)}")
+
+            if sliver.get_type() != modified_sliver.get_type():
+                raise NetHandlerException(f"Modify cannot change Sliver type {sliver.get_type()}  into {modified_sliver.get_type()}")
+
+            if sliver.get_name() != modified_sliver.get_name():
+                raise NetHandlerException(f"Modify cannot change Sliver name {sliver.get_name()}  into {modified_sliver.get_name()}")
+
+            unit_id = str(unit.get_reservation_id())
+
+            resource_type = str(modified_sliver.get_type())
+
+            playbook_path = self.get_config()[AmConstants.PLAYBOOK_SECTION][AmConstants.PB_LOCATION]
+            inventory_path = self.get_config()[AmConstants.PLAYBOOK_SECTION][AmConstants.PB_INVENTORY]
+
+            playbook = self.get_config()[AmConstants.PLAYBOOK_SECTION][resource_type]
+            if playbook is None or inventory_path is None or playbook_path is None:
+                raise NetHandlerException(f"Missing config parameters playbook: {playbook} "
+                                          f"playbook_path: {playbook_path} inventory_path: {inventory_path}")
+            playbook_path_full = f"{playbook_path}/{playbook}"
+
+            # same name for sliver and modified_sliver
+            if sliver.get_labels() is None or sliver.get_labels().local_name is None:
+                # truncate service_name length to no greater than 53 (36+1+16)
+                sliver_name = sliver.get_name()[:16] if len(sliver.get_name()) > 16 else sliver.get_name()
+                service_name = f'{sliver_name}-{unit_id}'
+            else:
+                service_name = sliver.get_labels().local_name
+            service_type = resource_type.lower()
+            if service_type == 'l2bridge':
+                service_data = self.__l2bridge_create_data(modified_sliver, service_name)
+            elif service_type == 'l2ptp':
+                service_data = self.__l2ptp_create_data(modified_sliver, service_name)
+            elif service_type == 'l2sts':
+                service_data = self.__l2sts_create_data(modified_sliver, service_name)
+            elif service_type == 'fabnetv4':
+                service_data = self.__fabnetv4_create_data(modified_sliver, service_name)
+                service_type = 'l3rt'
+            elif service_type == 'fabnetv6':
+                service_data = self.__fabnetv6_create_data(modified_sliver, service_name)
+                service_type = 'l3rt'
+            elif service_type == 'portmirror':
+                service_data = self.__portmirror_create_data(modified_sliver, service_name)
+                service_type = 'port-mirror'
+            else:
+                raise NetHandlerException(f'unrecognized network service type "{service_type}"')
+            data = {
+                "tailf-ncs:services": {
+                    f'{service_type}:{service_type}': [{
+                        "name": f'{service_name}',
+                        "__state": "absent"
+                        },
+                        service_data]
+                }
+            }
+            extra_vars = {
+                "service_name": service_name,
+                "service_type": service_type,
+                "service_action": "modify",
+                "data": data
+            }
+            print(json.dumps(extra_vars))
+            ansible_helper = AnsibleHelper(inventory_path=inventory_path, logger=self.get_logger())
+            ansible_helper.set_extra_vars(extra_vars=extra_vars)
+            self.get_logger().debug(f"Executing playbook {playbook_path_full} to create Network Service")
+            ansible_helper.run_playbook(playbook_path=playbook_path_full)
+            ansible_callback = ansible_helper.get_result_callback()
+            unreachable = ansible_callback.get_json_result_unreachable()
+            if unreachable:
+                raise NetHandlerException(f'network service {service_name} was not committed due to connection error')
+            failed = ansible_callback.get_json_result_failed()
+            if failed:
+                ansible_callback.dump_all_failed(logger=self.get_logger())
+                raise NetHandlerException(f'network service {service_name} was not committed due to config error')
+            ok = ansible_callback.get_json_result_ok()
+            if ok:
+                if not ok['changed']:
+                    self.get_logger().info(f'network service {service_name} was committed ok but without change')
+
+        except Exception as e:
+            self.get_logger().error(e)
+            result = {Constants.PROPERTY_TARGET_NAME: Constants.TARGET_MODIFY,
+                      Constants.PROPERTY_TARGET_RESULT_CODE: Constants.RESULT_CODE_EXCEPTION,
+                      Constants.PROPERTY_ACTION_SEQUENCE_NUMBER: 0,
+                      Constants.PROPERTY_EXCEPTION_MESSAGE: e}
+            self.get_logger().error(traceback.format_exc())
+        finally:
+            self.get_logger().info(f"Modify completed")
+        return result, unit
 
     def __cleanup(self, *, sliver: NetworkServiceSliver, unit_id: str, raise_exception: bool = False):
         if sliver.get_labels() is None or sliver.get_labels().local_name is None:
