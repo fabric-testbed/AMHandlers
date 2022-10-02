@@ -809,3 +809,16 @@ class TestNetHandler(unittest.TestCase):
         self.assertEqual(r[Constants.PROPERTY_TARGET_NAME], Constants.TARGET_DELETE)
         self.assertEqual(r[Constants.PROPERTY_ACTION_SEQUENCE_NUMBER], 0)
         self.assertEqual(r[Constants.PROPERTY_TARGET_RESULT_CODE], Constants.RESULT_CODE_OK)
+
+    def test_CleanRestart(self):
+
+        # create a NetworkService sliver for FABNetv6
+        prop = {AmConstants.CONFIG_PROPERTIES_FILE: '../config/net_handler_config.yml'}
+
+        handler = NetHandler(logger=self.logger, properties=prop, process_lock=threading.Lock())
+        r = handler.clean_restart()
+        self.assertEqual(r[Constants.PROPERTY_TARGET_NAME], Constants.TARGET_CLEAN_RESTART)
+        self.assertEqual(r[Constants.PROPERTY_ACTION_SEQUENCE_NUMBER], 0)
+        self.assertEqual(r[Constants.PROPERTY_TARGET_RESULT_CODE], Constants.RESULT_CODE_EXCEPTION)
+
+        #
