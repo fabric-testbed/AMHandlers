@@ -1,0 +1,18 @@
+---
+- hosts: localhost 
+
+  vars:
+    oess_user: [user]
+    secret:
+      oess_passwd: [password]
+      
+  tasks:
+    - name: message
+      debug:
+        msg: "{{ ansible_distribution }}-{{ ansible_distribution_version }}"
+
+    - name: show HOME
+      debug: var=ansible_env.HOME
+
+  roles:
+    - { role: ./roles/oess_provisioning }

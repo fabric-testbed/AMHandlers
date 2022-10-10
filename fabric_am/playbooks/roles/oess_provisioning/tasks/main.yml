@@ -1,0 +1,59 @@
+---
+# MIT License
+#
+# Copyright (c) 2022 FABRIC Testbed
+#
+# Permission is hereby granted, free of charge, to any person obtaining a copy
+# of this software and associated documentation files (the "Software"), to deal
+# in the Software without restriction, including without limitation the rights
+# to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+# copies of the Software, and to permit persons to whom the Software is
+# furnished to do so, subject to the following conditions:
+#
+# The above copyright notice and this permission notice shall be included in all
+# copies or substantial portions of the Software.
+#
+# THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+# IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+# FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+# AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+# LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+# OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+# SOFTWARE.
+#
+#
+# Author: Liang Zhang (lzhang9@es.net)
+# /tasks/main.yml
+#
+
+#
+# manage secret
+#
+#- name: Read secret file
+#  include_vars: "defaults/secret.yml"
+
+#
+# Get current user information such as  workgroup_id
+#
+- include_tasks: account-info.yml
+
+#
+# include yml based on input vars
+#
+- include_tasks: create-circuit.yml
+  when: 
+    - op == "create"
+    - level == "L2"
+- include_tasks: delete-circuit.yml
+  when: 
+    - op == "delete"
+    - level == "L2"
+- include_tasks: create-vrt.yml
+  when: 
+    - op == "create"
+    - level == "L3"
+- include_tasks: delete-vrt.yml
+  when: 
+    - op == "delete"
+    - level == "L3"
+    
