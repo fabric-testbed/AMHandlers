@@ -1,10 +1,5 @@
 ---
 - hosts: localhost 
-
-  vars:
-    oess_user: [user]
-    secret:
-      oess_passwd: [password]
       
   tasks:
     - name: message
