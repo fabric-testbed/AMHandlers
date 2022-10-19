@@ -28,9 +28,9 @@
 
 - name: Get Current User Information
   ansible.builtin.uri:
-    url: https://al2s.net.internet2.edu//oess/services-kerb/user.cgi?method=get_current
+    url: "{{ oess_url }}/user.cgi?method=get_current"
     user: "{{ oess_user }}"
-    password: "{{ secret.oess_passwd }}"
+    password: "{{ oess_passwd }}"
     headers:
       Accept: application/json
       content-type: application/json

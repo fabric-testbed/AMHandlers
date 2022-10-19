@@ -28,9 +28,9 @@
 
 - name: Get vrts
   ansible.builtin.uri:
-    url: https://al2s.net.internet2.edu//oess/services-kerb/vrf.cgi?method=get_vrfs&workgroup_id={{ workgroup_id }}
+    url: "{{ oess_url }}/vrf.cgi?method=get_vrfs&workgroup_id={{ workgroup_id }}"
     user: "{{ oess_user }}"
-    password: "{{ secret.oess_passwd }}"
+    password: "{{ oess_passwd }}"
     headers:
       Accept: application/json
       content-type: application/json

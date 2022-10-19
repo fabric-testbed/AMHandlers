@@ -45,9 +45,9 @@
     
 - name: Create circuit/L2
   ansible.builtin.uri:
-    url: https://al2s.net.internet2.edu//oess/services-kerb/circuit.cgi?method=provision&circuit_id=-1&description={{ description }}&provision_time=-1&remove_time=-1&workgroup_id={{ workgroup_id }}&endpoint={{ string_l2_endpoints }}
+    url: "{{ oess_url }}/circuit.cgi?method=provision&circuit_id=-1&description={{ description }}&provision_time=-1&remove_time=-1&workgroup_id={{ workgroup_id }}&endpoint={{ string_l2_endpoints }}"
     user: "{{ oess_user }}"
-    password: "{{ secret.oess_passwd }}"
+    password: "{{ oess_passwd }}"
     headers:
       Accept: application/json
       content-type: application/json
