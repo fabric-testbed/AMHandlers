@@ -29,7 +29,7 @@ ansible:
   ansible_python_interpreter: /Users/lzhang9/opt/anaconda3/envs/fim-utils/bin/python
 playbooks:
   location: ../playbooks
-  inventory_location: localhost,
+  inventory_location: ../playbooks/inventory
   hostname_suffix:
   L2PTP: al2s_oess.yml
   L3VPN: al2s_oess.yml
