@@ -90,3 +90,27 @@
       name: "{{ vmname }}"
   register: result
   when: vm_prov_op == 'get'
+
+- name: List all VMs
+  openstack.cloud.server_info:
+    auth:
+      auth_url: "{{ auth_url }}"
+      password: "{{ password }}"
+      project_name: "{{ project_name }}"
+      username: "{{ username }}"
+  register: result
+  when: vm_prov_op == 'delete_all' or vm_prov_op == 'list'
+
+- name: Delete all VMs
+  os_server:
+    state: absent
+    auth:
+      auth_url: "{{ auth_url }}"
+      password: "{{ password }}"
+      project_name: "{{ project_name }}"
+      username: "{{ username }}"
+    name: "{{ item['name'] }}"
+    delete_fip: yes
+  when: vm_prov_op == 'delete_all'
+  with_items:
+    - "{{ result['openstack_servers'] }}"

@@ -59,3 +59,4 @@ playbooks:
     Storage: storage_config.yml
   cleanup:
     NVME: nvme_cleanup.yml
+    ALL: head_vm_provisioning.yml

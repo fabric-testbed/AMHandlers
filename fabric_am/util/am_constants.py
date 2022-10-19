@@ -46,9 +46,12 @@ class AmConstants:
     PB_CLEANUP = "cleanup"
     PB_CONFIG = "config"
 
+    CLEAN_ALL = "ALL"
     VM_PROV_OP = "vm_prov_op"
     PROV_OP_CREATE = "create"
     PROV_OP_DELETE = "delete"
+    PROV_OP_LIST = "list"
+    PROV_OP_DELETE_ALL = "delete_all"
     VM_PROV_OP_ATTACH_FIP = "attach_fip"
     PROV_OP_GET = "get"
 

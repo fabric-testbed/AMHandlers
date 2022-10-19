@@ -27,6 +27,8 @@ import json
 import re
 import traceback
 from typing import Tuple
+from configparser import ConfigParser
+import requests
 
 from fabric_cf.actor.core.common.constants import Constants
 from fabric_cf.actor.core.plugins.handlers.config_token import ConfigToken
@@ -49,6 +51,68 @@ class NetHandler(HandlerBase):
     """
     Network Handler
     """
+
+    def clean_restart(self):
+        """
+        Clean up all existing NSO services on clean restart
+        """
+        import urllib3
+        urllib3.disable_warnings(urllib3.exceptions.SecurityWarning)
+        hdrs = {"Content-type": "application/yang-data+json",
+                "Accept": "application/yang-data+json"}
+
+        self.get_logger().debug("Clean restart - begin")
+
+        # Get NSO RESTConf URL base and user/password from inventory file
+        inventory_path = self.get_config()[AmConstants.PLAYBOOK_SECTION][AmConstants.PB_INVENTORY]
+        cfg = ConfigParser(allow_no_value=True)
+        cfg.read(inventory_path)
+        nso_cfg = cfg['fabric_site_nso']
+        if "netam.fabric-testbed.net url" not in nso_cfg:
+            self.get_logger().error(f"Failure to clean up NSO services: fabric_site_nso config error")
+            raise NetHandlerException(
+                f"[fabric_site_nso] / netam.fabric-testbed.net url not configured in inventory file")
+        url = nso_cfg['netam.fabric-testbed.net url']
+        if "jsonrpc" not in url:
+            self.get_logger().error(f"Failure to clean up NSO services: fabric_site_nso config error")
+            raise NetHandlerException(f"[fabric_site_nso] / netam.fabric-testbed.net url does not end in jsonrpc")
+        url = url.replace("jsonrpc", "data/tailf-ncs:services")
+        if "netam.fabric-testbed.net username" not in nso_cfg:
+            self.get_logger().error(f"Failure to clean up NSO services: fabric_site_nso config error")
+            raise NetHandlerException(
+                f"[fabric_site_nso] / netam.fabric-testbed.net username not configured in inventory file")
+        user = nso_cfg['netam.fabric-testbed.net username']
+        if "netam.fabric-testbed.net password" not in nso_cfg:
+            self.get_logger().error(f"Failure to clean up NSO services: fabric_site_nso config error")
+            raise NetHandlerException(
+                f"[fabric_site_nso] / netam.fabric-testbed.net password not configured in inventory file")
+        pw = nso_cfg['netam.fabric-testbed.net password']
+
+        # -X DELETE all ncs:services
+        try:
+            res = requests.delete(url, headers=hdrs, auth=(user, pw), verify=False)
+        except Exception as e:
+            self.get_logger().error(f"Failure to clean up NSO services: {e}")
+
+        # -X POST recover ncs:services/logging default logger
+        logger_data = {
+            "logger": {
+                "name": "default",
+                "log-entry-level": "info"
+            }
+        }
+        try:
+            res = requests.post(url + '/logging', headers=hdrs, data=json.dumps(logger_data), auth=(user, pw), verify=False)
+        except Exception as e:
+            self.get_logger().error(f"Failure to clean up NSO services: {e}")
+
+        self.get_logger().debug("Clean restart - end")
+
+        result = {Constants.PROPERTY_TARGET_NAME: Constants.TARGET_CLEAN_RESTART,
+                  Constants.PROPERTY_TARGET_RESULT_CODE: Constants.RESULT_CODE_EXCEPTION,
+                  Constants.PROPERTY_ACTION_SEQUENCE_NUMBER: 0}
+        return result
+
     def create(self, unit: ConfigToken) -> Tuple[dict, ConfigToken]:
         """
         Create a Network Service
@@ -171,7 +235,112 @@ class NetHandler(HandlerBase):
         return result, unit
 
     def modify(self, unit: ConfigToken) -> Tuple[dict, ConfigToken]:
-        raise NetHandlerException(f"NetworkServiceSliver modify action is not supported yet...")
+        """
+        Modify a Network Service
+        :param unit: unit representing an NSO Network Service
+        :return: tuple of result status and the unit
+        """
+        result = {Constants.PROPERTY_TARGET_NAME: Constants.TARGET_MODIFY,
+                  Constants.PROPERTY_TARGET_RESULT_CODE: Constants.RESULT_CODE_OK,
+                  Constants.PROPERTY_ACTION_SEQUENCE_NUMBER: 0}
+        try:
+            self.get_logger().info(f"Modify invoked for unit: {unit}")
+            sliver = unit.get_sliver()
+            modified_sliver = unit.get_modified()
+
+            if sliver is None or modified_sliver is None:
+                raise NetHandlerException(f"Unit # {unit} has no assigned slivers for modify")
+
+            if not isinstance(sliver, NetworkServiceSliver) or not isinstance(modified_sliver, NetworkServiceSliver):
+                raise NetHandlerException(f"Invalid Sliver type {type(sliver)}  {type(modified_sliver)}")
+
+            if sliver.get_type() != modified_sliver.get_type():
+                raise NetHandlerException(f"Modify cannot change Sliver type {sliver.get_type()}  into {modified_sliver.get_type()}")
+
+            if sliver.get_name() != modified_sliver.get_name():
+                raise NetHandlerException(f"Modify cannot change Sliver name {sliver.get_name()}  into {modified_sliver.get_name()}")
+
+            unit_id = str(unit.get_reservation_id())
+
+            resource_type = str(modified_sliver.get_type())
+
+            playbook_path = self.get_config()[AmConstants.PLAYBOOK_SECTION][AmConstants.PB_LOCATION]
+            inventory_path = self.get_config()[AmConstants.PLAYBOOK_SECTION][AmConstants.PB_INVENTORY]
+
+            playbook = self.get_config()[AmConstants.PLAYBOOK_SECTION][resource_type]
+            if playbook is None or inventory_path is None or playbook_path is None:
+                raise NetHandlerException(f"Missing config parameters playbook: {playbook} "
+                                          f"playbook_path: {playbook_path} inventory_path: {inventory_path}")
+            playbook_path_full = f"{playbook_path}/{playbook}"
+
+            # same name for sliver and modified_sliver
+            if sliver.get_labels() is None or sliver.get_labels().local_name is None:
+                # truncate service_name length to no greater than 53 (36+1+16)
+                sliver_name = sliver.get_name()[:16] if len(sliver.get_name()) > 16 else sliver.get_name()
+                service_name = f'{sliver_name}-{unit_id}'
+            else:
+                service_name = sliver.get_labels().local_name
+            service_type = resource_type.lower()
+            if service_type == 'l2bridge':
+                service_data = self.__l2bridge_create_data(modified_sliver, service_name)
+            elif service_type == 'l2ptp':
+                service_data = self.__l2ptp_create_data(modified_sliver, service_name)
+            elif service_type == 'l2sts':
+                service_data = self.__l2sts_create_data(modified_sliver, service_name)
+            elif service_type == 'fabnetv4':
+                service_data = self.__fabnetv4_create_data(modified_sliver, service_name)
+                service_type = 'l3rt'
+            elif service_type == 'fabnetv6':
+                service_data = self.__fabnetv6_create_data(modified_sliver, service_name)
+                service_type = 'l3rt'
+            elif service_type == 'portmirror':
+                service_data = self.__portmirror_create_data(modified_sliver, service_name)
+                service_type = 'port-mirror'
+            else:
+                raise NetHandlerException(f'unrecognized network service type "{service_type}"')
+            data = {
+                "tailf-ncs:services": {
+                    f'{service_type}:{service_type}': [{
+                        "name": f'{service_name}',
+                        "__state": "absent"
+                        },
+                        service_data]
+                }
+            }
+            extra_vars = {
+                "service_name": service_name,
+                "service_type": service_type,
+                "service_action": "modify",
+                "data": data
+            }
+            print(json.dumps(extra_vars))
+            ansible_helper = AnsibleHelper(inventory_path=inventory_path, logger=self.get_logger())
+            ansible_helper.set_extra_vars(extra_vars=extra_vars)
+            self.get_logger().debug(f"Executing playbook {playbook_path_full} to create Network Service")
+            ansible_helper.run_playbook(playbook_path=playbook_path_full)
+            ansible_callback = ansible_helper.get_result_callback()
+            unreachable = ansible_callback.get_json_result_unreachable()
+            if unreachable:
+                raise NetHandlerException(f'network service {service_name} was not committed due to connection error')
+            failed = ansible_callback.get_json_result_failed()
+            if failed:
+                ansible_callback.dump_all_failed(logger=self.get_logger())
+                raise NetHandlerException(f'network service {service_name} was not committed due to config error')
+            ok = ansible_callback.get_json_result_ok()
+            if ok:
+                if not ok['changed']:
+                    self.get_logger().info(f'network service {service_name} was committed ok but without change')
+
+        except Exception as e:
+            self.get_logger().error(e)
+            result = {Constants.PROPERTY_TARGET_NAME: Constants.TARGET_MODIFY,
+                      Constants.PROPERTY_TARGET_RESULT_CODE: Constants.RESULT_CODE_EXCEPTION,
+                      Constants.PROPERTY_ACTION_SEQUENCE_NUMBER: 0,
+                      Constants.PROPERTY_EXCEPTION_MESSAGE: e}
+            self.get_logger().error(traceback.format_exc())
+        finally:
+            self.get_logger().info(f"Modify completed")
+        return result, unit
 
     def __cleanup(self, *, sliver: NetworkServiceSliver, unit_id: str, raise_exception: bool = False):
         if sliver.get_labels() is None or sliver.get_labels().local_name is None:
@@ -262,9 +431,9 @@ class NetHandler(HandlerBase):
             if int(interface['outervlan']) > 0 and labs.inner_vlan is not None:
                 interface['innervlan'] = labs.inner_vlan
             if caps is not None and caps.bw is not None and caps.bw != 0:
-                interface['bandwidth'] = caps.bw # default unit = gbps
+                interface['bandwidth'] = caps.bw  # default unit = gbps
                 if caps.burst_size is not None and caps.burst_size != 0:
-                    interface['burst-size'] = caps.burst_size # default unit = mbytes
+                    interface['burst-size'] = caps.burst_size  # default unit = mbytes
             interfaces.append(interface)
         if not interfaces:
             raise NetHandlerException(f'l2bridge - none valid interface is defined in sliver')
@@ -293,7 +462,8 @@ class NetHandler(HandlerBase):
             interface['type'] = interface_type_id[0][0]
             interface['id'] = interface_type_id[0][1]
             if labs.vlan is None or labs.vlan == 0:
-                raise NetHandlerException(f'l2ptp - interface "{interface_name}" must be tagged (with vlan label in 1..4095)')
+                raise NetHandlerException(
+                    f'l2ptp - interface "{interface_name}" must be tagged (with vlan label in 1..4095)')
             interface['outervlan'] = labs.vlan
             if labs.inner_vlan is not None:
                 interface['innervlan'] = labs.inner_vlan
@@ -523,7 +693,8 @@ class NetHandler(HandlerBase):
             interface_sliver = sliver.interface_info.interfaces[interface_name]
             labs: Labels = interface_sliver.get_labels()
             if labs.device_name is None:
-                raise NetHandlerException(f'port_mirror - destination interface "{interface_name}" has no "device_name" label')
+                raise NetHandlerException(
+                    f'port_mirror - destination interface "{interface_name}" has no "device_name" label')
             data['device'] = labs.device_name
             if labs.local_name is None:
                 raise NetHandlerException(f'port_mirror - interface "{interface_name}" has no "local_name" label')
