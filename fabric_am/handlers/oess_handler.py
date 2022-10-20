@@ -120,6 +120,8 @@ class OessHandler(HandlerBase):
             service_type = resource_type.lower()
             if service_type == 'l2ptp':
                 service_data = self.__l2ptp_create_data(sliver, service_name)
+            elif service_type == 'l2cloud':
+                service_data = self.__l2cloud_create_data(sliver, service_name)
             elif service_type == 'l3vpn':
                 service_data = self.__l3vpn_create_data(sliver, service_name)
             else:
@@ -197,6 +199,8 @@ class OessHandler(HandlerBase):
         service_type = resource_type.lower()
         if service_type == 'l2ptp':
             service_data = self.__l2ptp_delete_data(sliver, service_name)
+        elif service_type == 'l2cloud':
+            service_data = self.__l2cloud_delete_data(sliver, service_name)
         elif service_type == 'l3vpn':
             service_data = self.__l3vpn_delete_data(sliver, service_name)
             
@@ -237,7 +241,7 @@ class OessHandler(HandlerBase):
     def __l2ptp_create_data(self, sliver: NetworkServiceSliver, service_name: str) -> dict:
         endpoint_list = []
         if len(sliver.interface_info.interfaces) != 2:
-            raise NetHandlerException(
+            raise OessHandlerException(
                 f'l2ptp - sliver requires 2 interfaces but was given {len(sliver.interface_info.interfaces)}')
 
         for interface_name in sliver.interface_info.interfaces:
@@ -246,7 +250,7 @@ class OessHandler(HandlerBase):
             labs: Labels = interface_sliver.get_labels()
             caps: Capacities = interface_sliver.get_capacities()
             if labs.device_name is None:
-                raise NetHandlerException(f'l2ptp - interface "{interface_name}" has no "device_name" label')
+                raise OessHandlerException(f'l2ptp - interface "{interface_name}" has no "device_name" label')
             endpoint['node'] = labs.device_name
             if labs.local_name is None:
                 raise NetHandlerException(f'l2ptp - interface "{interface_name}" has no "local_name" label')
@@ -265,7 +269,7 @@ class OessHandler(HandlerBase):
     def __l2ptp_delete_data(self, sliver: NetworkServiceSliver, service_name: str) -> dict:
         endpoint_list = []
         if len(sliver.interface_info.interfaces) != 2:
-            raise NetHandlerException(
+            raise OessHandlerException(
                 f'l2ptp - sliver requires 2 interfaces but was given {len(sliver.interface_info.interfaces)}')
 
         data = {"op": "delete",
@@ -316,5 +320,46 @@ class OessHandler(HandlerBase):
         data = {"op": "delete",
                 "level": "L3",
                 "name": service_name}
+        
+        return data
+
+    def __l2cloud_create_data(self, sliver: NetworkServiceSliver, service_name: str) -> dict:
+        endpoint_list = []
+        # if len(sliver.interface_info.interfaces) != 2:
+        #     raise OessHandlerException(
+        #         f'l2ptp - sliver requires 2 interfaces but was given {len(sliver.interface_info.interfaces)}')
+
+        for interface_name in sliver.interface_info.interfaces:
+            endpoint = {}
+            interface_sliver = sliver.interface_info.interfaces[interface_name]
+            labs: OessLabels = interface_sliver.get_labels()
+            caps: Capacities = interface_sliver.get_capacities()
+            if labs.device_name is None:
+                raise OessHandlerException(f'l2ptp - interface "{interface_name}" has no "device_name" label')
+            endpoint['node'] = labs.device_name
+            if labs.local_name is None:
+                raise OessHandlerException(f'l2ptp - interface "{interface_name}" has no "local_name" label')
+            endpoint['bandwidth'] = caps.bw
+            endpoint['interface'] = labs.local_name
+            endpoint['tag'] = labs.vlan
+            endpoint['cloud_account_id'] = labs.cloud_account_id
+            endpoint_list.append(endpoint)
+
+        data = {"description": service_name, 
+                "op": "create",
+                "level": "L2",
+                "l2_endpoints": endpoint_list}
+        
+        return data
+
+    def __l2cloud_delete_data(self, sliver: NetworkServiceSliver, service_name: str) -> dict:
+        endpoint_list = []
+        # if len(sliver.interface_info.interfaces) != 2:
+        #     raise OessHandlerException(
+        #         f'l2ptp - sliver requires 2 interfaces but was given {len(sliver.interface_info.interfaces)}')
+
+        data = {"op": "delete",
+                "level": "L2",
+                "description": service_name}
         
         return data
