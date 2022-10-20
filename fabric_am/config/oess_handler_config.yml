@@ -32,4 +32,6 @@ playbooks:
   inventory_location: ../playbooks/inventory
   hostname_suffix:
   L2PTP: al2s_oess.yml
+  L2Cloud: al2s_oess.yml
   L3VPN: al2s_oess.yml
+  L3Cloud: al2s_oess.yml
