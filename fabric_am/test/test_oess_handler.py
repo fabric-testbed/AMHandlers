@@ -250,8 +250,7 @@ class TestOessHandler(unittest.TestCase):
         r, updated_unit = handler.delete(updated_unit)
         self.assertEqual(r[Constants.PROPERTY_TARGET_NAME], Constants.TARGET_DELETE)
         self.assertEqual(r[Constants.PROPERTY_ACTION_SEQUENCE_NUMBER], 0)
-        self.assertEqual(r[Constants.PROPERTY_TARGET_RESULT_CODE], Constants.RESULT_CODE_OK)
-    """    
+        self.assertEqual(r[Constants.PROPERTY_TARGET_RESULT_CODE], Constants.RESULT_CODE_OK)    
         
     def test_L2Cloud(self):
         # create a NetworkService sliver for L2Cloud
@@ -349,12 +348,13 @@ class TestOessHandler(unittest.TestCase):
         #
         sliver = Al2sServiceSliver()
         # service name (set by user) - only guaranteed unique within a slice
-        sliver.set_name('al2s-vrt')
+        sliver.set_name('al2s-vrt-cloud')
         # if service name global uniqueness is a requirement use Labels.local_name for that (optional)
         # e.g. concatenate name + res id (or another unique id)
         # sliver.set_labels(Labels().set_fields(local_name='test-l2bridge-shortname'))
         # per @xiyang he uses unit id for service name so this is not needed.
-        sliver.set_type(ServiceType.L3VPN)
+        # sliver.set_type(ServiceType.L3Cloud)
+        sliver.set_type('L3Cloud')
         sliver.set_layer(NSLayer.L3)
     
         # this is the gateway with the IP range picked for this sliver in this slice on this site
@@ -371,7 +371,7 @@ class TestOessHandler(unittest.TestCase):
         #
     
         #
-        # First interface - let's assume it is SR-IOV
+        # First interface
         #
         isl1 = InterfaceSliver()
         # the name is normally set by FIM as '-' concatenation of service name
@@ -381,9 +381,7 @@ class TestOessHandler(unittest.TestCase):
         # name and peer interface sliver name.
         isl1.set_type(InterfaceType.ServicePort)
         
-        # TODO: add cloud_account_id and peers
-        # since this is SR-IOV, orchestrator picks VLAN for this function based on info in advertisement
-        # other information is done in the same way it is done for L2 services
+        # the peer list
         peer_list= [
             {
                 "bfd": 0,
@@ -394,14 +392,14 @@ class TestOessHandler(unittest.TestCase):
                 "md5_key": ""
             }
         ]
-        sliver_labels = OessLabels(vlan='121', 
-                               local_name='HundredGigE0/0/0/24',
-                               device_name='core2.sunn.net.internet2.edu',
+        sliver_labels = OessLabels(vlan='1', 
+                               local_name='TenGigE0/0/0/10/2',
+                               device_name='agg4.eqch.net.internet2.edu',
                                cloud_account_id='296256999979',
                                peers=peer_list)
     
         # capacities (bw in Gbps, burst size is in Mbytes) source: (b)
-        sliver_capacities = OessCapacities(bw=0, jumbo=1)
+        sliver_capacities = OessCapacities(bw=100, jumbo=1)
     
         # assign labels and capacities
         isl1.set_labels(sliver_labels)
@@ -410,29 +408,43 @@ class TestOessHandler(unittest.TestCase):
         #
         # Second interface (let's assume this is a dedicated card)
         #
-        # isl2 = InterfaceSliver()
-        # isl2.set_name('Interface2')
-        # isl2.set_type(InterfaceType.ServicePort)
-        #
-        # # Q: who and how picks the VLAN in this case? I think we discussed having an advertised pool of 'Layer 3
-        # # vlans' which need to be kept track of and this would be one of them
-        # # other information is done in the same way it is done for L2 services
-        # sliver_labels = Labels(vlan='1001', local_name='HundredGigE0/0/0/5', device_name='uky-data-sw')
-        # sliver_capacities = Capacities(bw=1)
-        #
-        # isl2.set_labels(sliver_labels)
-        # isl2.set_capacities(sliver_capacities)
+        isl2 = InterfaceSliver()
+        isl2.set_name('Interface2')
+        isl2.set_type(InterfaceType.ServicePort)
+        
+        # the peer list
+        peer_list= [
+            {
+                "bfd": 0,
+                "ip_version": "ipv4",
+                "peer_ip": "192.168.2.1/24",
+                "peer_asn": "2",
+                "local_ip": "192.168.2.2/24",
+                "md5_key": ""
+            }
+        ]
+        sliver_labels = OessLabels(vlan='1', 
+                               local_name='TenGigE0/0/0/11/0',
+                               device_name='agg3.eqch.net.internet2.edu',
+                               cloud_account_id='296256999979',
+                               peers=peer_list)
+    
+        # capacities (bw in Gbps, burst size is in Mbytes) source: (b)
+        sliver_capacities = OessCapacities(bw=100, jumbo=1)
+        
+        isl2.set_labels(sliver_labels)
+        isl2.set_capacities(sliver_capacities)
     
         # create interface info object, add populated interfaces to it
         ifi = InterfaceInfo()
         ifi.add_interface(isl1)
-        # ifi.add_interface(isl2)
+        ifi.add_interface(isl2)
     
         # add interface info object to sliver. All of this happens automagically normally
         sliver.interface_info = ifi
     
         # set a fake unit reservation
-        uid = uuid.uuid3(uuid.NAMESPACE_DNS, 'test_L3VPN')
+        uid = uuid.uuid3(uuid.NAMESPACE_DNS, 'test_L3Cloud')
         self.unit = Unit(rid=ID(uid=str(uid)))
         self.unit.set_sliver(sliver=sliver)
     
@@ -454,4 +466,3 @@ class TestOessHandler(unittest.TestCase):
         self.assertEqual(r[Constants.PROPERTY_TARGET_NAME], Constants.TARGET_DELETE)
         self.assertEqual(r[Constants.PROPERTY_ACTION_SEQUENCE_NUMBER], 0)
         self.assertEqual(r[Constants.PROPERTY_TARGET_RESULT_CODE], Constants.RESULT_CODE_OK)
-    """
