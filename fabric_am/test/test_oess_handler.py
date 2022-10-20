@@ -53,7 +53,7 @@ class TestOessHandler(unittest.TestCase):
     def setUp(self) -> None:
         self.unit = Unit(rid=ID(uid="rid-1"))
         
-    """    
+        
     def test_L2PTP(self):
         # create a NetworkService sliver for L2PTP
         prop = {AmConstants.CONFIG_PROPERTIES_FILE: '../config/oess_handler_config.yml'}
@@ -135,6 +135,7 @@ class TestOessHandler(unittest.TestCase):
         self.assertEqual(r[Constants.PROPERTY_TARGET_NAME], Constants.TARGET_DELETE)
         self.assertEqual(r[Constants.PROPERTY_ACTION_SEQUENCE_NUMBER], 0)
         self.assertEqual(r[Constants.PROPERTY_TARGET_RESULT_CODE], Constants.RESULT_CODE_OK)
+    
     
     def test_L3VPN(self):
         # create a NetworkService sliver for FABNetv4
@@ -251,7 +252,8 @@ class TestOessHandler(unittest.TestCase):
         self.assertEqual(r[Constants.PROPERTY_TARGET_NAME], Constants.TARGET_DELETE)
         self.assertEqual(r[Constants.PROPERTY_ACTION_SEQUENCE_NUMBER], 0)
         self.assertEqual(r[Constants.PROPERTY_TARGET_RESULT_CODE], Constants.RESULT_CODE_OK)    
-        
+    
+            
     def test_L2Cloud(self):
         # create a NetworkService sliver for L2Cloud
         prop = {AmConstants.CONFIG_PROPERTIES_FILE: '../config/oess_handler_config.yml'}
@@ -337,7 +339,7 @@ class TestOessHandler(unittest.TestCase):
         self.assertEqual(r[Constants.PROPERTY_ACTION_SEQUENCE_NUMBER], 0)
         self.assertEqual(r[Constants.PROPERTY_TARGET_RESULT_CODE], Constants.RESULT_CODE_OK)
     
-    """
+    
     def test_L3Cloud(self):
         # create a NetworkService sliver for FABNetv4
         prop = {AmConstants.CONFIG_PROPERTIES_FILE: '../config/oess_handler_config.yml'}
