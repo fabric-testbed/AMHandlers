@@ -275,7 +275,7 @@ class TestNetHandler(unittest.TestCase):
         # name and peer interface sliver name.
         isl1.set_type(InterfaceType.ServicePort)
 
-        sliver_labels = Labels(vlan='100', local_name='HundredGigE0/0/0/17', device_name='uky-data-sw')
+        sliver_labels = Labels(vlan='2091', local_name='HundredGigE0/0/0/5', device_name='uky-data-sw')
 
         sliver_capacities = Capacities(bw=1)
 
@@ -290,7 +290,7 @@ class TestNetHandler(unittest.TestCase):
         isl2.set_name('Interface2')
         isl2.set_type(InterfaceType.ServicePort)
 
-        sliver_labels = Labels(vlan='100', local_name='TwentyFiveGigE0/0/0/23/1', device_name='uky-data-sw')
+        sliver_labels = Labels(vlan='2092', local_name='HundredGigE0/0/0/5', device_name='uky-data-sw')
 
         sliver_capacities = Capacities(bw=1)
 
@@ -333,7 +333,7 @@ class TestNetHandler(unittest.TestCase):
         isl3 = InterfaceSliver()
         isl3.set_name('Interface3')
         isl3.set_type(InterfaceType.ServicePort)
-        sliver_labels = Labels(vlan='200', local_name='TwentyFiveGigE0/0/0/23/2', device_name='uky-data-sw')
+        sliver_labels = Labels(vlan='200', local_name='HundredGigE0/0/0/5', device_name='uky-data-sw')
         sliver_capacities = Capacities(bw=1)
         isl3.set_labels(sliver_labels)
         isl3.set_capacities(sliver_capacities)

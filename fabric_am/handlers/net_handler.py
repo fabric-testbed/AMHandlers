@@ -298,20 +298,24 @@ class NetHandler(HandlerBase):
                 service_type = 'port-mirror'
             else:
                 raise NetHandlerException(f'unrecognized network service type "{service_type}"')
-            data = {
-                "tailf-ncs:services": {
-                    f'{service_type}:{service_type}': [{
-                        "name": f'{service_name}',
-                        "__state": "absent"
-                        },
-                        service_data]
-                }
-            }
+
             extra_vars = {
                 "service_name": service_name,
                 "service_type": service_type,
                 "service_action": "modify",
-                "data": data
+                "data_delete": {
+                    "tailf-ncs:services": {
+                        f'{service_type}:{service_type}': [{
+                            "name": f'{service_name}',
+                            "__state": "absent"
+                            }]
+                    }
+                },
+                "data_create": {
+                    "tailf-ncs:services": {
+                        f'{service_type}:{service_type}': [service_data]
+                    }
+                }
             }
             print(json.dumps(extra_vars))
             ansible_helper = AnsibleHelper(inventory_path=inventory_path, logger=self.get_logger())
