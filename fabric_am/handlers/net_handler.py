@@ -29,6 +29,8 @@ import traceback
 from typing import Tuple
 from configparser import ConfigParser
 import requests
+import datetime
+import time
 
 from fabric_cf.actor.core.common.constants import Constants
 from fabric_cf.actor.core.plugins.handlers.config_token import ConfigToken
@@ -37,7 +39,7 @@ from fim.slivers.capacities_labels import Labels, Capacities
 from fim.slivers.network_service import NetworkServiceSliver, MirrorDirection
 
 from fabric_am.util.am_constants import AmConstants
-from fabric_am.util.ansible_helper import AnsibleHelper
+from fabric_am.util.ansible_helper import AnsibleHelper, PlaybookException
 
 
 class NetHandlerException(Exception):
@@ -220,9 +222,20 @@ class NetHandler(HandlerBase):
             sliver = unit.get_sliver()
             if sliver is None:
                 raise NetHandlerException(f"Unit # {unit} has no assigned slivers")
-
+            time_start = datetime.datetime.now()
             unit_id = str(unit.get_reservation_id())
-            self.__cleanup(sliver=sliver, raise_exception=True, unit_id=unit_id)
+            while True:
+                try:
+                    self.__cleanup(sliver=sliver, raise_exception=True, unit_id=unit_id)
+                    break
+                except (PlaybookException, NetHandlerException) as ne:
+                    retry_secs = (datetime.datetime.now() - time_start).total_seconds()
+                    if retry_secs > 25*60:  # still about 5 minutes for another retry
+                        self.get_logger().debug(f'Give up retrying _cleanup() at {retry_secs} seconds ')
+                        raise ne
+                    time.sleep(2*60)  # sleep 2 minutes before next retry
+                    retry_secs += 2*60
+                    self.get_logger().debug(f'Retry failed _cleanup() at {retry_secs} seconds ')
         except Exception as e:
             result = {Constants.PROPERTY_TARGET_NAME: Constants.TARGET_DELETE,
                       Constants.PROPERTY_TARGET_RESULT_CODE: Constants.RESULT_CODE_EXCEPTION,
