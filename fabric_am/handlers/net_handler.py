@@ -228,14 +228,14 @@ class NetHandler(HandlerBase):
                 try:
                     self.__cleanup(sliver=sliver, raise_exception=True, unit_id=unit_id)
                     break
-                except (PlaybookException, NetHandlerException) as ne:
+                except (PlaybookException, NetHandlerException) as pne:
                     retry_secs = (datetime.datetime.now() - time_start).total_seconds()
                     if retry_secs > 25*60:  # still about 5 minutes for another retry
-                        self.get_logger().debug(f'Give up retrying _cleanup() at {retry_secs} seconds ')
-                        raise ne
-                    time.sleep(2*60)  # sleep 2 minutes before next retry
-                    retry_secs += 2*60
-                    self.get_logger().debug(f'Retry failed _cleanup() at {retry_secs} seconds ')
+                        self.get_logger().warning(f'Give up retrying _cleanup() at {retry_secs} seconds ')
+                        raise pne
+                    time.sleep(3*60)  # sleep 2 minutes before next retry
+                    retry_secs += 3*60
+                    self.get_logger().warning(f'Retry failed _cleanup() at {retry_secs} seconds ')
         except Exception as e:
             result = {Constants.PROPERTY_TARGET_NAME: Constants.TARGET_DELETE,
                       Constants.PROPERTY_TARGET_RESULT_CODE: Constants.RESULT_CODE_EXCEPTION,
