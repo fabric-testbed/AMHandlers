@@ -38,14 +38,21 @@
       data: "{{ data }}"
     when: operation == 'delete'
 
-  - name: Modify network service
+  - name: Modify network service - delete first
     nso_config:
       url: "{{ url }}"
       username: "{{ username }}"
       password: "{{ password }}"
-      data: "{{ data }}"
+      data: "{{ data_delete }}"
     when: operation == 'modify'
 
+  - name: Modify network service - create again
+    nso_config:
+      url: "{{ url }}"
+      username: "{{ username }}"
+      password: "{{ password }}"
+      data: "{{ data_create }}"
+    when: operation == 'modify'
 
   - name: Delete idipa service
     nso_config:

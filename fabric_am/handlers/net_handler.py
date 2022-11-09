@@ -29,6 +29,8 @@ import traceback
 from typing import Tuple
 from configparser import ConfigParser
 import requests
+import datetime
+import time
 
 from fabric_cf.actor.core.common.constants import Constants
 from fabric_cf.actor.core.plugins.handlers.config_token import ConfigToken
@@ -37,7 +39,7 @@ from fim.slivers.capacities_labels import Labels, Capacities
 from fim.slivers.network_service import NetworkServiceSliver, MirrorDirection
 
 from fabric_am.util.am_constants import AmConstants
-from fabric_am.util.ansible_helper import AnsibleHelper
+from fabric_am.util.ansible_helper import AnsibleHelper, PlaybookException
 
 
 class NetHandlerException(Exception):
@@ -220,9 +222,20 @@ class NetHandler(HandlerBase):
             sliver = unit.get_sliver()
             if sliver is None:
                 raise NetHandlerException(f"Unit # {unit} has no assigned slivers")
-
+            time_start = datetime.datetime.now()
             unit_id = str(unit.get_reservation_id())
-            self.__cleanup(sliver=sliver, raise_exception=True, unit_id=unit_id)
+            while True:
+                try:
+                    self.__cleanup(sliver=sliver, raise_exception=True, unit_id=unit_id)
+                    break
+                except (PlaybookException, NetHandlerException) as pne:
+                    retry_secs = (datetime.datetime.now() - time_start).total_seconds()
+                    if retry_secs > 25*60:  # still about 5 minutes for another retry
+                        self.get_logger().warning(f'Give up retrying _cleanup() at {retry_secs} seconds ')
+                        raise pne
+                    time.sleep(3*60)  # sleep 2 minutes before next retry
+                    retry_secs += 3*60
+                    self.get_logger().warning(f'Retry failed _cleanup() at {retry_secs} seconds ')
         except Exception as e:
             result = {Constants.PROPERTY_TARGET_NAME: Constants.TARGET_DELETE,
                       Constants.PROPERTY_TARGET_RESULT_CODE: Constants.RESULT_CODE_EXCEPTION,
@@ -298,20 +311,24 @@ class NetHandler(HandlerBase):
                 service_type = 'port-mirror'
             else:
                 raise NetHandlerException(f'unrecognized network service type "{service_type}"')
-            data = {
-                "tailf-ncs:services": {
-                    f'{service_type}:{service_type}': [{
-                        "name": f'{service_name}',
-                        "__state": "absent"
-                        },
-                        service_data]
-                }
-            }
+
             extra_vars = {
                 "service_name": service_name,
                 "service_type": service_type,
                 "service_action": "modify",
-                "data": data
+                "data_delete": {
+                    "tailf-ncs:services": {
+                        f'{service_type}:{service_type}': [{
+                            "name": f'{service_name}',
+                            "__state": "absent"
+                            }]
+                    }
+                },
+                "data_create": {
+                    "tailf-ncs:services": {
+                        f'{service_type}:{service_type}': [service_data]
+                    }
+                }
             }
             print(json.dumps(extra_vars))
             ansible_helper = AnsibleHelper(inventory_path=inventory_path, logger=self.get_logger())
