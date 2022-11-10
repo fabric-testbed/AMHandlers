@@ -11,14 +11,14 @@ from fabric_am.util.am_constants import AmConstants
 from fabric_am.util.ansible_helper import AnsibleHelper
 
 
-class NetHandlerVnicException(Exception):
+class VnicNetHandlerException(Exception):
     """
     vNIC Net Handler Exception
     """
     pass
 
 
-class NetHandlerVnic(HandlerBase):
+class VnicNetHandler(HandlerBase):
     """
     vNIC Net Handler; This handler runs on the Site Head node
     """
@@ -68,13 +68,13 @@ class NetHandlerVnic(HandlerBase):
             unit_id = str(unit.get_reservation_id())
 
             if sliver is None:
-                raise NetHandlerVnicException(f"Unit # {unit} has no assigned slivers")
+                raise VnicNetHandlerException(f"Unit # {unit} has no assigned slivers")
 
             if not isinstance(sliver, NetworkServiceSliver):
-                raise NetHandlerVnicException(f"Invalid Sliver type {type(sliver)}")
+                raise VnicNetHandlerException(f"Invalid Sliver type {type(sliver)}")
 
             if sliver.get_type() != ServiceType.L2Bridge:
-                raise NetHandlerVnicException(f"Unsupported Service - {sliver.get_type()}")
+                raise VnicNetHandlerException(f"Unsupported Service - {sliver.get_type()}")
 
             playbook_path = self.get_config()[AmConstants.PLAYBOOK_SECTION][AmConstants.PB_LOCATION]
             inventory_path = self.get_config()[AmConstants.PLAYBOOK_SECTION][AmConstants.PB_INVENTORY]
@@ -110,7 +110,7 @@ class NetHandlerVnic(HandlerBase):
             modified_sliver = unit.get_modified()
 
             if not isinstance(current_sliver, NetworkServiceSliver) or not isinstance(modified_sliver, NetworkServiceSliver):
-                raise NetHandlerVnicException(f"Invalid Sliver type {type(current_sliver)}  {type(modified_sliver)}")
+                raise VnicNetHandlerException(f"Invalid Sliver type {type(current_sliver)}  {type(modified_sliver)}")
 
             playbook_path = self.get_config()[AmConstants.PLAYBOOK_SECTION][AmConstants.PB_LOCATION]
             inventory_path = self.get_config()[AmConstants.PLAYBOOK_SECTION][AmConstants.PB_INVENTORY]
@@ -154,10 +154,10 @@ class NetHandlerVnic(HandlerBase):
             self.get_logger().info(f"Delete invoked for unit: {unit}")
             sliver = unit.get_sliver()
             if sliver is None:
-                raise NetHandlerVnicException(f"Unit # {unit} has no assigned slivers")
+                raise VnicNetHandlerException(f"Unit # {unit} has no assigned slivers")
 
             if not isinstance(sliver, NetworkServiceSliver):
-                raise NetHandlerVnicException(f"Invalid Sliver type {type(sliver)}")
+                raise VnicNetHandlerException(f"Invalid Sliver type {type(sliver)}")
 
             self.__cleanup(sliver=sliver, unit_id=str(unit.get_reservation_id()))
         except Exception as e:
@@ -222,7 +222,7 @@ class NetHandlerVnic(HandlerBase):
             resource_type = f"{interface_sliver.get_type()}-{interface_sliver.get_model()}"
             playbook = self.get_config()[AmConstants.PLAYBOOK_SECTION][resource_type]
             if playbook is None or inventory_path is None:
-                raise NetHandlerVnicException(f"Missing config parameters playbook: {playbook} "
+                raise VnicNetHandlerException(f"Missing config parameters playbook: {playbook} "
                                               f"playbook_path: {playbook_path} inventory_path: {inventory_path}")
 
             full_playbook_path = f"{playbook_path}/{playbook}"
