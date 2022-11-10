@@ -38,17 +38,17 @@
     name: "{{ portname }}"
     network: "{{ networkname }}"
     port_security_enabled: no
-  when: port_prov_op == 'create_attach'
+  when: port_prov_op == 'create'
 
 # Connects the VLans port with the VM using their ID's
 - name: Connects VM to the port
   ansible.builtin.command: openstack server add port "{{ vmname }}" "{{ portname }}"
-  when: option == 'create_attach'
+  when: option == 'create'
 
 # Detaches a VM from port using their ID's
 - name: Removes VM from port
   ansible.builtin.command: openstack server remove port "{{ vmname }}" "{{ portname }}"
-  when: option == 'delete_detach'
+  when: option == 'delete'
 
 # Deletes a port using its name
 - name: Create a port for a network
@@ -60,7 +60,7 @@
       project_name: "{{ project_name }}"
       username: "{{ username }}"
     name: "{{ portname }}"
-  when: port_prov_op == 'delete_detach'
+  when: port_prov_op == 'delete'
 
 - name: List all Ports
   openstack.cloud.port_info:
@@ -70,7 +70,7 @@
       project_name: "{{ project_name }}"
       username: "{{ username }}"
   register: result
-  when: vm_prov_op == 'delete_all' or vm_prov_op == 'list'
+  when: port_prov_op == 'delete_all' or port_prov_op == 'list'
 
 - name: Delete all Ports
   openstack.cloud.port:
