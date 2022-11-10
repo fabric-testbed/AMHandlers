@@ -24,6 +24,8 @@
 # Author: Komal Thareja (kthare10@renci.org)
 ansible:
   ansible_python_interpreter: /usr/bin/python3.6
+runtime:
+  network_name_prefix: dataplane
 playbooks:
   location: fabric_am/playbooks
   inventory_location: fabric_am/playbooks/inventory

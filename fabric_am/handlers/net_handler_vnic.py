@@ -227,8 +227,11 @@ class NetHandlerVnic(HandlerBase):
 
             full_playbook_path = f"{playbook_path}/{playbook}"
 
+            network_name_prefix = self.get_config()[AmConstants.RUNTIME_SECTION][AmConstants.NETWORK_NAME_PREFIX]
+
             extra_vars = {AmConstants.VM_NAME: interface_sliver.labels.instance_parent,
-                          AmConstants.PORT_NAME: f"{unit_id}-{interface_sliver.get_name()}"}
+                          AmConstants.PORT_NAME: f"{unit_id}-{interface_sliver.get_name()}",
+                          AmConstants.NETWORK_NAME: f"{network_name_prefix}-{interface_sliver.label_allocations.vlan}"}
             if attach:
                 extra_vars[AmConstants.PORT_PROV_OP] = AmConstants.PROV_OP_CREATE
             else:

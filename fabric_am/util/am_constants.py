@@ -56,6 +56,8 @@ class AmConstants:
     PROV_OP_GET = "get"
     PORT_PROV_OP = "port_prov_op"
     PORT_NAME = "portname"
+    NETWORK_NAME = "networkname"
+    NETWORK_NAME_PREFIX = "network_name_prefix"
 
     VOL_PROV_OP = "vol_prov_op"
     VOL_NAME = "vol_name"
