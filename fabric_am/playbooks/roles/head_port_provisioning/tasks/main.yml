@@ -43,12 +43,12 @@
 # Connects the VLans port with the VM using their ID's
 - name: Connects VM to the port
   ansible.builtin.command: openstack server add port "{{ vmname }}" "{{ portname }}"
-  when: option == 'create'
+  when: port_prov_op == 'create'
 
 # Detaches a VM from port using their ID's
 - name: Removes VM from port
   ansible.builtin.command: openstack server remove port "{{ vmname }}" "{{ portname }}"
-  when: option == 'delete'
+  when: port_prov_op == 'delete'
 
 # Deletes a port using its name
 - name: Create a port for a network

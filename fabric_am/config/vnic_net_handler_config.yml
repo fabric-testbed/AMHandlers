@@ -27,8 +27,8 @@ ansible:
 runtime:
   network_name_prefix: dataplane
 playbooks:
-  location: fabric_am/playbooks
-  inventory_location: fabric_am/playbooks/inventory
+  location: /etc/fabric/actor/playbooks
+  inventory_location: /etc/fabric/actor/playbooks/inventory
   admin_ssh_key: /root/.ssh/id_rsa_nova
   L2Bridge: head_port_provisioning.yml
   cleanup:

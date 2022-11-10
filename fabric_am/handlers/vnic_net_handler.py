@@ -40,8 +40,9 @@ class VnicNetHandler(HandlerBase):
             inventory_path = self.get_config()[AmConstants.PLAYBOOK_SECTION][AmConstants.PB_INVENTORY]
             extra_vars = {AmConstants.PORT_PROV_OP: AmConstants.PROV_OP_DELETE_ALL}
 
-            self.__execute_ansible(inventory_path=inventory_path, playbook_path=cleanup_playbook,
-                                   extra_vars=extra_vars)
+            # Do NOTHING
+            #self.__execute_ansible(inventory_path=inventory_path, playbook_path=cleanup_playbook,
+            #                       extra_vars=extra_vars)
         except Exception as e:
             self.get_logger().error(f"Failure to clean up existing ports: {e}")
             self.get_logger().error(traceback.format_exc())
@@ -88,7 +89,8 @@ class VnicNetHandler(HandlerBase):
 
             for ifs in sliver.interface_info.interfaces.values():
                 self.__attach_detach_port(playbook_path=full_playbook_path, inventory_path=inventory_path,
-                                          interface_sliver=ifs, unit_id=unit_id, attach=True, raise_exception=True)
+                                          vlan=sliver.label_allocations.vlan, interface_sliver=ifs, unit_id=unit_id,
+                                          attach=True, raise_exception=True)
 
         except Exception as e:
             # Delete Ports in case of failure
@@ -139,13 +141,13 @@ class VnicNetHandler(HandlerBase):
                 interface = modified_sliver.interface_info.interfaces[x]
                 self.__attach_detach_port(playbook_path=full_playbook_path, inventory_path=inventory_path,
                                           interface_sliver=interface, unit_id=str(unit.get_reservation_id()),
-                                          attach=True)
+                                          vlan=current_sliver.label_allocations.vlan, attach=True)
 
             for x in diff.removed.interfaces:
                 interface = modified_sliver.interface_info.interfaces[x]
                 self.__attach_detach_port(playbook_path=full_playbook_path, inventory_path=inventory_path,
                                           interface_sliver=interface, unit_id=str(unit.get_reservation_id()),
-                                          attach=False)
+                                          vlan=current_sliver.label_allocations.vlan, attach=False)
         except Exception as e:
             self.get_logger().error(e)
             self.get_logger().error(traceback.format_exc())
@@ -200,6 +202,7 @@ class VnicNetHandler(HandlerBase):
             for ifs in sliver.interface_info.interfaces.values():
                 self.__attach_detach_port(playbook_path=full_playbook_path, inventory_path=inventory_path,
                                           interface_sliver=ifs, unit_id=unit_id, attach=False,
+                                          vlan=sliver.label_allocations.vlan,
                                           raise_exception=raise_exception)
         except Exception as e:
             self.get_logger().error(f"Exception occurred in cleanup {unit_id} error: {e}")
@@ -228,12 +231,13 @@ class VnicNetHandler(HandlerBase):
         return ansible_helper.get_result_callback().get_json_result_ok()
 
     def __attach_detach_port(self, *, playbook_path: str, inventory_path: str, interface_sliver: InterfaceSliver,
-                             unit_id: str, attach: bool = True, raise_exception: bool = False):
+                             vlan: str, unit_id: str, attach: bool = True, raise_exception: bool = False):
         """
         Invoke ansible playbook to attach/detach a vNIC device to a provisioned VM
         :param playbook_path: playbook location
         :param inventory_path: inventory location
         :param interface_sliver: Interface Sliver
+        :param vlan: VLAN
         :param unit_id: Reservation Id
         :param attach: True for attach and False for detach
         :return:
@@ -244,7 +248,7 @@ class VnicNetHandler(HandlerBase):
 
             extra_vars = {AmConstants.VM_NAME: interface_sliver.labels.instance_parent,
                           AmConstants.PORT_NAME: f"{unit_id}-{interface_sliver.get_name()}",
-                          AmConstants.NETWORK_NAME: f"{network_name_prefix}-{interface_sliver.label_allocations.vlan}"}
+                          AmConstants.NETWORK_NAME: f"{network_name_prefix}-{vlan}"}
             if attach:
                 extra_vars[AmConstants.PORT_PROV_OP] = AmConstants.PROV_OP_CREATE
             else:
