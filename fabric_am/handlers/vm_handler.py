@@ -506,6 +506,8 @@ class VMHandler(HandlerBase):
                 return
             mac = None
             if component.get_type() == ComponentType.SharedNIC:
+                if component.get_model() == "OpenStack-vNIC":
+                    return
                 for ns in component.network_service_info.network_services.values():
                     if ns.interface_info is None or ns.interface_info.interfaces is None:
                         continue
