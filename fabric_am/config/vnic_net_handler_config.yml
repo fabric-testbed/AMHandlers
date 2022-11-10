@@ -30,6 +30,6 @@ playbooks:
   location: fabric_am/playbooks
   inventory_location: fabric_am/playbooks/inventory
   admin_ssh_key: /root/.ssh/id_rsa_nova
-  SharedNIC-OpenStack-vNIC: head_port_provisioning.yml
+  L2Bridge: head_port_provisioning.yml
   cleanup:
     ALL: head_port_provisioning.yml

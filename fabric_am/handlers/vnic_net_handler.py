@@ -78,10 +78,17 @@ class VnicNetHandler(HandlerBase):
 
             playbook_path = self.get_config()[AmConstants.PLAYBOOK_SECTION][AmConstants.PB_LOCATION]
             inventory_path = self.get_config()[AmConstants.PLAYBOOK_SECTION][AmConstants.PB_INVENTORY]
+            playbook = self.get_config()[AmConstants.PLAYBOOK_SECTION][str(sliver.get_type())]
+
+            if playbook is None or inventory_path is None:
+                raise VnicNetHandlerException(f"Missing config parameters playbook: {playbook} "
+                                              f"playbook_path: {playbook_path} inventory_path: {inventory_path}")
+
+            full_playbook_path = f"{playbook_path}/{playbook}"
 
             for ifs in sliver.interface_info.interfaces.values():
-                self.__attach_detach_port(playbook_path=playbook_path, inventory_path=inventory_path,
-                                          interface_sliver=ifs, unit_id=unit_id, attach=True)
+                self.__attach_detach_port(playbook_path=full_playbook_path, inventory_path=inventory_path,
+                                          interface_sliver=ifs, unit_id=unit_id, attach=True, raise_exception=True)
 
         except Exception as e:
             # Delete Ports in case of failure
@@ -114,6 +121,13 @@ class VnicNetHandler(HandlerBase):
 
             playbook_path = self.get_config()[AmConstants.PLAYBOOK_SECTION][AmConstants.PB_LOCATION]
             inventory_path = self.get_config()[AmConstants.PLAYBOOK_SECTION][AmConstants.PB_INVENTORY]
+            playbook = self.get_config()[AmConstants.PLAYBOOK_SECTION][str(current_sliver.get_type())]
+
+            if playbook is None or inventory_path is None:
+                raise VnicNetHandlerException(f"Missing config parameters playbook: {playbook} "
+                                              f"playbook_path: {playbook_path} inventory_path: {inventory_path}")
+
+            full_playbook_path = f"{playbook_path}/{playbook}"
 
             diff = current_sliver.diff(other_sliver=modified_sliver)
             if diff is None:
@@ -123,13 +137,13 @@ class VnicNetHandler(HandlerBase):
             # Modify topology
             for x in diff.added.interfaces:
                 interface = modified_sliver.interface_info.interfaces[x]
-                self.__attach_detach_port(playbook_path=playbook_path, inventory_path=inventory_path,
+                self.__attach_detach_port(playbook_path=full_playbook_path, inventory_path=inventory_path,
                                           interface_sliver=interface, unit_id=str(unit.get_reservation_id()),
                                           attach=True)
 
             for x in diff.removed.interfaces:
                 interface = modified_sliver.interface_info.interfaces[x]
-                self.__attach_detach_port(playbook_path=playbook_path, inventory_path=inventory_path,
+                self.__attach_detach_port(playbook_path=full_playbook_path, inventory_path=inventory_path,
                                           interface_sliver=interface, unit_id=str(unit.get_reservation_id()),
                                           attach=False)
         except Exception as e:
@@ -175,9 +189,16 @@ class VnicNetHandler(HandlerBase):
         try:
             playbook_path = self.get_config()[AmConstants.PLAYBOOK_SECTION][AmConstants.PB_LOCATION]
             inventory_path = self.get_config()[AmConstants.PLAYBOOK_SECTION][AmConstants.PB_INVENTORY]
+            playbook = self.get_config()[AmConstants.PLAYBOOK_SECTION][str(sliver.get_type())]
 
-            for ifs in sliver.interface_info.interfaces.values:
-                self.__attach_detach_port(playbook_path=playbook_path, inventory_path=inventory_path,
+            if playbook is None or inventory_path is None:
+                raise VnicNetHandlerException(f"Missing config parameters playbook: {playbook} "
+                                              f"playbook_path: {playbook_path} inventory_path: {inventory_path}")
+
+            full_playbook_path = f"{playbook_path}/{playbook}"
+
+            for ifs in sliver.interface_info.interfaces.values():
+                self.__attach_detach_port(playbook_path=full_playbook_path, inventory_path=inventory_path,
                                           interface_sliver=ifs, unit_id=unit_id, attach=False,
                                           raise_exception=raise_exception)
         except Exception as e:
@@ -219,14 +240,6 @@ class VnicNetHandler(HandlerBase):
         """
         self.get_logger().debug("__attach_detach_port IN")
         try:
-            resource_type = f"{interface_sliver.get_type()}-{interface_sliver.get_model()}"
-            playbook = self.get_config()[AmConstants.PLAYBOOK_SECTION][resource_type]
-            if playbook is None or inventory_path is None:
-                raise VnicNetHandlerException(f"Missing config parameters playbook: {playbook} "
-                                              f"playbook_path: {playbook_path} inventory_path: {inventory_path}")
-
-            full_playbook_path = f"{playbook_path}/{playbook}"
-
             network_name_prefix = self.get_config()[AmConstants.RUNTIME_SECTION][AmConstants.NETWORK_NAME_PREFIX]
 
             extra_vars = {AmConstants.VM_NAME: interface_sliver.labels.instance_parent,
@@ -242,6 +255,7 @@ class VnicNetHandler(HandlerBase):
                                    extra_vars=extra_vars)
         except Exception as e:
             self.get_logger().error(f"Error occurred attach:{attach}/detach: {not attach} interface: {interface_sliver}")
+            self.get_logger().error(traceback.format_exc())
             if raise_exception:
                 raise e
         finally:
