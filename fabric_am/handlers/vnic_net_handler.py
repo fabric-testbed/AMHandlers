@@ -251,7 +251,7 @@ class VnicNetHandler(HandlerBase):
                 extra_vars[AmConstants.PORT_PROV_OP] = AmConstants.PROV_OP_DELETE
 
             self.get_logger().info(f"Provisioning Interface: {interface_sliver}")
-            self.__execute_ansible(inventory_path=inventory_path, playbook_path=full_playbook_path,
+            self.__execute_ansible(inventory_path=inventory_path, playbook_path=playbook_path,
                                    extra_vars=extra_vars)
         except Exception as e:
             self.get_logger().error(f"Error occurred attach:{attach}/detach: {not attach} interface: {interface_sliver}")
