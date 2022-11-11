@@ -399,7 +399,7 @@ class OessHandler(HandlerBase):
             endpoint['peers'] = {}
             for x in sliver.get_peer_labels():
                 try:
-                    endpoint['peers']  =  x[interface_name]
+                    endpoint['peers']  =  [x[interface_name]]
                 except Exception as e:
                     pass
             if  not endpoint['peers']:
