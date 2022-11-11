@@ -37,33 +37,6 @@ from fim.slivers.network_service import NetworkServiceSliver, MirrorDirection, N
 from fabric_am.util.am_constants import AmConstants
 from fabric_am.util.ansible_helper import AnsibleHelper
 from networkx.generators.tests.test_small import null
-
-
-#
-# New data required for Al2s network
-#
-class Al2sServiceSliver(NetworkServiceSliver):
-
-    def __init__(self):
-        super().__init__()
-        self.local_asn = None
-    
-    def set_asn(self, local_asn: str):
-        self.local_asn = local_asn
-        
-    def get_asn(self) -> str:
-        return self.local_asn
-
-class OessLabels(Labels):
-    def __init__(self, **kwargs):
-        self.peers = None
-        self.cloud_account_id = None
-        super().__init__(**kwargs)
-        
-class OessCapacities(Capacities):
-    def __init__(self, **kwargs):
-        self.jumbo = 0
-        super().__init__(**kwargs)
     
 class OessHandlerException(Exception):
     """
@@ -121,12 +94,8 @@ class OessHandler(HandlerBase):
             service_type = resource_type.lower()
             if service_type == 'l2ptp':
                 service_data = self.__l2ptp_create_data(sliver, service_name)
-            elif service_type == 'l2cloud':
-                service_data = self.__l2cloud_create_data(sliver, service_name)
             elif service_type == 'l3vpn':
                 service_data = self.__l3vpn_create_data(sliver, service_name)
-            elif service_type == 'l3cloud':
-                service_data = self.__l3cloud_create_data(sliver, service_name)
             else:
                 raise OessHandlerException(f'unrecognized network service type "{service_type}"')
 
@@ -262,6 +231,8 @@ class OessHandler(HandlerBase):
             endpoint['bandwidth'] = caps.bw
             endpoint['interface'] = labs.local_name
             endpoint['tag'] = labs.vlan
+            if labs.account_id != None:
+                endpoint['cloud_account_id'] = labs.account_id
             endpoint_list.append(endpoint)
 
         data = {"description": service_name, 
@@ -285,6 +256,7 @@ class OessHandler(HandlerBase):
 
     def __l3vpn_create_data(self, sliver: NetworkServiceSliver, service_name: str) -> dict:
         endpoint_list = []
+        local_asn = ''
         # if len(sliver.interface_info.interfaces) != 2:
         #     raise OessHandlerException(
                 # f'l2ptp - sliver requires 2 interfaces but was given {len(sliver.interface_info.interfaces)}')
@@ -299,18 +271,32 @@ class OessHandler(HandlerBase):
             endpoint['node'] = labs.device_name
             if labs.local_name is None:
                 raise OessHandlerException(f'l3vpn - interface "{interface_name}" has no "local_name" label')
+            if local_asn and  local_asn != labs.asn:
+                self.get_logger().error(f"local asn is inconsistant in __l3cloud_create_data")
+                raise OessHandlerException(f'l3vpn - interface "{interface_name}" has inconsistant local_asn')
+            elif not local_asn:
+                local_asn = labs.asn;
+                
             endpoint['bandwidth'] = caps.bw
             endpoint['interface'] = labs.local_name
             endpoint['tag'] = labs.vlan
             endpoint['jumbo'] = caps.jumbo
-            endpoint['peers'] = labs.peers
+            if labs.account_id != None:
+                endpoint['cloud_account_id'] = labs.account_id 
+            endpoint['peers'] = {}
+            if interface_name in sliver.get_peer_labels():
+                endpoint['peers']  =  [sliver.get_peer_labels()[interface_name]]
+            else:
+                self.get_logger().error(f"Peers not found in __l3vpn_create_data")
+                raise OessHandlerException(f'l3vpn - interface "{interface_name}" has no peers')
+                    
             endpoint_list.append(endpoint)
 
         data = {"name": service_name,
                 "description": service_name,
                 "op": "create",
                 "level": "L3",
-                "asn": sliver.local_asn,
+                "asn": local_asn,
                 "l3_endpoints": endpoint_list}
         
         return data
