@@ -36,6 +36,7 @@ from fim.slivers.network_service import NetworkServiceSliver, MirrorDirection, N
 
 from fabric_am.util.am_constants import AmConstants
 from fabric_am.util.ansible_helper import AnsibleHelper
+from networkx.generators.tests.test_small import null
 
 
 #
@@ -335,7 +336,7 @@ class OessHandler(HandlerBase):
         for interface_name in sliver.interface_info.interfaces:
             endpoint = {}
             interface_sliver = sliver.interface_info.interfaces[interface_name]
-            labs: OessLabels = interface_sliver.get_labels()
+            labs: Labels = interface_sliver.get_labels()
             caps: Capacities = interface_sliver.get_capacities()
             if labs.device_name is None:
                 raise OessHandlerException(f'l2ptp - interface "{interface_name}" has no "device_name" label')
@@ -345,7 +346,7 @@ class OessHandler(HandlerBase):
             endpoint['bandwidth'] = caps.bw
             endpoint['interface'] = labs.local_name
             endpoint['tag'] = labs.vlan
-            endpoint['cloud_account_id'] = labs.cloud_account_id
+            endpoint['cloud_account_id'] = labs.account_id
             endpoint_list.append(endpoint)
 
         data = {"description": service_name, 
@@ -369,6 +370,7 @@ class OessHandler(HandlerBase):
 
     def __l3cloud_create_data(self, sliver: NetworkServiceSliver, service_name: str) -> dict:
         endpoint_list = []
+        local_asn = ''
         # if len(sliver.interface_info.interfaces) != 2:
         #     raise OessHandlerException(
                 # f'l2ptp - sliver requires 2 interfaces but was given {len(sliver.interface_info.interfaces)}')
@@ -383,19 +385,34 @@ class OessHandler(HandlerBase):
             endpoint['node'] = labs.device_name
             if labs.local_name is None:
                 raise OessHandlerException(f'l3cloud - interface "{interface_name}" has no "local_name" label')
+            if local_asn and  local_asn != labs.asn:
+                self.get_logger().error(f"local asn is inconsistant in __l3cloud_create_data")
+                raise OessHandlerException(f'l3cloud - interface "{interface_name}" has inconsistant local_asn')
+            elif not local_asn:
+                local_asn = labs.asn;
+                
             endpoint['bandwidth'] = caps.bw
             endpoint['interface'] = labs.local_name
             endpoint['tag'] = labs.vlan
             endpoint['jumbo'] = caps.jumbo
-            endpoint['cloud_account_id'] = labs.cloud_account_id
-            endpoint['peers'] = labs.peers
+            endpoint['cloud_account_id'] = labs.account_id
+            endpoint['peers'] = {}
+            for x in sliver.get_peer_labels():
+                try:
+                    endpoint['peers']  =  x[interface_name]
+                except Exception as e:
+                    pass
+            if  not endpoint['peers']:
+                self.get_logger().error(f"Exception occurred in __l3cloud_create_data")
+                raise
+                    
             endpoint_list.append(endpoint)
 
         data = {"name": service_name,
                 "description": service_name,
                 "op": "create",
                 "level": "L3",
-                "asn": sliver.local_asn,
+                "asn": local_asn,
                 "l3_endpoints": endpoint_list}
         
         return data
@@ -411,3 +428,6 @@ class OessHandler(HandlerBase):
                 "name": service_name}
         
         return data
+    
+    def clean_restart(self):
+        return;
