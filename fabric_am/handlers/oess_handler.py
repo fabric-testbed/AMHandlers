@@ -397,14 +397,11 @@ class OessHandler(HandlerBase):
             endpoint['jumbo'] = caps.jumbo
             endpoint['cloud_account_id'] = labs.account_id
             endpoint['peers'] = {}
-            for x in sliver.get_peer_labels():
-                try:
-                    endpoint['peers']  =  [x[interface_name]]
-                except Exception as e:
-                    pass
-            if  not endpoint['peers']:
-                self.get_logger().error(f"Exception occurred in __l3cloud_create_data")
-                raise
+            if interface_name in sliver.get_peer_labels():
+                endpoint['peers']  =  [sliver.get_peer_labels()[interface_name]]
+            else:
+                self.get_logger().error(f"Peers not found in __l3cloud_create_data")
+                raise OessHandlerException(f'l3cloud - interface "{interface_name}" has no peers')
                     
             endpoint_list.append(endpoint)
 
