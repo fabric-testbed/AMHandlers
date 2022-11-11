@@ -354,7 +354,6 @@ class TestOessHandler(unittest.TestCase):
         #
         # create a network sliver for FABNetv4 and its interfaces
         #
-        # sliver = Al2sServiceSliver()
         sliver = NetworkServiceSliver()
         # service name (set by user) - only guaranteed unique within a slice
         sliver.set_name('al2s-vrt-cloud')
@@ -372,9 +371,6 @@ class TestOessHandler(unittest.TestCase):
         # subnet, gateway and mac tuples for each site?
         # sliver.set_gateway(Gateway(Labels(ipv4="10.128.128.254", ipv4_subnet="10.128.128.0/24")))
         
-        # set local_asn
-        # sliver.set_asn(300)
-        
         #
         # create a small number of Interface slivers, set their properties and link to service
         #
@@ -390,11 +386,6 @@ class TestOessHandler(unittest.TestCase):
         # name and peer interface sliver name.
         isl1.set_type(InterfaceType.ServicePort)
         
-        # sliver_labels = OessLabels(vlan='1', 
-        #                        local_name='TenGigE0/0/0/10/2',
-        #                        device_name='agg4.eqch.net.internet2.edu',
-        #                        cloud_account_id='296256999979',
-        #                        peers=peer_list)
         sliver_labels = Labels(vlan='1', 
                                local_name='TenGigE0/0/0/10/2',
                                device_name='agg4.eqch.net.internet2.edu',
@@ -402,7 +393,6 @@ class TestOessHandler(unittest.TestCase):
                                asn='300')
     
         # capacities (bw in Gbps, burst size is in Mbytes) source: (b)
-        # sliver_capacities = OessCapacities(bw=100, jumbo=1)
         sliver_capacities = Capacities(bw=100, jumbo=1)
     
         # assign labels and capacities
@@ -416,11 +406,6 @@ class TestOessHandler(unittest.TestCase):
         isl2.set_name('Interface2')
         isl2.set_type(InterfaceType.ServicePort)
         
-        # sliver_labels = OessLabels(vlan='1', 
-        #                        local_name='TenGigE0/0/0/11/0',
-        #                        device_name='agg3.eqch.net.internet2.edu',
-        #                        cloud_account_id='296256999979',
-        #                        peers=peer_list)
         sliver_labels = Labels(vlan='1', 
                                local_name='TenGigE0/0/0/11/0',
                                device_name='agg3.eqch.net.internet2.edu',
@@ -442,9 +427,32 @@ class TestOessHandler(unittest.TestCase):
         # add interface info object to sliver. All of this happens automagically normally
         sliver.interface_info = ifi
         
-        # the peer list
-        peer_list= [
-            {
+        # create the peer list
+        # peer_list= [
+        #     {
+        #         isl1.get_name():
+        #         {
+        #             "bfd": 0,
+        #             "ip_version": "ipv4",
+        #             "peer_ip": "192.168.1.1/24",
+        #             "peer_asn": "1",
+        #             "local_ip": "192.168.1.2/24",
+        #             "md5_key": ""
+        #         }
+        #     },
+        #     {
+        #         isl2.get_name():
+        #         {
+        #             "bfd": 0,
+        #             "ip_version": "ipv4",
+        #             "peer_ip": "192.168.2.1/24",
+        #             "peer_asn": "2",
+        #             "local_ip": "192.168.2.2/24",
+        #             "md5_key": ""
+        #         }
+        #     }
+        # ]
+        peer_list= {
                 isl1.get_name():
                 {
                     "bfd": 0,
@@ -453,9 +461,7 @@ class TestOessHandler(unittest.TestCase):
                     "peer_asn": "1",
                     "local_ip": "192.168.1.2/24",
                     "md5_key": ""
-                }
-            },
-            {
+                },
                 isl2.get_name():
                 {
                     "bfd": 0,
@@ -466,7 +472,6 @@ class TestOessHandler(unittest.TestCase):
                     "md5_key": ""
                 }
             }
-        ]
         sliver.set_peer_labels(peer_list)
     
         # set a fake unit reservation
