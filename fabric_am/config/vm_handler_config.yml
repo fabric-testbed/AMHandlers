@@ -52,6 +52,7 @@ playbooks:
   FPGA: worker_pci_provisioning.yml
   NVME: worker_pci_provisioning.yml
   Storage: head_volume_provisioning.yml
+  SharedNIC_OpenStack-vNIC: head_port_provisioning.yml
   config:
     post_boot: head_vm_post_boot_config.yml
     SmartNIC: nmcli_config_nw_interface.yml

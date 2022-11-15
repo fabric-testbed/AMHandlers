@@ -212,6 +212,8 @@ class VMHandler(HandlerBase):
         try:
             if component.get_type() not in [ComponentType.SharedNIC, ComponentType.SmartNIC, ComponentType.Storage]:
                 return
+            if component.get_model() == Constants.OPENSTACK_VNIC_MODEL:
+                return
             if component.get_type() == ComponentType.Storage:
                 self.__mount_storage(component=component, mgmt_ip=mgmt_ip, user=user)
             else:
@@ -474,6 +476,29 @@ class VMHandler(HandlerBase):
         finally:
             self.get_logger().debug("__attach_detach_storage OUT")
 
+    def __cleanup_vnic(self, *, inventory_path: str, vm_name: str, component: ComponentSliver):
+        """
+        Delete the Port for the vNIC associated with the VM
+        """
+        pb_location = self.get_config()[AmConstants.PLAYBOOK_SECTION][AmConstants.PB_LOCATION]
+        resource_type = f"{str(component.get_type())}-{component.get_model()}"
+        port_pb = self.get_config()[AmConstants.PLAYBOOK_SECTION][resource_type]
+        playbook_path = f"{pb_location}/{port_pb}"
+
+        ifs_name = None
+        for ns in component.network_service_info.network_services.values():
+            if ns.interface_info is None or ns.interface_info.interfaces is None:
+                continue
+
+            for ifs in ns.interface_info.interfaces.values():
+                ifs_name = ifs.get_name()
+
+        extra_vars = {AmConstants.PORT_PROV_OP: AmConstants.PROV_OP_DELETE,
+                      AmConstants.VM_NAME: vm_name,
+                      AmConstants.PORT_NAME: f'{vm_name}-{ifs_name}'}
+
+        return self.__execute_ansible(inventory_path=inventory_path, playbook_path=playbook_path, extra_vars=extra_vars)
+
     def __attach_detach_pci(self, *, playbook_path: str, inventory_path: str, host: str, instance_name: str,
                             device_name: str, component: ComponentSliver, vm_name: str, project_id: str,
                             attach: bool = True, raise_exception: bool = False):
@@ -507,6 +532,8 @@ class VMHandler(HandlerBase):
             mac = None
             if component.get_type() == ComponentType.SharedNIC:
                 if component.get_model() == Constants.OPENSTACK_VNIC_MODEL:
+                    if not attach:
+                        self.__cleanup_vnic(inventory_path=inventory_path, vm_name=vm_name, component=component)
                     return
                 for ns in component.network_service_info.network_services.values():
                     if ns.interface_info is None or ns.interface_info.interfaces is None:

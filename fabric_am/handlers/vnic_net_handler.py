@@ -40,9 +40,8 @@ class VnicNetHandler(HandlerBase):
             inventory_path = self.get_config()[AmConstants.PLAYBOOK_SECTION][AmConstants.PB_INVENTORY]
             extra_vars = {AmConstants.PORT_PROV_OP: AmConstants.PROV_OP_DELETE_ALL}
 
-            # Do NOTHING
-            #self.__execute_ansible(inventory_path=inventory_path, playbook_path=cleanup_playbook,
-            #                       extra_vars=extra_vars)
+            self.__execute_ansible(inventory_path=inventory_path, playbook_path=cleanup_playbook,
+                                   extra_vars=extra_vars)
         except Exception as e:
             self.get_logger().error(f"Failure to clean up existing ports: {e}")
             self.get_logger().error(traceback.format_exc())
@@ -89,13 +88,12 @@ class VnicNetHandler(HandlerBase):
 
             for ifs in sliver.interface_info.interfaces.values():
                 self.__attach_detach_port(playbook_path=full_playbook_path, inventory_path=inventory_path,
-                                          vlan=sliver.label_allocations.vlan, interface_sliver=ifs, unit_id=unit_id,
+                                          vlan=sliver.label_allocations.vlan, interface_sliver=ifs,
                                           attach=True, raise_exception=True)
-
         except Exception as e:
             # Delete Ports in case of failure
             if sliver is not None and unit_id is not None:
-                self.__cleanup(sliver=sliver, unit_id=unit_id)
+                self.__cleanup(sliver=sliver)
             result = {Constants.PROPERTY_TARGET_NAME: Constants.TARGET_CREATE,
                       Constants.PROPERTY_TARGET_RESULT_CODE: Constants.RESULT_CODE_EXCEPTION,
                       Constants.PROPERTY_ACTION_SEQUENCE_NUMBER: 0,
@@ -140,14 +138,14 @@ class VnicNetHandler(HandlerBase):
             for x in diff.added.interfaces:
                 interface = modified_sliver.interface_info.interfaces[x]
                 self.__attach_detach_port(playbook_path=full_playbook_path, inventory_path=inventory_path,
-                                          interface_sliver=interface, unit_id=str(unit.get_reservation_id()),
-                                          vlan=current_sliver.label_allocations.vlan, attach=True)
+                                          interface_sliver=interface,  vlan=current_sliver.label_allocations.vlan,
+                                          attach=True)
 
             for x in diff.removed.interfaces:
                 interface = modified_sliver.interface_info.interfaces[x]
                 self.__attach_detach_port(playbook_path=full_playbook_path, inventory_path=inventory_path,
-                                          interface_sliver=interface, unit_id=str(unit.get_reservation_id()),
-                                          vlan=current_sliver.label_allocations.vlan, attach=False)
+                                          interface_sliver=interface, vlan=current_sliver.label_allocations.vlan,
+                                          attach=False)
         except Exception as e:
             self.get_logger().error(e)
             self.get_logger().error(traceback.format_exc())
@@ -175,7 +173,7 @@ class VnicNetHandler(HandlerBase):
             if not isinstance(sliver, NetworkServiceSliver):
                 raise VnicNetHandlerException(f"Invalid Sliver type {type(sliver)}")
 
-            self.__cleanup(sliver=sliver, unit_id=str(unit.get_reservation_id()))
+            self.__cleanup(sliver=sliver)
         except Exception as e:
             result = {Constants.PROPERTY_TARGET_NAME: Constants.TARGET_DELETE,
                       Constants.PROPERTY_TARGET_RESULT_CODE: Constants.RESULT_CODE_EXCEPTION,
@@ -187,7 +185,7 @@ class VnicNetHandler(HandlerBase):
             self.get_logger().info(f"Delete completed")
         return result, unit
 
-    def __cleanup(self, *, sliver: NetworkServiceSliver, unit_id: str, raise_exception: bool = False):
+    def __cleanup(self, *, sliver: NetworkServiceSliver, raise_exception: bool = False):
         try:
             playbook_path = self.get_config()[AmConstants.PLAYBOOK_SECTION][AmConstants.PB_LOCATION]
             inventory_path = self.get_config()[AmConstants.PLAYBOOK_SECTION][AmConstants.PB_INVENTORY]
@@ -201,11 +199,10 @@ class VnicNetHandler(HandlerBase):
 
             for ifs in sliver.interface_info.interfaces.values():
                 self.__attach_detach_port(playbook_path=full_playbook_path, inventory_path=inventory_path,
-                                          interface_sliver=ifs, unit_id=unit_id, attach=False,
-                                          vlan=sliver.label_allocations.vlan,
+                                          interface_sliver=ifs, attach=False, vlan=sliver.label_allocations.vlan,
                                           raise_exception=raise_exception)
         except Exception as e:
-            self.get_logger().error(f"Exception occurred in cleanup {unit_id} error: {e}")
+            self.get_logger().error(f"Exception occurred in cleanup {sliver.get_name()} error: {e}")
             self.get_logger().error(traceback.format_exc())
             if raise_exception:
                 raise e
@@ -231,14 +228,13 @@ class VnicNetHandler(HandlerBase):
         return ansible_helper.get_result_callback().get_json_result_ok()
 
     def __attach_detach_port(self, *, playbook_path: str, inventory_path: str, interface_sliver: InterfaceSliver,
-                             vlan: str, unit_id: str, attach: bool = True, raise_exception: bool = False):
+                             vlan: str, attach: bool = True, raise_exception: bool = False):
         """
         Invoke ansible playbook to attach/detach a vNIC device to a provisioned VM
         :param playbook_path: playbook location
         :param inventory_path: inventory location
         :param interface_sliver: Interface Sliver
         :param vlan: VLAN
-        :param unit_id: Reservation Id
         :param attach: True for attach and False for detach
         :return:
         """
@@ -247,8 +243,14 @@ class VnicNetHandler(HandlerBase):
             network_name_prefix = self.get_config()[AmConstants.RUNTIME_SECTION][AmConstants.NETWORK_NAME_PREFIX]
 
             extra_vars = {AmConstants.VM_NAME: interface_sliver.labels.instance_parent,
-                          AmConstants.PORT_NAME: f"{unit_id}-{interface_sliver.get_name()}",
-                          AmConstants.NETWORK_NAME: f"{network_name_prefix}-{vlan}"}
+                          AmConstants.PORT_NAME: f"{interface_sliver.labels.instance_parent}-{interface_sliver.get_name()}",
+                          AmConstants.NETWORK_NAME: f"{network_name_prefix}-{vlan}",
+                          AmConstants.MAC: interface_sliver.labels.mac}
+            if interface_sliver.flags is not None and interface_sliver.flags.auto_config:
+                if interface_sliver.label_allocations.ipv4 is not None:
+                    extra_vars[AmConstants.IP_ADDRESS] = interface_sliver.label_allocations.ipv4
+                elif interface_sliver.label_allocations.ipv6 is not None:
+                    extra_vars[AmConstants.IP_ADDRESS] = interface_sliver.label_allocations.ipv6
             if attach:
                 extra_vars[AmConstants.PORT_PROV_OP] = AmConstants.PROV_OP_CREATE
             else:

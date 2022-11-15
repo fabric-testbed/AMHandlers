@@ -38,7 +38,23 @@
     name: "{{ portname }}"
     network: "{{ networkname }}"
     port_security_enabled: no
-  when: port_prov_op == 'create'
+    mac_address: "{{ mac }}"
+  when: port_prov_op == 'create' and ip_address is not defined
+
+- name: Create a port for a network
+  openstack.cloud.port:
+    state: present
+    auth:
+      auth_url: "{{ auth_url }}"
+      password: "{{ password }}"
+      project_name: "{{ project_name }}"
+      username: "{{ username }}"
+    name: "{{ portname }}"
+    network: "{{ networkname }}"
+    port_security_enabled: no
+    mac_address: "{{ mac }}"
+    ip_address: "{{ ip_address }}"
+  when: port_prov_op == 'create' and ip_address is defined
 
 # Connects the VLans port with the VM using their ID's
 - name: Connects VM to the port
@@ -51,7 +67,7 @@
   when: port_prov_op == 'delete'
 
 # Deletes a port using its name
-- name: Create a port for a network
+- name: Delete a port for a network
   openstack.cloud.port:
     state: absent
     auth:
@@ -81,6 +97,6 @@
       project_name: "{{ project_name }}"
       username: "{{ username }}"
     name: "{{ item['name'] }}"
-  when: port_prov_op == 'delete_all'
+  when: port_prov_op == 'delete_all' and "{{ item['status'] }}" != 'ACTIVE'
   with_items:
     - "{{ result['openstack_ports'] }}"
