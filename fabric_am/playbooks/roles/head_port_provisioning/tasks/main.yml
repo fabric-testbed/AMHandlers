@@ -97,6 +97,6 @@
       project_name: "{{ project_name }}"
       username: "{{ username }}"
     name: "{{ item['name'] }}"
-  when: port_prov_op == 'delete_all' and "{{ item['status'] }}" != 'ACTIVE'
+  when: port_prov_op == 'delete_all'
   with_items:
     - "{{ result['openstack_ports'] }}"

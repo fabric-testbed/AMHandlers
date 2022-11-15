@@ -31,6 +31,5 @@ playbooks:
   inventory_location: /etc/fabric/actor/playbooks/inventory
   admin_ssh_key: /root/.ssh/id_rsa_nova
   L2Bridge: head_port_provisioning.yml
-  VM: head_vm_provisioning.yml
   cleanup:
     ALL: head_port_provisioning.yml
