@@ -476,7 +476,7 @@ class VMHandler(HandlerBase):
         finally:
             self.get_logger().debug("__attach_detach_storage OUT")
 
-    def __cleanup_vnic(self, *, inventory_path: str, vm_name: str, component: ComponentSliver):
+    def __cleanup_vnic(self, *, inventory_path: str, vm_name: str, component: ComponentSliver, device_name: str):
         """
         Delete the Port for the vNIC associated with the VM
         """
@@ -493,9 +493,9 @@ class VMHandler(HandlerBase):
             for ifs in ns.interface_info.interfaces.values():
                 ifs_name = ifs.get_name()
 
-        extra_vars = {AmConstants.PORT_PROV_OP: AmConstants.PROV_OP_DELETE,
-                      AmConstants.VM_NAME: vm_name,
-                      AmConstants.PORT_NAME: f'{vm_name}-{ifs_name}'}
+        extra_vars = {AmConstants.PORT_PROV_OP: AmConstants.PROV_DETACH,
+                      AmConstants.VM_NAME: f'{device_name}-{vm_name}',
+                      AmConstants.PORT_NAME: f'{device_name}-{vm_name}-{vm_name}-{ifs_name}'}
 
         return self.__execute_ansible(inventory_path=inventory_path, playbook_path=playbook_path, extra_vars=extra_vars)
 
@@ -533,7 +533,8 @@ class VMHandler(HandlerBase):
             if component.get_type() == ComponentType.SharedNIC:
                 if component.get_model() == Constants.OPENSTACK_VNIC_MODEL:
                     if not attach:
-                        self.__cleanup_vnic(inventory_path=inventory_path, vm_name=vm_name, component=component)
+                        self.__cleanup_vnic(inventory_path=inventory_path, vm_name=vm_name, device_name=device_name,
+                                            component=component)
                     return
                 for ns in component.network_service_info.network_services.values():
                     if ns.interface_info is None or ns.interface_info.interfaces is None:
@@ -573,6 +574,7 @@ class VMHandler(HandlerBase):
                                        extra_vars=extra_vars, host=worker_node, host_vars=host_vars)
         except Exception as e:
             self.get_logger().error(f"Error occurred attach:{attach}/detach: {not attach} device: {component}")
+            self.get_logger().error(traceback.format_exc())
             if raise_exception:
                 raise e
         finally:

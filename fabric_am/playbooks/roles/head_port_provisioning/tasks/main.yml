@@ -64,7 +64,7 @@
 # Detaches a VM from port using their ID's
 - name: Removes VM from port
   ansible.builtin.command: openstack server remove port "{{ vmname }}" "{{ portname }}"
-  when: port_prov_op == 'delete'
+  when: port_prov_op == 'detach'
 
 # Deletes a port using its name
 - name: Delete a port for a network
@@ -76,7 +76,7 @@
       project_name: "{{ project_name }}"
       username: "{{ username }}"
     name: "{{ portname }}"
-  when: port_prov_op == 'delete'
+  when: port_prov_op == 'delete' or port_prov_op == 'detach'
 
 - name: List all Ports
   openstack.cloud.port_info:
@@ -87,16 +87,3 @@
       username: "{{ username }}"
   register: result
   when: port_prov_op == 'delete_all' or port_prov_op == 'list'
-
-- name: Delete all Ports
-  openstack.cloud.port:
-    state: absent
-    auth:
-      auth_url: "{{ auth_url }}"
-      password: "{{ password }}"
-      project_name: "{{ project_name }}"
-      username: "{{ username }}"
-    name: "{{ item['name'] }}"
-  when: port_prov_op == 'delete_all'
-  with_items:
-    - "{{ result['openstack_ports'] }}"

@@ -33,20 +33,7 @@ class VnicNetHandler(HandlerBase):
         Clean Restart
         """
         self.get_logger().debug("Clean restart - begin")
-        try:
-            playbook_path = self.get_config()[AmConstants.PLAYBOOK_SECTION][AmConstants.PB_LOCATION]
-            cleanup_section = self.get_config()[AmConstants.PLAYBOOK_SECTION][AmConstants.PB_CLEANUP]
-            cleanup_playbook = f"{playbook_path}/{cleanup_section[AmConstants.CLEAN_ALL]}"
-            inventory_path = self.get_config()[AmConstants.PLAYBOOK_SECTION][AmConstants.PB_INVENTORY]
-            extra_vars = {AmConstants.PORT_PROV_OP: AmConstants.PROV_OP_DELETE_ALL}
-
-            self.__execute_ansible(inventory_path=inventory_path, playbook_path=cleanup_playbook,
-                                   extra_vars=extra_vars)
-        except Exception as e:
-            self.get_logger().error(f"Failure to clean up existing ports: {e}")
-            self.get_logger().error(traceback.format_exc())
-        finally:
-            self.get_logger().debug("Clean restart - end")
+        self.get_logger().debug("Clean restart - end")
 
         result = {Constants.PROPERTY_TARGET_NAME: Constants.TARGET_CLEAN_RESTART,
                   Constants.PROPERTY_TARGET_RESULT_CODE: Constants.RESULT_CODE_EXCEPTION,
@@ -142,7 +129,7 @@ class VnicNetHandler(HandlerBase):
                                           attach=True)
 
             for x in diff.removed.interfaces:
-                interface = modified_sliver.interface_info.interfaces[x]
+                interface = current_sliver.interface_info.interfaces[x]
                 self.__attach_detach_port(playbook_path=full_playbook_path, inventory_path=inventory_path,
                                           interface_sliver=interface, vlan=current_sliver.label_allocations.vlan,
                                           attach=False)
