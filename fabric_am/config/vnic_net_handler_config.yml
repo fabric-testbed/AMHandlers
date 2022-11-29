@@ -25,39 +25,9 @@
 ansible:
   ansible_python_interpreter: /usr/bin/python3.6
 runtime:
-  # Attach Floating IP should be disabled for Sites which only allow IPV6 Address as (Global Unicast Address)
-  # Refer https://docs.openstack.org/liberty/networking-guide/adv-config-ipv6.html  for more details
-  disable_fip: False
-  ssh_retries: 10
-  images:
-    default_centos8_stream: centos
-    default_centos9_stream: centos
-    default_centos_7: centos
-    default_centos_8: centos
-    default_debian_10: debian
-    default_fedora_35: fedora
-    default_rocky_8: rocky
-    default_ubuntu_18: ubuntu
-    default_ubuntu_20: ubuntu
-    default_ubuntu_21: ubuntu
-    default_ubuntu_22: ubuntu
+  network_name_prefix: dataplane
 playbooks:
-  location: fabric_am/playbooks
-  inventory_location: fabric_am/playbooks/inventory
+  location: /etc/fabric/actor/playbooks
+  inventory_location: /etc/fabric/actor/playbooks/inventory
   admin_ssh_key: /root/.ssh/id_rsa_nova
-  VM: head_vm_provisioning.yml
-  GPU: worker_pci_provisioning.yml
-  SmartNIC: worker_pci_provisioning.yml
-  SharedNIC: worker_pci_provisioning.yml
-  FPGA: worker_pci_provisioning.yml
-  NVME: worker_pci_provisioning.yml
-  Storage: head_volume_provisioning.yml
-  SharedNIC-OpenStack-vNIC: head_port_provisioning.yml
-  config:
-    post_boot: head_vm_post_boot_config.yml
-    SmartNIC: nmcli_config_nw_interface.yml
-    SharedNIC: nmcli_config_nw_interface.yml
-    Storage: storage_config.yml
-  cleanup:
-    NVME: nvme_cleanup.yml
-    ALL: head_vm_provisioning.yml
+  L2Bridge: head_port_provisioning.yml

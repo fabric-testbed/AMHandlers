@@ -54,6 +54,12 @@ class AmConstants:
     PROV_OP_DELETE_ALL = "delete_all"
     VM_PROV_OP_ATTACH_FIP = "attach_fip"
     PROV_OP_GET = "get"
+    PORT_PROV_OP = "port_prov_op"
+    PORT_NAME = "portname"
+    NETWORK_NAME = "networkname"
+    NETWORK_NAME_PREFIX = "network_name_prefix"
+    IP_ADDRESS = "ip_address"
+    VM_EXISTS = "vm_exists"
 
     VOL_PROV_OP = "vol_prov_op"
     VOL_NAME = "vol_name"
