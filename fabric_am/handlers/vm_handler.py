@@ -57,6 +57,27 @@ class VMHandler(HandlerBase):
         return self.get_config()[AmConstants.ANSIBLE_SECTION][
                 AmConstants.ANSIBLE_PYTHON_INTERPRETER]
 
+    def clean_restart(self):
+        self.get_logger().debug("Clean restart - begin")
+        try:
+            playbook_path = self.get_config()[AmConstants.PLAYBOOK_SECTION][AmConstants.PB_LOCATION]
+            cleanup_section = self.get_config()[AmConstants.PLAYBOOK_SECTION][AmConstants.PB_CLEANUP]
+            cleanup_playbook = f"{playbook_path}/{cleanup_section[AmConstants.CLEAN_ALL]}"
+            inventory_path = self.get_config()[AmConstants.PLAYBOOK_SECTION][AmConstants.PB_INVENTORY]
+            extra_vars = {AmConstants.VM_PROV_OP: AmConstants.PROV_OP_DELETE_ALL}
+            self.__execute_ansible(inventory_path=inventory_path, playbook_path=cleanup_playbook,
+                                   extra_vars=extra_vars)
+        except Exception as e:
+            self.get_logger().error(f"Failure to clean up existing VMs: {e}")
+            self.get_logger().error(traceback.format_exc())
+        finally:
+            self.get_logger().debug("Clean restart - end")
+
+        result = {Constants.PROPERTY_TARGET_NAME: Constants.TARGET_CLEAN_RESTART,
+                  Constants.PROPERTY_TARGET_RESULT_CODE: Constants.RESULT_CODE_EXCEPTION,
+                  Constants.PROPERTY_ACTION_SEQUENCE_NUMBER: 0}
+        return result
+
     def create(self, unit: ConfigToken) -> Tuple[dict, ConfigToken]:
         """
         Create a VM
@@ -190,6 +211,8 @@ class VMHandler(HandlerBase):
     def __configure_component(self, *, component: ComponentSliver, user: str, mgmt_ip: str):
         try:
             if component.get_type() not in [ComponentType.SharedNIC, ComponentType.SmartNIC, ComponentType.Storage]:
+                return
+            if component.get_model() == Constants.OPENSTACK_VNIC_MODEL:
                 return
             if component.get_type() == ComponentType.Storage:
                 self.__mount_storage(component=component, mgmt_ip=mgmt_ip, user=user)
@@ -453,6 +476,29 @@ class VMHandler(HandlerBase):
         finally:
             self.get_logger().debug("__attach_detach_storage OUT")
 
+    def __cleanup_vnic(self, *, inventory_path: str, vm_name: str, component: ComponentSliver, device_name: str):
+        """
+        Delete the Port for the vNIC associated with the VM
+        """
+        pb_location = self.get_config()[AmConstants.PLAYBOOK_SECTION][AmConstants.PB_LOCATION]
+        resource_type = f"{str(component.get_type())}-{component.get_model()}"
+        port_pb = self.get_config()[AmConstants.PLAYBOOK_SECTION][resource_type]
+        playbook_path = f"{pb_location}/{port_pb}"
+
+        ifs_name = None
+        for ns in component.network_service_info.network_services.values():
+            if ns.interface_info is None or ns.interface_info.interfaces is None:
+                continue
+
+            for ifs in ns.interface_info.interfaces.values():
+                ifs_name = ifs.get_name()
+
+        extra_vars = {AmConstants.PORT_PROV_OP: AmConstants.PROV_DETACH,
+                      AmConstants.VM_NAME: f'{device_name}-{vm_name}',
+                      AmConstants.PORT_NAME: f'{device_name}-{vm_name}-{vm_name}-{ifs_name}'}
+
+        return self.__execute_ansible(inventory_path=inventory_path, playbook_path=playbook_path, extra_vars=extra_vars)
+
     def __attach_detach_pci(self, *, playbook_path: str, inventory_path: str, host: str, instance_name: str,
                             device_name: str, component: ComponentSliver, vm_name: str, project_id: str,
                             attach: bool = True, raise_exception: bool = False):
@@ -485,6 +531,11 @@ class VMHandler(HandlerBase):
                 return
             mac = None
             if component.get_type() == ComponentType.SharedNIC:
+                if component.get_model() == Constants.OPENSTACK_VNIC_MODEL:
+                    if not attach:
+                        self.__cleanup_vnic(inventory_path=inventory_path, vm_name=vm_name, device_name=device_name,
+                                            component=component)
+                    return
                 for ns in component.network_service_info.network_services.values():
                     if ns.interface_info is None or ns.interface_info.interfaces is None:
                         continue
@@ -523,6 +574,7 @@ class VMHandler(HandlerBase):
                                        extra_vars=extra_vars, host=worker_node, host_vars=host_vars)
         except Exception as e:
             self.get_logger().error(f"Error occurred attach:{attach}/detach: {not attach} device: {component}")
+            self.get_logger().error(traceback.format_exc())
             if raise_exception:
                 raise e
         finally:
