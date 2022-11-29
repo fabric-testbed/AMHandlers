@@ -809,6 +809,83 @@ class TestNetHandler(unittest.TestCase):
         self.assertEqual(r[Constants.PROPERTY_ACTION_SEQUENCE_NUMBER], 0)
         self.assertEqual(r[Constants.PROPERTY_TARGET_RESULT_CODE], Constants.RESULT_CODE_OK)
 
+    def test_L3VPN(self):
+        # create a NetworkService sliver for FABNetv6
+        prop = {AmConstants.CONFIG_PROPERTIES_FILE: '../config/net_handler_config.yml'}
+
+        handler = NetHandler(logger=self.logger, properties=prop, process_lock=threading.Lock())
+        #
+        # create a network sliver for L3VPN and its interfaces
+        #
+        sliver = NetworkServiceSliver()
+        # service name (set by user) - only guaranteed unique within a slice
+        sliver.set_name('L3VPN-IPv4-Test')
+        # if service name global uniqueness is a requirement use Labels.local_name for that (optional)
+        # e.g. concatenate name + res id (or another unique id)
+        # sliver.set_labels(Labels().set_fields(local_name='test-l2bridge-shortname'))
+        # per @xiyang he uses unit id for service name so this is not needed.
+        sliver.set_type(ServiceType.L3VPN)
+        sliver.set_layer(NSLayer.L3)
+        sliver.set_labels(Labels(asn='398900'))
+
+        # route by BGP peer
+        stp1 = InterfaceSliver()
+        stp1.set_name('Interface1')
+        stp1.set_type(InterfaceType.ServicePort)
+        interface_labels = Labels(vlan='1001', local_name='TwentyFiveGigE0/0/0/23/1', device_name='lbnl-data-sw', ipv4_subnet='192.168.10.1/24')
+        peering_labels = Labels(ipv4_subnet='192.168.10.2/24', asn='654321',  bgp_key='somesecret')
+        sliver_capacities = Capacities(bw=1)
+        stp1.set_labels(interface_labels)
+        stp1.set_peer_labels(peering_labels)
+        stp1.set_capacities(sliver_capacities)
+
+        # route by direct connect
+        stp2 = InterfaceSliver()
+        stp2.set_name('Interface2')
+        stp2.set_type(InterfaceType.ServicePort)
+        interface_labels = Labels(vlan='1002', local_name='TwentyFiveGigE0/0/0/23/1', device_name='uky-data-sw',  ipv4_subnet='192.168.20.1/24')
+        sliver_capacities = Capacities(bw=1)
+        stp2.set_labels(interface_labels)
+        stp2.set_capacities(sliver_capacities)
+
+        # route by direct connect
+        stp3 = InterfaceSliver()
+        stp3.set_name('Interface3')
+        stp3.set_type(InterfaceType.ServicePort)
+        interface_labels = Labels(vlan='1003', local_name='TwentyFiveGigE0/0/0/23/1', device_name='uky-data-sw',  ipv4_subnet='192.168.20.1/24')
+        sliver_capacities = Capacities(bw=1)
+        stp3.set_labels(interface_labels)
+        stp3.set_capacities(sliver_capacities)
+
+        ifi = InterfaceInfo()
+        sliver.interface_info = ifi
+        ifi.add_interface(stp1)
+        ifi.add_interface(stp2)
+        ifi.add_interface(stp3)
+
+        # set a fake unit reservation
+        uid = uuid.uuid3(uuid.NAMESPACE_DNS, 'test_L3VPN')
+        self.unit = Unit(rid=ID(uid=str(uid)))
+        self.unit.set_sliver(sliver=sliver)
+
+        #
+        # create a service (create needs to parse out sliver information
+        # into exact parameters the service ansible script needs)
+        #
+        r, updated_unit = handler.create(unit=self.unit)
+        self.assertEqual(r[Constants.PROPERTY_TARGET_NAME], Constants.TARGET_CREATE)
+        self.assertEqual(r[Constants.PROPERTY_ACTION_SEQUENCE_NUMBER], 0)
+        self.assertEqual(r[Constants.PROPERTY_TARGET_RESULT_CODE], Constants.RESULT_CODE_OK)
+
+        time.sleep(30)
+        #
+        # delete - need to make sure the updated unit has the right info to delete the service
+        #
+        r, updated_unit = handler.delete(updated_unit)
+        self.assertEqual(r[Constants.PROPERTY_TARGET_NAME], Constants.TARGET_DELETE)
+        self.assertEqual(r[Constants.PROPERTY_ACTION_SEQUENCE_NUMBER], 0)
+        self.assertEqual(r[Constants.PROPERTY_TARGET_RESULT_CODE], Constants.RESULT_CODE_OK)
+
     def test_CleanRestart(self):
 
         # create a NetworkService sliver for FABNetv6
@@ -819,5 +896,3 @@ class TestNetHandler(unittest.TestCase):
         self.assertEqual(r[Constants.PROPERTY_TARGET_NAME], Constants.TARGET_CLEAN_RESTART)
         self.assertEqual(r[Constants.PROPERTY_ACTION_SEQUENCE_NUMBER], 0)
         self.assertEqual(r[Constants.PROPERTY_TARGET_RESULT_CODE], Constants.RESULT_CODE_EXCEPTION)
-
-        #
