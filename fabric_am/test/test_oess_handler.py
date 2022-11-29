@@ -136,7 +136,7 @@ class TestOessHandler(unittest.TestCase):
         self.assertEqual(r[Constants.PROPERTY_ACTION_SEQUENCE_NUMBER], 0)
         self.assertEqual(r[Constants.PROPERTY_TARGET_RESULT_CODE], Constants.RESULT_CODE_OK)
     
-
+    
     
     def test_L3VPN(self):
         # create a NetworkService sliver for FABNetv4
@@ -251,7 +251,7 @@ class TestOessHandler(unittest.TestCase):
         self.assertEqual(r[Constants.PROPERTY_ACTION_SEQUENCE_NUMBER], 0)
         self.assertEqual(r[Constants.PROPERTY_TARGET_RESULT_CODE], Constants.RESULT_CODE_OK)    
     
-            
+    
     def test_L2Cloud(self):
         # create a NetworkService sliver for L2Cloud
         prop = {AmConstants.CONFIG_PROPERTIES_FILE: '../config/oess_handler_config.yml'}
@@ -278,8 +278,8 @@ class TestOessHandler(unittest.TestCase):
         sliver_capacities = Capacities()
     
         sliver_labels._set_fields(vlan='2')
-        sliver_labels._set_fields(local_name='TenGigE0/0/0/11/3')
-        sliver_labels._set_fields(device_name='agg3.eqch.net.internet2.edu')
+        sliver_labels._set_fields(local_name='HundredGigE0/0/0/7')
+        sliver_labels._set_fields(device_name='agg3.ashb.net.internet2.edu')
         sliver_labels._set_fields(account_id='296256999979')
     
         sliver_capacities._set_fields(bw=100)
@@ -300,8 +300,8 @@ class TestOessHandler(unittest.TestCase):
         sliver_capacities = Capacities()
     
         sliver_labels._set_fields(vlan='2')
-        sliver_labels._set_fields(local_name='TenGigE0/0/0/11/2')
-        sliver_labels._set_fields(device_name='agg4.eqch.net.internet2.edu')
+        sliver_labels._set_fields(local_name='HundredGigE0/0/0/7')
+        sliver_labels._set_fields(device_name='agg4.ashb.net.internet2.edu')
         sliver_labels._set_fields(account_id='296256999979')
     
         sliver_capacities._set_fields(bw=100)
