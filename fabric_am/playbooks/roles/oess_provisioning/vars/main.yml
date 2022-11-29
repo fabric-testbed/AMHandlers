@@ -1,0 +1,30 @@
+#oess_user: [default]
+#oess_passwd: [vault] 
+# l2_endpoints:
+#   {
+#       "node": "core2.sunn.net.internet2.edu",
+#       "interface": "HundredGigE0/0/0/24",
+#       "tag": "30",
+#       "bandwidth": "0"
+#   }
+# l3_endpoints:
+#   {
+#     "peers": [
+#       {
+#         "bfd": 0,
+#         "ip_version": "ipv4",
+#         "peer_ip": "192.168.1.1/24",
+#         "peer_asn": "1",
+#         "local_ip": "192.168.1.2/24",
+#         "md5_key": ""
+#        }],
+#      "node": "core2.sunn.net.internet2.edu",
+#      "cloud_account_id": "",
+#      "entity": "SENSE",
+#      "jumbo": 1,
+#      "interface": "HundredGigE0/0/0/24",
+#      "tag": "3020",
+#      "inner_tag": null,
+#      "bandwidth": "0"
+#    }
+

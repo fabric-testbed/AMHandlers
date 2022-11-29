@@ -788,98 +788,59 @@ class TestNetHandler(unittest.TestCase):
         self.assertEqual(r[Constants.PROPERTY_ACTION_SEQUENCE_NUMBER], 0)
         self.assertEqual(r[Constants.PROPERTY_TARGET_RESULT_CODE], Constants.RESULT_CODE_OK)
 
-
-    def test_L3VPN_Cloud(self):
-        # create a NetworkService sliver for L3VPN to cloud VPC
+    def test_L3VPN(self):
+        # create a NetworkService sliver for FABNetv6
         prop = {AmConstants.CONFIG_PROPERTIES_FILE: '../config/net_handler_config.yml'}
 
         handler = NetHandler(logger=self.logger, properties=prop, process_lock=threading.Lock())
         #
-        # create a network sliver for FABNetv4 and its interfaces
+        # create a network sliver for L3VPN and its interfaces
         #
         sliver = NetworkServiceSliver()
-        # the following properties are set by user in ASM (Slice Model)
         # service name (set by user) - only guaranteed unique within a slice
-        sliver.set_name('L3VPN-Cloud')
+        sliver.set_name('L3VPN-IPv4-Test')
+        # if service name global uniqueness is a requirement use Labels.local_name for that (optional)
+        # e.g. concatenate name + res id (or another unique id)
+        # sliver.set_labels(Labels().set_fields(local_name='test-l2bridge-shortname'))
+        # per @xiyang he uses unit id for service name so this is not needed.
         sliver.set_type(ServiceType.L3VPN)
         sliver.set_layer(NSLayer.L3)
-        # the ASN of *this* service
-        sliver.set_labels(Labels(asn='123456'))
+        sliver.set_labels(Labels(asn='398900'))
 
-        #
-        # create a small number of Interface slivers, set their properties and link to service
-        # normally they are automatically created in the ASM by the user
-        #
-
-        #
-        # First interface - let's assume it is to AWS
-        #
-        isl1 = InterfaceSliver()
-        # the name is normally set by FIM as '-' concatenation of service name
-        isl1.set_name('Interface1')
-        # this will be a ServicePort in the network service sliver facing the other L3VPN service. It is
-        # created automatically however the Orchestrator will need to call **ns.copy_to_peer_labels()**
-        # when it receives the slice so that PeerLabels property is populated. Here we will populate it
-        # by hand
-        isl1.set_type(InterfaceType.ServicePort)
-
-        sliver_labels = Labels(ipv4_subnet='192.168.1.1/24') # addressing on this interface
-        sliver_peer_labels = Labels(ipv4_subnet='192.168.10.1/24', asn='654321',
-                                    bgp_key='secret', account_id='myAmazonAccount')
-
-        # capacities
+        # route by BGP peer
+        stp1 = InterfaceSliver()
+        stp1.set_name('Interface1')
+        stp1.set_type(InterfaceType.ServicePort)
+        interface_labels = Labels(vlan='1001', local_name='TwentyFiveGigE0/0/0/23/1', device_name='lbnl-data-sw', ipv4_subnet='192.168.10.1/24')
+        peering_labels = Labels(ipv4_subnet='192.168.10.2/24', asn='654321',  bgp_key='somesecret')
         sliver_capacities = Capacities(bw=1)
+        stp1.set_labels(interface_labels)
+        stp1.set_peer_labels(peering_labels)
+        stp1.set_capacities(sliver_capacities)
 
-        # assign interface labels and capacities
-        isl1.set_labels(sliver_labels)
-        isl1.set_peer_labels(sliver_peer_labels)
-        isl1.set_capacities(sliver_capacities)
-
-        #
-        # Second interface - let's assume it is to GCP - another cloud provider
-        #
-        isl2 = InterfaceSliver()
-        # the name is normally set by FIM as '-' concatenation of service name
-        isl2.set_name('Interface2')
-        # this will be a ServicePort in the network service sliver facing the other L3VPN service in VPC. It is
-        # created automatically however the Orchestrator will need to call ns.copy_to_peer_labels()
-        # when it receives the slice so that PeerLabels property is populated. Here we will populate it
-        # by hand
-        isl2.set_type(InterfaceType.ServicePort)
-
-        sliver_labels = Labels(ipv4_subnet='192.168.2.1/24') # addressing on this interface
-        sliver_peer_labels = Labels(ipv4_subnet='192.168.11.1/24', asn='44441',
-                                    bgp_key='secret1', account_id='myGCPAccount')
-
-        # capacities
+        # route by direct connect
+        stp2 = InterfaceSliver()
+        stp2.set_name('Interface2')
+        stp2.set_type(InterfaceType.ServicePort)
+        interface_labels = Labels(vlan='1002', local_name='TwentyFiveGigE0/0/0/23/1', device_name='uky-data-sw',  ipv4_subnet='192.168.20.1/24')
         sliver_capacities = Capacities(bw=1)
+        stp2.set_labels(interface_labels)
+        stp2.set_capacities(sliver_capacities)
 
-        # assign interface labels and capacities
-        isl2.set_labels(sliver_labels)
-        isl2.set_peer_labels(sliver_peer_labels)
-        isl2.set_capacities(sliver_capacities)
-
-        #
-        # Third interface (let's assume this is to a dedicated card at UKY)
-        #
-        isl3 = InterfaceSliver()
-        isl3.set_name('Interface3')
-        isl3.set_type(InterfaceType.ServicePort)
-
-        sliver_labels = Labels(vlan='1001', local_name='HundredGigE0/0/0/5', device_name='uky-data-sw')
+        # route by direct connect
+        stp3 = InterfaceSliver()
+        stp3.set_name('Interface3')
+        stp3.set_type(InterfaceType.ServicePort)
+        interface_labels = Labels(vlan='1003', local_name='TwentyFiveGigE0/0/0/23/1', device_name='uky-data-sw',  ipv4_subnet='192.168.20.1/24')
         sliver_capacities = Capacities(bw=1)
+        stp3.set_labels(interface_labels)
+        stp3.set_capacities(sliver_capacities)
 
-        isl3.set_labels(sliver_labels)
-        isl3.set_capacities(sliver_capacities)
-
-        # create interface info object, add populated interfaces to it (normally this is all done transparently)
         ifi = InterfaceInfo()
-        ifi.add_interface(isl1)
-        ifi.add_interface(isl2)
-        ifi.add_interface(isl3)
-
-        # add interface info object to sliver. All of this happens automagically normally
         sliver.interface_info = ifi
+        ifi.add_interface(stp1)
+        ifi.add_interface(stp2)
+        ifi.add_interface(stp3)
 
         # set a fake unit reservation
         uid = uuid.uuid3(uuid.NAMESPACE_DNS, 'test_L3VPN')
@@ -896,7 +857,6 @@ class TestNetHandler(unittest.TestCase):
         self.assertEqual(r[Constants.PROPERTY_TARGET_RESULT_CODE], Constants.RESULT_CODE_OK)
 
         time.sleep(30)
-
         #
         # delete - need to make sure the updated unit has the right info to delete the service
         #
@@ -906,7 +866,6 @@ class TestNetHandler(unittest.TestCase):
         self.assertEqual(r[Constants.PROPERTY_TARGET_RESULT_CODE], Constants.RESULT_CODE_OK)
 
     def test_CleanRestart(self):
-
         # create a NetworkService sliver for FABNetv6
         prop = {AmConstants.CONFIG_PROPERTIES_FILE: '../config/net_handler_config.yml'}
 
@@ -915,6 +874,3 @@ class TestNetHandler(unittest.TestCase):
         self.assertEqual(r[Constants.PROPERTY_TARGET_NAME], Constants.TARGET_CLEAN_RESTART)
         self.assertEqual(r[Constants.PROPERTY_ACTION_SEQUENCE_NUMBER], 0)
         self.assertEqual(r[Constants.PROPERTY_TARGET_RESULT_CODE], Constants.RESULT_CODE_EXCEPTION)
-
-        #
-

@@ -21,17 +21,17 @@
 # SOFTWARE.
 #
 #
-# Author: Xi Yang (xiyang@es.net)
+# Author: Liang Zhang (lzhang9@es.net)
+#
+# NOTE: Set the python executable in your enviroment to {ansible_python_interpreter} 
+#
 ansible:
-  ansible_python_interpreter: /usr/bin/python3.6
+  ansible_python_interpreter: /Users/lzhang9/opt/anaconda3/envs/fim-utils/bin/python
 playbooks:
   location: ../playbooks
   inventory_location: ../playbooks/inventory
-  hostname_suffix: .fabric-testbed.net
-  L2Bridge: netam_nso_data.yml
-  L2PTP: netam_nso_data.yml
-  L2STS: netam_nso_data.yml
-  FABNetv4: netam_nso_data.yml
-  FABNetv6: netam_nso_data.yml
-  L3VPN: netam_nso_data.yml
-  PortMirror: netam_nso_data.yml
+  hostname_suffix:
+  L2PTP: al2s_oess.yml
+  L2Cloud: al2s_oess.yml
+  L3VPN: al2s_oess.yml
+  L3Cloud: al2s_oess.yml
