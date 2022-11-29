@@ -228,7 +228,7 @@ class OessHandler(HandlerBase):
             endpoint['node'] = labs.device_name
             if labs.local_name is None:
                 raise NetHandlerException(f'l2ptp - interface "{interface_name}" has no "local_name" label')
-            endpoint['bandwidth'] = caps.bw
+            endpoint['bandwidth'] = caps.bw * 1000
             endpoint['interface'] = labs.local_name
             endpoint['tag'] = labs.vlan
             if labs.account_id != None:
