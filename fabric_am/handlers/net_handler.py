@@ -159,10 +159,10 @@ class NetHandler(HandlerBase):
                 service_data = self.__l2ptp_create_data(sliver, service_name)
             elif service_type == 'l2sts':
                 service_data = self.__l2sts_create_data(sliver, service_name)
-            elif service_type == 'fabnetv4':
+            elif service_type == 'fabnetv4' or service_type == 'fabnetv4ext':
                 service_data = self.__fabnetv4_create_data(sliver, service_name)
                 service_type = 'l3rt'
-            elif service_type == 'fabnetv6':
+            elif service_type == 'fabnetv6' or service_type == 'fabnetv6ext':
                 service_data = self.__fabnetv6_create_data(sliver, service_name)
                 service_type = 'l3rt'
             elif service_type == 'l3vpn':
@@ -303,10 +303,10 @@ class NetHandler(HandlerBase):
                 service_data = self.__l2ptp_create_data(modified_sliver, service_name)
             elif service_type == 'l2sts':
                 service_data = self.__l2sts_create_data(modified_sliver, service_name)
-            elif service_type == 'fabnetv4':
+            elif service_type == 'fabnetv4' or service_type == 'fabnetv4ext':
                 service_data = self.__fabnetv4_create_data(modified_sliver, service_name)
                 service_type = 'l3rt'
-            elif service_type == 'fabnetv6':
+            elif service_type == 'fabnetv6' or service_type == 'fabnetv6ext':
                 service_data = self.__fabnetv6_create_data(modified_sliver, service_name)
                 service_type = 'l3rt'
             elif service_type == 'l3vpn':
@@ -374,7 +374,7 @@ class NetHandler(HandlerBase):
             service_name = sliver.get_labels().local_name
         resource_type = str(sliver.get_type())
         service_type = resource_type.lower()
-        if service_type == 'fabnetv4' or service_type == 'fabnetv6':
+        if service_type.startswith('fabnet'):
             service_type = 'l3rt'
         elif service_type == 'portmirror':
             service_type = 'port-mirror'
