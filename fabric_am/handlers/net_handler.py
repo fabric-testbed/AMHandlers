@@ -767,8 +767,8 @@ class NetHandler(HandlerBase):
                     site_data['bgp']['remote-asn'] = peer_labs.asn
                 else:
                     raise NetHandlerException(f'l3vpn - missing peering label asn on BGP interface for site {site_data["device"]}')
-                if peer_labs.bgpkey:
-                    site_data['bgp']['auth-key'] = peer_labs.bgpkey
+                if peer_labs.bgp_key:
+                    site_data['bgp']['auth-key'] = peer_labs.bgp_key
             else:
                 site_data['direct']['interface'].append(interface)
                 # add gateway
