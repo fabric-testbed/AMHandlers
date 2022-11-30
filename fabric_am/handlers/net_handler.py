@@ -703,15 +703,11 @@ class NetHandler(HandlerBase):
     def __l3vpn_create_data(self, sliver: NetworkServiceSliver, service_name: str) -> dict:
         sites = []
         data = {"name": service_name, "site": sites}
-        site_gateways = {}
-        site_peerings = {}
         for interface_name in sliver.interface_info.interfaces:
             interface_sliver = sliver.interface_info.interfaces[interface_name]
             labs: Labels = interface_sliver.get_labels()
             caps: Capacities = interface_sliver.get_capacities()
-            is_bgp = False
-            if interface_sliver.get_peer_labels():
-                is_bgp = True
+            peer_labs: Labels = interface_sliver.get_peer_labels()
             site_data = None
             if labs.device_name is None:
                 raise NetHandlerException(f'l3vpn - interface "{interface_name}" has no "device_name" label')
@@ -721,8 +717,8 @@ class NetHandler(HandlerBase):
                     site_data = sd
                     break
             if site_data is None:
-                if is_bgp:
-                    site_data = {"device": labs.device_name, "bgp": {"interface": []}}
+                if peer_labs:
+                    site_data = {"device": labs.device_name, "bgp": {}}
                 else:
                     site_data = {"device": labs.device_name, "direct": {"interface": []}}
                 data['site'].append(site_data)
@@ -740,10 +736,10 @@ class NetHandler(HandlerBase):
                 interface['outervlan'] = labs.vlan
             if int(interface['outervlan']) > 0 and labs.inner_vlan is not None:
                 interface['innervlan'] = labs.inner_vlan
-            if is_bgp:
-                if len(site_data['bgp']['interface']) > 0:
-                    raise NetHandlerException(f'l3vpn - more than one BGP interface for site {site_data["device"]}')
-                site_data['bgp']['interface'].append(interface)
+            if peer_labs:
+                if 'interface' in site_data['bgp']:
+                    raise NetHandlerException(f'l3vpn - cannot have more than one BGP interface for site {site_data["device"]}')
+                site_data['bgp']['interface'] = interface
                 # add peering local
                 if labs.ipv4_subnet:
                     ipv4_addr_mask = labs.ipv4_subnet.split('/')
@@ -753,8 +749,7 @@ class NetHandler(HandlerBase):
                     site_data['bgp']['local-ipv4'] = {'address': ipv6_addr_mask[0], 'netmask': ipv6_addr_mask[1]}
                 else:
                     raise NetHandlerException(f'l3vpn - missing ipv4_subnet or ipv6_subnet label on BGP interface for site {site_data["device"]}')
-                # add peering remote
-                peer_labs = interface_sliver.get_peer_labels()
+                # add bgp peering remote
                 if peer_labs.ipv4_subnet:
                     ipv4_addr_mask = peer_labs.ipv4_subnet.split('/')
                     site_data['bgp']['remote-ipv4'] = {'address': ipv4_addr_mask[0], 'netmask': ipv4_addr_mask[1]}
@@ -773,23 +768,23 @@ class NetHandler(HandlerBase):
                 site_data['direct']['interface'].append(interface)
                 # add gateway
                 if labs.ipv4_subnet:
-                    if site_data['direct']['gateway-ipv4']:
+                    if 'gateway-ipv4' in site_data['direct']:
                         pass
-                    elif site_data['direct']['gateway-ipv6']:
+                    elif 'gateway-ipv6' in site_data['direct']:
                         raise NetHandlerException(
                             f'l3vpn - conflicting ipv4_subnet and ipv6_subnet labels for direct gateway config on site {site_data["device"]}')
                     else:
                         ipv4_addr_mask = labs.ipv4_subnet.split('/')
-                        site_data['bgp']['local-ipv4'] = {'address': ipv4_addr_mask[0], 'netmask': ipv4_addr_mask[1]}
+                        site_data['direct']['gateway-ipv4'] = {'address': ipv4_addr_mask[0], 'netmask': ipv4_addr_mask[1]}
                 elif labs.ipv6_subnet:
-                    if site_data['direct']['gateway-ipv6']:
+                    if 'gateway-ipv6' in site_data['direct']:
                         pass
-                    elif site_data['direct']['gateway-ipv4']:
+                    elif 'gateway-ipv4' in site_data['direct']:
                         raise NetHandlerException(
                             f'l3vpn - conflicting ipv4_subnet and ipv6_subnet labels for direct gateway config on site {site_data["device"]}')
                     else:
                         ipv6_addr_mask = labs.ipv6_subnet.split('/')
-                        site_data['bgp']['local-ipv4'] = {'address': ipv6_addr_mask[0], 'netmask': ipv6_addr_mask[1]}
+                        site_data['direct']['gateway-ipv4'] = {'address': ipv6_addr_mask[0], 'netmask': ipv6_addr_mask[1]}
                 else:
                     raise NetHandlerException(
                         f'l3vpn - require either ipv4_subnet or ipv6_subnet label for interface via direct gateway on site {site_data["device"]}')
