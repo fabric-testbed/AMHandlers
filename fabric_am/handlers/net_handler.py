@@ -605,6 +605,7 @@ class NetHandler(HandlerBase):
         return data
 
     def __fabnetv4_create_data(self, sliver: NetworkServiceSliver, service_name: str) -> dict:
+        service_type = str(sliver.get_type()).lower()
         device_name = None
         interfaces = []
         data = {"name": service_name, "interface": interfaces}
@@ -650,9 +651,42 @@ class NetHandler(HandlerBase):
         data['gateway-ipv4'] = {'address': gateway.lab.ipv4, 'netmask': str(gateway.lab.ipv4_subnet).split('/')[1]}
         if gateway.lab.mac is not None:
             data['gateway-mac-address'] = gateway.lab.mac
+        # handle external-access for a FABNetv4Ext service
+        if service_type == "fabnetv4ext":
+            sliver_labs: Labels = sliver.get_labels()
+            if sliver_labs.ipv4 is None:
+                raise NetHandlerException(f'fabnetv4ext - sliver missing "ipv4" label for one or list of allowed addresses')
+            allowed_addrs = []
+            if type(sliver_labs.ipv4) is str:
+                allowed_addrs.append(sliver_labs.ipv4)
+            elif type(sliver_labs.ipv4) is list:
+                allowed_addrs = sliver_labs.ipv4
+            else:
+                raise NetHandlerException(f'fabnetv4ext - sliver label "ipv4" label must be `str` or `list` instead of type {type(sliver_labs.ipv4)}')
+            border_routers = []
+            if AmConstants.NETWORK_SECTION not in self.get_config()  \
+                or AmConstants.NET_BORDER_ROUTERS not in self.get_config()[AmConstants.NETWORK_SECTION]:
+                raise NetHandlerException(f'fabnetv4ext - requires config of [{AmConstants.NETWORK_SECTION}][{AmConstants.NET_BORDER_ROUTERS}]')
+            abrs = str(self.get_config()[AmConstants.NETWORK_SECTION][AmConstants.NET_BORDER_ROUTERS]).split(",")
+            if len(abrs) == 0:
+                raise NetHandlerException(
+                    f'fabnetv4ext - malformed config of [{AmConstants.NETWORK_SECTION}][{AmConstants.NET_BORDER_ROUTERS}]')
+            for abr in abrs:
+                if len(abr) < 2 or ' ' in abr:
+                    raise NetHandlerException(
+                        f'fabnetv4ext - malformed config of device name {abr} in [{AmConstants.NETWORK_SECTION}][{AmConstants.NET_BORDER_ROUTERS}]')
+                border_routers.append({"device": abr})
+            permit_rules = []
+            rule_id = 100
+            for addr in allowed_addrs:
+                rule = {"id": rule_id, "address": addr}
+                permit_rules.append(rule)
+                rule_id = rule_id + 1
+            data['external-access'] = {'border-router': border_routers, 'permit-ipv4': permit_rules}
         return data
 
     def __fabnetv6_create_data(self, sliver: NetworkServiceSliver, service_name: str) -> dict:
+        service_type = str(sliver.get_type()).lower()
         device_name = None
         interfaces = []
         data = {"name": service_name, "interface": interfaces}
@@ -698,6 +732,38 @@ class NetHandler(HandlerBase):
         data['gateway-ipv6'] = {'address': gateway.lab.ipv6, 'netmask': str(gateway.lab.ipv6_subnet).split('/')[1]}
         if gateway.lab.mac is not None:
             data['gateway-mac-address'] = gateway.lab.mac
+        # handle external-access for a FABNetv6Ext service
+        if service_type == "fabnetv6ext":
+            sliver_labs: Labels = sliver.get_labels()
+            if sliver_labs.ipv6 is None:
+                raise NetHandlerException(f'fabnet64ext - sliver missing "ipv6" label for one or list of allowed addresses')
+            allowed_addrs = []
+            if type(sliver_labs.ipv6) is str:
+                allowed_addrs.append(sliver_labs.ipv6)
+            elif type(sliver_labs.ipv6) is list:
+                allowed_addrs = sliver_labs.ipv6
+            else:
+                raise NetHandlerException(f'fabnet64ext - sliver label "ipv6" label must be `str` or `list` instead of type {type(sliver_labs.ipv6)}')
+            border_routers = []
+            if AmConstants.NETWORK_SECTION not in self.get_config()  \
+                or AmConstants.NET_BORDER_ROUTERS not in self.get_config()[AmConstants.NETWORK_SECTION]:
+                raise NetHandlerException(f'fabnet64ext - requires config of [{AmConstants.NETWORK_SECTION}][{AmConstants.NET_BORDER_ROUTERS}]')
+            abrs = str(self.get_config()[AmConstants.NETWORK_SECTION][AmConstants.NET_BORDER_ROUTERS]).split(",")
+            if len(abrs) == 0:
+                raise NetHandlerException(
+                    f'fabnet64ext - malformed config of [{AmConstants.NETWORK_SECTION}][{AmConstants.NET_BORDER_ROUTERS}]')
+            for abr in abrs:
+                if len(abr) < 2 or ' ' in abr:
+                    raise NetHandlerException(
+                        f'fabnet64ext - malformed config of device name {abr} in [{AmConstants.NETWORK_SECTION}][{AmConstants.NET_BORDER_ROUTERS}]')
+                border_routers.append({"device": abr})
+            permit_rules = []
+            rule_id = 100
+            for addr in allowed_addrs:
+                rule = {"id": rule_id, "address": addr}
+                permit_rules.append(rule)
+                rule_id = rule_id + 1
+            data['external-access'] = {'border-router': border_routers, 'permit-ipv6': permit_rules}
         return data
 
     def __l3vpn_create_data(self, sliver: NetworkServiceSliver, service_name: str) -> dict:
