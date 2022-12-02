@@ -645,16 +645,12 @@ class TestNetHandler(unittest.TestCase):
         sliver.set_type(ServiceType.FABNetv4Ext)
         sliver.set_layer(NSLayer.L3)
 
-        # this is the gateway with the IP range picked for this sliver in this slice on this site
-        # can also be specified with ipv6/ipv6_subnet and mac is optional for both.
-        # Q: does that mean that the advertisement needs to maintain information about multiple
-        # subnet, gateway and mac tuples for each site?
-        sliver.set_gateway(Gateway(Labels(ipv4="10.128.128.254", ipv4_subnet="10.128.128.0/24")))
+        # this is no need for gateway for ipv4 ext service
 
         # allow one IPv4 address for external access
-        sliver_labs = Labels(ipv4="10.128.128.123")
+        # sliver_labs = Labels(ipv4="10.128.128.123")
         # or allow for a list of IPv4 addresses
-        # sliver_labs = Labels(ipv4=["10.128.128.10", "10.128.128.20", "10.128.128.30"])
+        sliver_labs = Labels(ipv4=["10.128.128.10", "10.128.128.20", "10.128.128.30"])
         sliver.set_labels(sliver_labs)
 
         #
@@ -848,9 +844,9 @@ class TestNetHandler(unittest.TestCase):
         sliver.set_layer(NSLayer.L3)
 
         # allow one IPv6 address for external access
-        sliver_labs = Labels(ipv4="2602:FCFB:0001::10")
+        # sliver_labs = Labels(ipv6="2602:FCFB:0001::10")
         # or allow for a list of IPv6 addresses
-        # sliver_labs = Labels(ipv4=["2602:FCFB:0001::10", "2602:FCFB:0001::20", "2602:FCFB:0001::30"])
+        sliver_labs = Labels(ipv6=["2602:FCFB:0001::10", "2602:FCFB:0001::20", "2602:FCFB:0001::30"])
         sliver.set_labels(sliver_labs)
 
         # this is the gateway with the IP range picked for this sliver in this slice on this site

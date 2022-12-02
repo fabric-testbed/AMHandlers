@@ -638,19 +638,21 @@ class NetHandler(HandlerBase):
             interfaces.append(interface)
         if not interfaces:
             raise NetHandlerException(f'fabnetv4 - none valid interface is defined in sliver')
-        if sliver.get_gateway() is None:
-            raise NetHandlerException(f'fabnetv4 - sliver missing gateway')
-        gateway = sliver.get_gateway()
-        if gateway.lab is None:
-            raise NetHandlerException(f'fabnetv4 - sliver gateway missing labels')
-        if gateway.lab.ipv4 is None:
-            raise NetHandlerException(f'fabnetv4 - sliver gateway missing "ipv4" label')
-        if gateway.lab.ipv4_subnet is None:
-            raise NetHandlerException(f'fabnetv4 - sliver gateway missing "ipv4_subnet" label')
-        # assume sliver has verified gateway.lab.ipv4 is included in gateway.lab.ipv4_subnet that has a valid subnet prefix
-        data['gateway-ipv4'] = {'address': gateway.lab.ipv4, 'netmask': str(gateway.lab.ipv4_subnet).split('/')[1]}
-        if gateway.lab.mac is not None:
-            data['gateway-mac-address'] = gateway.lab.mac
+        # fabnetv4ext does not need to create slice individual gateway
+        if service_type == "fabnetv4":
+            if sliver.get_gateway() is None:
+                raise NetHandlerException(f'fabnetv4 - sliver missing gateway')
+            gateway = sliver.get_gateway()
+            if gateway.lab is None:
+                raise NetHandlerException(f'fabnetv4 - sliver gateway missing labels')
+            if gateway.lab.ipv4 is None:
+                raise NetHandlerException(f'fabnetv4 - sliver gateway missing "ipv4" label')
+            if gateway.lab.ipv4_subnet is None:
+                raise NetHandlerException(f'fabnetv4 - sliver gateway missing "ipv4_subnet" label')
+            # assume sliver has verified gateway.lab.ipv4 is included in gateway.lab.ipv4_subnet that has a valid subnet prefix
+            data['gateway-ipv4'] = {'address': gateway.lab.ipv4, 'netmask': str(gateway.lab.ipv4_subnet).split('/')[1]}
+            if gateway.lab.mac is not None:
+                data['gateway-mac-address'] = gateway.lab.mac
         # handle external-access for a FABNetv4Ext service
         if service_type == "fabnetv4ext":
             sliver_labs: Labels = sliver.get_labels()
