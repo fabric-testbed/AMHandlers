@@ -111,3 +111,6 @@ class AmConstants:
     IPV6_PREFIX = "ipv6_prefix"
     ADDRESS_LIST = "address_list"
     ADMIN_SSH_KEY = "admin_ssh_key"
+
+    NETWORK_SECTION = "network"
+    NET_BORDER_ROUTERS = "border_routers"

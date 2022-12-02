@@ -1,6 +1,7 @@
+---
 # MIT License
 #
-# Copyright (c) 2020 FABRIC Testbed
+# Copyright (c) 2022 FABRIC Testbed
 #
 # Permission is hereby granted, free of charge, to any person obtaining a copy
 # of this software and associated documentation files (the "Software"), to deal
@@ -21,21 +22,31 @@
 # SOFTWARE.
 #
 #
-# Author: Xi Yang (xiyang@es.net)
-ansible:
-  ansible_python_interpreter: /usr/bin/python3.6
-playbooks:
-  location: ../playbooks
-  inventory_location: ../playbooks/inventory
-  hostname_suffix: .fabric-testbed.net
-  L2Bridge: netam_nso_data.yml
-  L2PTP: netam_nso_data.yml
-  L2STS: netam_nso_data.yml
-  FABNetv4: netam_nso_data.yml
-  FABNetv6: netam_nso_data.yml
-  FABNetv4Ext: netam_nso_data.yml
-  FABNetv6Ext: netam_nso_data.yml
-  L3VPN: netam_nso_data.yml
-  PortMirror: netam_nso_data.yml
-network:
-  border_routers: star-data-sw,wash-data-sw
+# Author: Liang Zhang (lzhang9@es.net)
+# /tasks/account-info.yml
+#
+
+- name: Get Current User Information
+  ansible.builtin.uri:
+    url: "{{ oess_url }}/user.cgi?method=get_current"
+    user: "{{ oess_user }}"
+    password: "{{ oess_passwd }}"
+    headers:
+      Accept: application/json
+      content-type: application/json
+    status_code: 200
+    method: GET
+    validate_certs: no
+  register: user_info
+  
+- name: Print User Info
+  debug:
+    msg: "{{ user_info.json }}"
+    
+- name: Save Workgroup_id
+  set_fact:
+    workgroup_id: "{{ user_info.json.results[0].workgroups[0].workgroup_id }}"
+    
+- name: Print workgroup_id    
+  debug:
+    msg: "{{ workgroup_id }}"
