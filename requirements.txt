@@ -1,4 +1,3 @@
 ansible
 paramiko
-fabric-cf==1.4.0b6
-fabric_fim==1.4.0rc3
+fabric-cf==1.4.0b7
