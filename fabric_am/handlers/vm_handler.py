@@ -155,6 +155,7 @@ class VMHandler(HandlerBase):
                                              device_name=unit_id, component=component, vm_name=vmname,
                                              project_id=project_id, raise_exception=True)
             sliver.management_ip = fip
+            self.__post_boot_config(mgmt_ip=fip, user=user)
             self.__configure_components(sliver=sliver)
 
         except Exception as e:
@@ -735,13 +736,9 @@ class VMHandler(HandlerBase):
         for ns in component.network_service_info.network_services.values():
             if ns.interface_info is None or ns.interface_info.interfaces is None:
                 continue
-            installed_nw_mgr = False
             for ifs in ns.interface_info.interfaces.values():
                 if ifs.flags is None or not ifs.flags.auto_config:
                     continue
-                if not installed_nw_mgr:
-                    self.__post_boot_config(mgmt_ip=mgmt_ip, user=user)
-                    installed_nw_mgr = True
                 self.get_logger().info(f"Configuring Interface  {ifs}")
                 self.configure_network_interface(mgmt_ip=mgmt_ip, user=user, resource_type=component.get_type().name,
                                                  ipv4_address=ifs.label_allocations.ipv4,

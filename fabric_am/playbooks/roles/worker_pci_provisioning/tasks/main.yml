@@ -21,6 +21,12 @@
     virsh attach-device {{ kvmguest_name }} /tmp/{{ device }}.yml --live --config
   when: pci_prov_op == 'attach'
 
+- name: Get PCI Device Number from the Host
+  ansible.builtin.shell:
+    lspci -n | grep {{ bus }}:{{ slot }}.{{ function }} | awk '{print $3}'
+  when: pci_prov_op == 'attach'
+  register: pci_device_number
+
 - name: Remove PCI Card to VM
   ansible.builtin.shell: 
     virsh detach-device {{ kvmguest_name }} /tmp/{{ device }}.yml --live --config
@@ -30,4 +36,3 @@
   file:
     path: /tmp/{{ device }}.yml
     state: absent
-
