@@ -34,7 +34,6 @@ from fabric_cf.actor.core.common.constants import Constants
 from fabric_cf.actor.core.plugins.handlers.config_token import ConfigToken
 from fabric_cf.actor.handlers.handler_base import HandlerBase
 from fim.slivers.attached_components import ComponentSliver, ComponentType
-from fim.slivers.capacities_labels import Labels
 from fim.slivers.network_node import NodeSliver
 
 from fabric_am.util.am_constants import AmConstants
@@ -549,10 +548,10 @@ class VMHandler(HandlerBase):
 
                     for ifs in ns.interface_info.interfaces.values():
                         mac = ifs.label_allocations.mac
-            if isinstance(component.label_allocations.bdf, str):
-                pci_device_list = [component.label_allocations.bdf]
+            if isinstance(component.labels.bdf, str):
+                pci_device_list = [component.labels.bdf]
             else:
-                pci_device_list = component.label_allocations.bdf
+                pci_device_list = component.labels.bdf
 
             worker_node = host
 
@@ -585,9 +584,7 @@ class VMHandler(HandlerBase):
                 if attach:
                     pci_device_number = ok.get(AmConstants.ANSIBLE_FACTS)[AmConstants.PCI_DEVICE_NUMBER]
                     ok = self.__post_boot_config(mgmt_ip=mgmt_ip, user=user, pci_device_number=pci_device_number)
-                    if component.labels is None:
-                        component.labels = Labels()
-                    component.labels.bdf = ok.get(AmConstants.ANSIBLE_FACTS)[AmConstants.PCI_BDF]
+                    component.label_allocations.bdf = f'0000:{str(ok.get(AmConstants.ANSIBLE_FACTS)[AmConstants.PCI_BDF])}'
         except Exception as e:
             self.get_logger().error(f"Error occurred attach:{attach}/detach: {not attach} device: {component}")
             self.get_logger().error(traceback.format_exc())
@@ -623,10 +620,10 @@ class VMHandler(HandlerBase):
             worker_node = host
 
             extra_vars = {AmConstants.WORKER_NODE_NAME: worker_node}
-            if isinstance(component.label_allocations.bdf, str):
-                pci_device_list = [component.label_allocations.bdf]
+            if isinstance(component.labels.bdf, str):
+                pci_device_list = [component.labels.bdf]
             else:
-                pci_device_list = component.label_allocations.bdf
+                pci_device_list = component.labels.bdf
 
             self.get_logger().info(f"Device List Size: {len(pci_device_list)} List: {pci_device_list}")
             for device in pci_device_list:
