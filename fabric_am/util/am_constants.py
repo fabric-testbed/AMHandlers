@@ -85,6 +85,7 @@ class AmConstants:
     PCI_BUS = "bus"
     PCI_SLOT = "slot"
     PCI_BDF = "bdf"
+    PCI_DEVICE_NUMBER = "pci_device_number"
     PCI_FUNCTION = "function"
     PCI_OPERATION = "pci_prov_op"
     PROV_ATTACH = "attach"

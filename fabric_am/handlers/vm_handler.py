@@ -147,15 +147,16 @@ class VMHandler(HandlerBase):
 
             sliver.label_allocations.instance = instance_props.get(AmConstants.SERVER_INSTANCE_NAME, None)
 
+            self.__post_boot_config(mgmt_ip=fip, user=user)
+
             # Attach any attached PCI Devices
             if sliver.attached_components_info is not None:
                 for component in sliver.attached_components_info.devices.values():
                     self.__attach_detach_pci(playbook_path=playbook_path, inventory_path=inventory_path,
                                              host=worker_node, instance_name=sliver.label_allocations.instance,
                                              device_name=unit_id, component=component, vm_name=vmname,
-                                             project_id=project_id, raise_exception=True)
+                                             project_id=project_id, raise_exception=True, mgmt_ip=fip, user=user)
             sliver.management_ip = fip
-            self.__post_boot_config(mgmt_ip=fip, user=user)
             self.__configure_components(sliver=sliver)
 
         except Exception as e:
@@ -261,12 +262,14 @@ class VMHandler(HandlerBase):
                 # Modify topology
                 for x in diff.added.components:
                     component = modified_sliver.attached_components_info.devices[x]
+                    user = self.__get_default_user(image=current_sliver.get_image_ref())
                     self.__attach_detach_pci(playbook_path=playbook_path, inventory_path=inventory_path,
                                              host=current_sliver.label_allocations.instance_parent,
                                              instance_name=current_sliver.label_allocations.instance,
                                              device_name=str(unit.get_reservation_id()),
                                              component=component, vm_name=current_sliver.get_name(),
-                                             project_id=project_id)
+                                             project_id=project_id, mgmt_ip=current_sliver.get_management_ip(),
+                                             user=user)
 
                     user = self.__get_default_user(image=current_sliver.get_image_ref())
                     self.__configure_component(component=component,
@@ -502,7 +505,7 @@ class VMHandler(HandlerBase):
 
     def __attach_detach_pci(self, *, playbook_path: str, inventory_path: str, host: str, instance_name: str,
                             device_name: str, component: ComponentSliver, vm_name: str, project_id: str,
-                            attach: bool = True, raise_exception: bool = False):
+                            attach: bool = True, raise_exception: bool = False, mgmt_ip: str = None, user: str = None):
         """
         Invoke ansible playbook to attach/detach a PCI device to a provisioned VM
         :param playbook_path: playbook location
@@ -514,6 +517,8 @@ class VMHandler(HandlerBase):
         :param vm_name: VM Name
         :param project_id: Project Id
         :param attach: True for attach and False for detach
+        :param mgmt_ip Management IP
+        :param user default user
         :return:
         """
         self.get_logger().debug("__attach_detach_pci IN")
@@ -543,10 +548,10 @@ class VMHandler(HandlerBase):
 
                     for ifs in ns.interface_info.interfaces.values():
                         mac = ifs.label_allocations.mac
-            if isinstance(component.label_allocations.bdf, str):
-                pci_device_list = [component.label_allocations.bdf]
+            if isinstance(component.labels.bdf, str):
+                pci_device_list = [component.labels.bdf]
             else:
-                pci_device_list = component.label_allocations.bdf
+                pci_device_list = component.labels.bdf
 
             worker_node = host
 
@@ -560,6 +565,7 @@ class VMHandler(HandlerBase):
             self.get_logger().info(f"Device List Size: {len(pci_device_list)} List: {pci_device_list}")
             for device in pci_device_list:
                 device_char_arr = self.__extract_device_addr_octets(device_address=device)
+                device = device.replace("0000:", "")
                 host_vars = {
                     AmConstants.KVM_GUEST_NAME: instance_name,
                     AmConstants.PCI_DOMAIN: device_char_arr[0],
@@ -572,8 +578,13 @@ class VMHandler(HandlerBase):
                 if mac is not None:
                     host_vars[AmConstants.MAC] = mac
 
-                self.__execute_ansible(inventory_path=inventory_path, playbook_path=full_playbook_path,
-                                       extra_vars=extra_vars, host=worker_node, host_vars=host_vars)
+                ok = self.__execute_ansible(inventory_path=inventory_path, playbook_path=full_playbook_path,
+                                            extra_vars=extra_vars, host=worker_node, host_vars=host_vars)
+
+                if attach:
+                    pci_device_number = ok.get(AmConstants.ANSIBLE_FACTS)[AmConstants.PCI_DEVICE_NUMBER]
+                    ok = self.__post_boot_config(mgmt_ip=mgmt_ip, user=user, pci_device_number=pci_device_number)
+                    component.label_allocations.bdf = ok.get(AmConstants.ANSIBLE_FACTS)[AmConstants.PCI_DEVICE_NUMBER]
         except Exception as e:
             self.get_logger().error(f"Error occurred attach:{attach}/detach: {not attach} device: {component}")
             self.get_logger().error(traceback.format_exc())
@@ -802,7 +813,7 @@ class VMHandler(HandlerBase):
             self.get_logger().error(f"Exception : {e}")
             self.get_logger().error(traceback.format_exc())
 
-    def __post_boot_config(self, *, mgmt_ip: str, user: str):
+    def __post_boot_config(self, *, mgmt_ip: str, user: str, pci_device_number: str = None):
         """
         Perform post boot configuration, install required software
         :param mgmt_ip Management IP to access the VM
@@ -823,11 +834,14 @@ class VMHandler(HandlerBase):
             extra_vars = {AmConstants.VM_NAME: mgmt_ip,
                           AmConstants.IMAGE: user}
 
+            if pci_device_number is not None:
+                extra_vars[AmConstants.IMAGE] = 'get_pci'
+
             # Grab the SSH Key
             admin_ssh_key = self.get_config()[AmConstants.PLAYBOOK_SECTION][AmConstants.ADMIN_SSH_KEY]
 
-            self.__execute_ansible(inventory_path=None, playbook_path=playbook_path, extra_vars=extra_vars,
-                                   sources=f"{mgmt_ip},", private_key_file=admin_ssh_key, user=user)
+            return self.__execute_ansible(inventory_path=None, playbook_path=playbook_path, extra_vars=extra_vars,
+                                          sources=f"{mgmt_ip},", private_key_file=admin_ssh_key, user=user)
         except Exception as e:
             self.get_logger().error(f"Exception : {e}")
             self.get_logger().error(traceback.format_exc())
