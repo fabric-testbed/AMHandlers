@@ -31,3 +31,12 @@
     path: /tmp/{{ device }}.yml
     state: absent
 
+- name: Get PCI Device Number from the Host
+  ansible.builtin.shell:
+    lspci -n | grep {{ bdf }} | awk '{print $3}'
+  when: pci_prov_op == 'attach'
+  register: pci_device_number
+
+- set_fact:
+    pci_device_number: "{{ pci_device_number.stdout }}"
+  when: pci_prov_op == 'attach'
