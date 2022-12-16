@@ -47,7 +47,8 @@
   ansible.builtin.shell:
     lspci -n | grep {{ pci_device_number }} | awk '{print $1}'
   when: image == 'get_pci'
+  register: bdf
 
 - set_fact:
-    pci_device_number: "{{ pci_device_number.stdout }}"
+    bdf: "{{ bdf.stdout }}"
   when: image == 'get_pci'

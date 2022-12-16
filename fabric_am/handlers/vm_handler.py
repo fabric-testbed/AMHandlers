@@ -587,7 +587,7 @@ class VMHandler(HandlerBase):
                     ok = self.__post_boot_config(mgmt_ip=mgmt_ip, user=user, pci_device_number=pci_device_number)
                     if component.labels is None:
                         component.labels = Labels()
-                    component.labels.bdf = ok.get(AmConstants.ANSIBLE_FACTS)[AmConstants.PCI_DEVICE_NUMBER]
+                    component.labels.bdf = ok.get(AmConstants.ANSIBLE_FACTS)[AmConstants.PCI_BDF]
         except Exception as e:
             self.get_logger().error(f"Error occurred attach:{attach}/detach: {not attach} device: {component}")
             self.get_logger().error(traceback.format_exc())
