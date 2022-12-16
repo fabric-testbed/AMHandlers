@@ -29,6 +29,7 @@ runtime:
   # Refer https://docs.openstack.org/liberty/networking-guide/adv-config-ipv6.html  for more details
   disable_fip: False
   ssh_retries: 10
+  delete_retries: 5
   images:
     default_centos8_stream: centos
     default_centos9_stream: centos

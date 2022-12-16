@@ -367,8 +367,19 @@ class VMHandler(HandlerBase):
         extra_vars = {AmConstants.VM_PROV_OP: AmConstants.PROV_OP_DELETE,
                       AmConstants.VM_NAME: vm_name}
 
-        self.__execute_ansible(inventory_path=inventory_path, playbook_path=playbook_path,
-                               extra_vars=extra_vars)
+        # Retry Delete VM configured number of times in case of failure to delete VMs
+        # Handle Openstack Delete VM API timeout/errors
+        delete_retries = self.get_config().get(AmConstants.RUNTIME_SECTION).get(AmConstants.RT_DELETE_RETRIES, 3)
+        for i in range(delete_retries):
+            try:
+                self.__execute_ansible(inventory_path=inventory_path, playbook_path=playbook_path,
+                                       extra_vars=extra_vars)
+                break
+            except Exception as e:
+                if i < delete_retries:
+                    continue
+                else:
+                    raise e
         return True
 
     def __attach_fip(self, *, playbook_path: str, inventory_path: str, vm_name: str, unit_id: str) -> str:

@@ -36,6 +36,7 @@ class AmConstants:
     RUNTIME_SECTION = "runtime"
     RT_DISABLE_FIP = "disable_fip"
     RT_SSH_RETRIES = "ssh_retries"
+    RT_DELETE_RETRIES = "delete_retries"
     RT_IMAGES = "images"
 
     PLAYBOOK_SECTION = "playbooks"
