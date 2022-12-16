@@ -34,6 +34,7 @@ from fabric_cf.actor.core.common.constants import Constants
 from fabric_cf.actor.core.plugins.handlers.config_token import ConfigToken
 from fabric_cf.actor.handlers.handler_base import HandlerBase
 from fim.slivers.attached_components import ComponentSliver, ComponentType
+from fim.slivers.capacities_labels import Labels
 from fim.slivers.network_node import NodeSliver
 
 from fabric_am.util.am_constants import AmConstants
@@ -548,10 +549,10 @@ class VMHandler(HandlerBase):
 
                     for ifs in ns.interface_info.interfaces.values():
                         mac = ifs.label_allocations.mac
-            if isinstance(component.labels.bdf, str):
-                pci_device_list = [component.labels.bdf]
+            if isinstance(component.label_allocations.bdf, str):
+                pci_device_list = [component.label_allocations.bdf]
             else:
-                pci_device_list = component.labels.bdf
+                pci_device_list = component.label_allocations.bdf
 
             worker_node = host
 
@@ -584,7 +585,9 @@ class VMHandler(HandlerBase):
                 if attach:
                     pci_device_number = ok.get(AmConstants.ANSIBLE_FACTS)[AmConstants.PCI_DEVICE_NUMBER]
                     ok = self.__post_boot_config(mgmt_ip=mgmt_ip, user=user, pci_device_number=pci_device_number)
-                    component.label_allocations.bdf = ok.get(AmConstants.ANSIBLE_FACTS)[AmConstants.PCI_DEVICE_NUMBER]
+                    if component.labels is None:
+                        component.labels = Labels()
+                    component.labels.bdf = ok.get(AmConstants.ANSIBLE_FACTS)[AmConstants.PCI_DEVICE_NUMBER]
         except Exception as e:
             self.get_logger().error(f"Error occurred attach:{attach}/detach: {not attach} device: {component}")
             self.get_logger().error(traceback.format_exc())
@@ -836,6 +839,7 @@ class VMHandler(HandlerBase):
 
             if pci_device_number is not None:
                 extra_vars[AmConstants.IMAGE] = 'get_pci'
+                extra_vars[AmConstants.PCI_DEVICE_NUMBER] = pci_device_number
 
             # Grab the SSH Key
             admin_ssh_key = self.get_config()[AmConstants.PLAYBOOK_SECTION][AmConstants.ADMIN_SSH_KEY]
