@@ -566,6 +566,7 @@ class VMHandler(HandlerBase):
                     AmConstants.PCI_BUS: device_char_arr[1],
                     AmConstants.PCI_SLOT: device_char_arr[2],
                     AmConstants.PCI_FUNCTION: device_char_arr[3],
+                    AmConstants.PCI_BDF: device
                 }
 
                 if mac is not None:

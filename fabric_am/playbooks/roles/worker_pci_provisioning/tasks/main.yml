@@ -23,9 +23,15 @@
 
 - name: Get PCI Device Number from the Host
   ansible.builtin.shell:
-    lspci -n | grep {{ bus }}:{{ slot }}.{{ function }} | awk '{print $3}'
+    lspci -n | grep {{ bdf }} | awk '{print $3}'
   when: pci_prov_op == 'attach'
   register: pci_device_number
+
+- name: Print return information from the previous task
+  ansible.builtin.debug:
+    var: result
+    verbosity: 2
+  when: pci_prov_op == 'attach'
 
 - name: Remove PCI Card to VM
   ansible.builtin.shell: 
