@@ -26,7 +26,7 @@
 # NOTE: Set the python executable in your enviroment to {ansible_python_interpreter} 
 #
 ansible:
-  ansible_python_interpreter: /Users/lzhang9/opt/anaconda3/envs/fim-utils/bin/python
+  ansible_python_interpreter: /usr/bin/python
 playbooks:
   location: ../playbooks
   inventory_location: ../playbooks/inventory

@@ -158,7 +158,7 @@ class OessHandler(HandlerBase):
         return result, unit
 
     def modify(self, unit: ConfigToken) -> Tuple[dict, ConfigToken]:
-        raise NetHandlerException(f"NetworkServiceSliver modify action is not supported yet...")
+        raise OessHandlerException(f"OessNetworkServiceSliver modify action is not supported yet...")
 
     def __cleanup(self, *, sliver: NetworkServiceSliver, unit_id: str, raise_exception: bool = False):
         if sliver.get_labels() is None or sliver.get_labels().local_name is None:
@@ -185,7 +185,7 @@ class OessHandler(HandlerBase):
             inventory_path = self.get_config()[AmConstants.PLAYBOOK_SECTION][AmConstants.PB_INVENTORY]
             playbook = self.get_config()[AmConstants.PLAYBOOK_SECTION][resource_type]
             if playbook is None or inventory_path is None or playbook_path is None:
-                raise NetHandlerException(f"Missing config parameters playbook: {playbook} "
+                raise OessHandlerException(f"Missing config parameters playbook: {playbook} "
                                           f"playbook_path: {playbook_path} inventory_path: {inventory_path}")
             playbook_path_full = f"{playbook_path}/{playbook}"
             ansible_helper = AnsibleHelper(inventory_path=inventory_path, logger=self.get_logger(),
@@ -196,11 +196,11 @@ class OessHandler(HandlerBase):
             ansible_callback = ansible_helper.get_result_callback()
             unreachable = ansible_callback.get_json_result_unreachable()
             if unreachable:
-                raise NetHandlerException(f'network service {service_name} was not cleaned up due to connection error')
+                raise OessHandlerException(f'network service {service_name} was not cleaned up due to connection error')
             failed = ansible_callback.get_json_result_failed()
             if failed:
                 ansible_callback.dump_all_failed(logger=self.get_logger())
-                raise NetHandlerException(f'network service {service_name} was not cleaned up due to config error')
+                raise OessHandlerException(f'network service {service_name} was not cleaned up due to config error')
             ok = ansible_callback.get_json_result_ok()
             if ok:
                 if not ok['changed']:
@@ -227,8 +227,8 @@ class OessHandler(HandlerBase):
                 raise OessHandlerException(f'l2ptp - interface "{interface_name}" has no "device_name" label')
             endpoint['node'] = labs.device_name
             if labs.local_name is None:
-                raise NetHandlerException(f'l2ptp - interface "{interface_name}" has no "local_name" label')
-            endpoint['bandwidth'] = caps.bw
+                raise OessHandlerException(f'l2ptp - interface "{interface_name}" has no "local_name" label')
+            endpoint['bandwidth'] = caps.bw * 1000
             endpoint['interface'] = labs.local_name
             endpoint['tag'] = labs.vlan
             if labs.account_id != None:
@@ -256,40 +256,38 @@ class OessHandler(HandlerBase):
 
     def __l3vpn_create_data(self, sliver: NetworkServiceSliver, service_name: str) -> dict:
         endpoint_list = []
-        local_asn = ''
         # if len(sliver.interface_info.interfaces) != 2:
         #     raise OessHandlerException(
                 # f'l2ptp - sliver requires 2 interfaces but was given {len(sliver.interface_info.interfaces)}')
-
+        
+        local_asn = sliver.get_labels().asn
         for interface_name in sliver.interface_info.interfaces:
             endpoint = {}
             interface_sliver = sliver.interface_info.interfaces[interface_name]
             labs: Labels = interface_sliver.get_labels()
+            peerlabs: Labels = interface_sliver.get_peer_labels()
             caps: Capacities = interface_sliver.get_capacities()
             if labs.device_name is None:
                 raise OessHandlerException(f'l3vpn - interface "{interface_name}" has no "device_name" label')
             endpoint['node'] = labs.device_name
             if labs.local_name is None:
                 raise OessHandlerException(f'l3vpn - interface "{interface_name}" has no "local_name" label')
-            if local_asn and  local_asn != labs.asn:
-                self.get_logger().error(f"local asn is inconsistant in __l3cloud_create_data")
-                raise OessHandlerException(f'l3vpn - interface "{interface_name}" has inconsistant local_asn')
-            elif not local_asn:
-                local_asn = labs.asn;
                 
-            endpoint['bandwidth'] = caps.bw
+            endpoint['bandwidth'] = caps.bw * 1000      # specified in Mbps
             endpoint['interface'] = labs.local_name
-            endpoint['tag'] = labs.vlan
-            endpoint['jumbo'] = caps.jumbo
-            if labs.account_id != None:
-                endpoint['cloud_account_id'] = labs.account_id 
-            endpoint['peers'] = {}
-            if interface_name in sliver.get_peer_labels():
-                endpoint['peers']  =  [sliver.get_peer_labels()[interface_name]]
-            else:
-                self.get_logger().error(f"Peers not found in __l3vpn_create_data")
-                raise OessHandlerException(f'l3vpn - interface "{interface_name}" has no peers')
-                    
+            endpoint['tag'] = str(labs.vlan)
+            endpoint['jumbo'] = 1 if caps.mtu > 9000 else 0
+            endpoint['cloud_account_id'] = peerlabs.account_id
+             
+            peering = {}
+            peering['bfd'] = 0
+            peering['ip_version'] = 'ipv4'
+            peering['peer_ip'] = peerlabs.ipv4_subnet
+            peering['peer_asn'] = peerlabs.asn
+            peering['local_ip'] = labs.ipv4_subnet
+            peering['md5_key'] = peerlabs.bgp_key
+            endpoint['peers']  =  [peering]
+                      
             endpoint_list.append(endpoint)
 
         data = {"name": service_name,
