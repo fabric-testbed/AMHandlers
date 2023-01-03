@@ -33,3 +33,4 @@ fabric_site_head
 localhost oess_url=https://al2s.net.internet2.edu//oess/services-kerb
 localhost oess_user=
 localhost oess_passwd=
+localhost ansible_connection=local
