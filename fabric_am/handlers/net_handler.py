@@ -159,10 +159,10 @@ class NetHandler(HandlerBase):
                 service_data = self.__l2ptp_create_data(sliver, service_name)
             elif service_type == 'l2sts':
                 service_data = self.__l2sts_create_data(sliver, service_name)
-            elif service_type == 'fabnetv4':
+            elif service_type == 'fabnetv4' or service_type == 'fabnetv4ext':
                 service_data = self.__fabnetv4_create_data(sliver, service_name)
                 service_type = 'l3rt'
-            elif service_type == 'fabnetv6':
+            elif service_type == 'fabnetv6' or service_type == 'fabnetv6ext':
                 service_data = self.__fabnetv6_create_data(sliver, service_name)
                 service_type = 'l3rt'
             elif service_type == 'l3vpn':
@@ -303,10 +303,10 @@ class NetHandler(HandlerBase):
                 service_data = self.__l2ptp_create_data(modified_sliver, service_name)
             elif service_type == 'l2sts':
                 service_data = self.__l2sts_create_data(modified_sliver, service_name)
-            elif service_type == 'fabnetv4':
+            elif service_type == 'fabnetv4' or service_type == 'fabnetv4ext':
                 service_data = self.__fabnetv4_create_data(modified_sliver, service_name)
                 service_type = 'l3rt'
-            elif service_type == 'fabnetv6':
+            elif service_type == 'fabnetv6' or service_type == 'fabnetv6ext':
                 service_data = self.__fabnetv6_create_data(modified_sliver, service_name)
                 service_type = 'l3rt'
             elif service_type == 'l3vpn':
@@ -374,7 +374,7 @@ class NetHandler(HandlerBase):
             service_name = sliver.get_labels().local_name
         resource_type = str(sliver.get_type())
         service_type = resource_type.lower()
-        if service_type == 'fabnetv4' or service_type == 'fabnetv6':
+        if service_type.startswith('fabnet'):
             service_type = 'l3rt'
         elif service_type == 'portmirror':
             service_type = 'port-mirror'
@@ -701,27 +701,33 @@ class NetHandler(HandlerBase):
         return data
 
     def __l3vpn_create_data(self, sliver: NetworkServiceSliver, service_name: str) -> dict:
-        device_name = None
-        interfaces = []
-        data = {"name": service_name, "interface": interfaces}
+        sites = []
+        data = {"name": service_name, "site": sites}
         for interface_name in sliver.interface_info.interfaces:
             interface_sliver = sliver.interface_info.interfaces[interface_name]
             labs: Labels = interface_sliver.get_labels()
             caps: Capacities = interface_sliver.get_capacities()
+            peer_labs: Labels = interface_sliver.get_peer_labels()
+            site_data = None
             if labs.device_name is None:
                 raise NetHandlerException(f'l3vpn - interface "{interface_name}" has no "device_name" label')
-            if device_name is None:
-                device_name = labs.device_name
-                data['device'] = device_name
-            elif device_name != labs.device_name:
-                raise NetHandlerException(
-                    f'fabnetv4 - has two different device_name "{device_name}" and "{labs.device_name}"')
+            # find site_data by labs.device_name
+            for sd in data['site']:
+                if sd['device'] == labs.device_name:
+                    site_data = sd
+                    break
+            if site_data is None:
+                if peer_labs:
+                    site_data = {"device": labs.device_name, "bgp": {}}
+                else:
+                    site_data = {"device": labs.device_name, "direct": {"interface": []}}
+                data['site'].append(site_data)
             interface = {}
             if labs.local_name is None:
-                raise NetHandlerException(f'fabnetv4 - interface "{interface_name}" has no "local_name" label')
+                raise NetHandlerException(f'l3vpn - interface "{interface_name}" has no "local_name" label')
             interface_type_id = re.findall(r'(\w+)(\d.+)', labs.local_name)
             if not interface_type_id or len(interface_type_id[0]) != 2:
-                raise NetHandlerException(f'fabnetv4 - interface "{interface_name}" has malformed "local_name" label')
+                raise NetHandlerException(f'l3vpn - interface "{interface_name}" has malformed "local_name" label')
             interface['type'] = interface_type_id[0][0]
             interface['id'] = interface_type_id[0][1]
             if labs.vlan is None:
@@ -730,22 +736,60 @@ class NetHandler(HandlerBase):
                 interface['outervlan'] = labs.vlan
             if int(interface['outervlan']) > 0 and labs.inner_vlan is not None:
                 interface['innervlan'] = labs.inner_vlan
-            interfaces.append(interface)
-        if not interfaces:
-            raise NetHandlerException(f'fabnetv4 - none valid interface is defined in sliver')
-        if sliver.get_gateway() is None:
-            raise NetHandlerException(f'fabnetv4 - sliver missing gateway')
-        gateway = sliver.get_gateway()
-        if gateway.lab is None:
-            raise NetHandlerException(f'fabnetv4 - sliver gateway missing labels')
-        if gateway.lab.ipv4 is None:
-            raise NetHandlerException(f'fabnetv4 - sliver gateway missing "ipv4" label')
-        if gateway.lab.ipv4_subnet is None:
-            raise NetHandlerException(f'fabnetv4 - sliver gateway missing "ipv4_subnet" label')
-        # assume sliver has verified gateway.lab.ipv4 is included in gateway.lab.ipv4_subnet that has a valid subnet prefix
-        data['gateway-ipv4'] = {'address': gateway.lab.ipv4, 'netmask': str(gateway.lab.ipv4_subnet).split('/')[1]}
-        if gateway.lab.mac is not None:
-            data['gateway-mac-address'] = gateway.lab.mac
+            if peer_labs:
+                if 'interface' in site_data['bgp']:
+                    raise NetHandlerException(f'l3vpn - cannot have more than one BGP interface for site {site_data["device"]}')
+                site_data['bgp']['interface'] = interface
+                # add peering local
+                if labs.ipv4_subnet:
+                    ipv4_addr_mask = labs.ipv4_subnet.split('/')
+                    site_data['bgp']['local-ipv4'] = {'address': ipv4_addr_mask[0], 'netmask': ipv4_addr_mask[1]}
+                elif labs.ipv6_subnet:
+                    ipv6_addr_mask = labs.ipv6_subnet.split('/')
+                    site_data['bgp']['local-ipv4'] = {'address': ipv6_addr_mask[0], 'netmask': ipv6_addr_mask[1]}
+                else:
+                    raise NetHandlerException(f'l3vpn - missing ipv4_subnet or ipv6_subnet label on BGP interface for site {site_data["device"]}')
+                # add bgp peering remote
+                if peer_labs.ipv4_subnet:
+                    ipv4_addr_mask = peer_labs.ipv4_subnet.split('/')
+                    site_data['bgp']['remote-ipv4'] = {'address': ipv4_addr_mask[0], 'netmask': ipv4_addr_mask[1]}
+                elif labs.ipv6_subnet:
+                    ipv6_addr_mask = peer_labs.ipv6_subnet.split('/')
+                    site_data['bgp']['remote-ipv4'] = {'address': ipv6_addr_mask[0], 'netmask': ipv6_addr_mask[1]}
+                else:
+                    raise NetHandlerException(f'l3vpn - missing peering label ipv4_subnet or ipv6_subnet on BGP interface for site {site_data["device"]}')
+                if peer_labs.asn:
+                    site_data['bgp']['remote-asn'] = peer_labs.asn
+                else:
+                    raise NetHandlerException(f'l3vpn - missing peering label asn on BGP interface for site {site_data["device"]}')
+                if peer_labs.bgp_key:
+                    site_data['bgp']['auth-key'] = peer_labs.bgp_key
+            else:
+                site_data['direct']['interface'].append(interface)
+                # add gateway
+                if labs.ipv4_subnet:
+                    if 'gateway-ipv4' in site_data['direct']:
+                        pass
+                    elif 'gateway-ipv6' in site_data['direct']:
+                        raise NetHandlerException(
+                            f'l3vpn - conflicting ipv4_subnet and ipv6_subnet labels for direct gateway config on site {site_data["device"]}')
+                    else:
+                        ipv4_addr_mask = labs.ipv4_subnet.split('/')
+                        site_data['direct']['gateway-ipv4'] = {'address': ipv4_addr_mask[0], 'netmask': ipv4_addr_mask[1]}
+                elif labs.ipv6_subnet:
+                    if 'gateway-ipv6' in site_data['direct']:
+                        pass
+                    elif 'gateway-ipv4' in site_data['direct']:
+                        raise NetHandlerException(
+                            f'l3vpn - conflicting ipv4_subnet and ipv6_subnet labels for direct gateway config on site {site_data["device"]}')
+                    else:
+                        ipv6_addr_mask = labs.ipv6_subnet.split('/')
+                        site_data['direct']['gateway-ipv4'] = {'address': ipv6_addr_mask[0], 'netmask': ipv6_addr_mask[1]}
+                else:
+                    raise NetHandlerException(
+                        f'l3vpn - require either ipv4_subnet or ipv6_subnet label for interface via direct gateway on site {site_data["device"]}')
+        if len(data['site']) < 2:
+            raise NetHandlerException(f'l3vpn - need at least 2 sites defined in sliver')
         return data
 
     def __portmirror_create_data(self, sliver: NetworkServiceSliver, service_name: str) -> dict:

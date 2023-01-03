@@ -190,7 +190,15 @@ class TestNetHandler(unittest.TestCase):
         # name and peer interface sliver name.
         isl1.set_type(InterfaceType.ServicePort)
 
+        # inner_vlan - not used for now - user would fill it in directly on the sliver Labels -
+        # need to discuss.
+        # sl1labs.set_fields(inner_vlan='3')
+        # vlan - source: (c)
+        # local_name source: (a)
+        # NSO device name source: (a) - need to find the owner switch of the network service in CBM
+        # and take its .name or labels.local_name
         sliver_labels = Labels(vlan='101', local_name='HundredGigE0/0/0/5', device_name='uky-data-sw')
+        # capacities (bw in Gbps, burst size is in Mbytes) source: (b)
         sliver_capacities = Capacities(bw=1)
 
         # assign labels and capacities
@@ -204,15 +212,8 @@ class TestNetHandler(unittest.TestCase):
         isl2.set_name('Interface2')
         isl2.set_type(InterfaceType.ServicePort)
 
-        sliver_labels = Labels()
-        sliver_capacities = Capacities()
-
-        sliver_labels.set_fields(vlan='102')
-        sliver_labels.set_fields(inner_vlan='200')
-        sliver_labels.set_fields(local_name='HundredGigE0/0/0/5')
-        sliver_labels.set_fields(device_name='uky-data-sw')
-
-        sliver_capacities.set_fields(bw=1)
+        sliver_labels = Labels(vlan='102', inner_vlan='200', local_name='HundredGigE0/0/0/5', device_name='uky-data-sw')
+        sliver_capacities = Capacities(bw=1)
 
         isl2.set_labels(sliver_labels)
         isl2.set_capacities(sliver_capacities)
@@ -392,14 +393,8 @@ class TestNetHandler(unittest.TestCase):
         stp_a.set_name('Interface1')
         stp_a.set_type(InterfaceType.ServicePort)
 
-        sliver_labels = Labels()
-        sliver_capacities = Capacities()
-
-        sliver_labels.set_fields(vlan='235')
-        sliver_labels.set_fields(local_name='HundredGigE0/0/0/17')
-        sliver_labels.set_fields(device_name='renc-data-sw')
-
-        sliver_capacities.set_fields(bw=1000)
+        sliver_labels = Labels(vlan='235', local_name='HundredGigE0/0/0/17', device_name='renc-data-sw')
+        sliver_capacities = Capacities(bw=1000)
 
         stp_a.set_labels(sliver_labels)
         stp_a.set_capacities(sliver_capacities)
@@ -411,14 +406,8 @@ class TestNetHandler(unittest.TestCase):
         stp_z.set_name('Interface2')
         stp_z.set_type(InterfaceType.ServicePort)
 
-        sliver_labels = Labels()
-        sliver_capacities = Capacities()
-
-        sliver_labels.set_fields(vlan='235')
-        sliver_labels.set_fields(local_name='HundredGigE0/0/0/13')
-        sliver_labels.set_fields(device_name='uky-data-sw')
-
-        sliver_capacities.set_fields(bw=1000)
+        sliver_labels = Labels(vlan='235', local_name='HundredGigE0/0/0/13', device_name='uky-data-sw')
+        sliver_capacities = Capacities(bw=1000)
 
         stp_z.set_labels(sliver_labels)
         stp_z.set_capacities(sliver_capacities)
@@ -483,12 +472,9 @@ class TestNetHandler(unittest.TestCase):
         stp_a1 = InterfaceSliver()
         stp_a1.set_name('Interface_A1')
         stp_a1.set_type(InterfaceType.ServicePort)
-        sliver_labels = Labels()
-        sliver_capacities = Capacities()
+        sliver_labels = Labels(local_name='TwentyFiveGigE0/0/0/23/1', device_name='lbnl-data-sw')
+        sliver_capacities = Capacities(bw=2000)
         # untagged w/o vlan label set
-        sliver_labels.set_fields(local_name='TwentyFiveGigE0/0/0/23/1')
-        sliver_labels.set_fields(device_name='lbnl-data-sw')
-        sliver_capacities.set_fields(bw=2000)
         stp_a1.set_labels(sliver_labels)
         stp_a1.set_capacities(sliver_capacities)
 
@@ -498,24 +484,17 @@ class TestNetHandler(unittest.TestCase):
         stp_z1 = InterfaceSliver()
         stp_z1.set_name('Interface_Z1')
         stp_z1.set_type(InterfaceType.ServicePort)
-        sliver_labels = Labels()
-        sliver_capacities = Capacities()
-        sliver_labels.set_fields(vlan='235')
-        sliver_labels.set_fields(local_name='HundredGigE0/0/0/13')
-        sliver_labels.set_fields(device_name='uky-data-sw')
-        sliver_capacities.set_fields(bw=1000)
+        sliver_labels = Labels(vlan='235', local_name='HundredGigE0/0/0/13', device_name='uky-data-sw')
+        sliver_capacities = Capacities(bw=1000)
         stp_z1.set_labels(sliver_labels)
         stp_z1.set_capacities(sliver_capacities)
 
         stp_z2 = InterfaceSliver()
         stp_z2.set_name('Interface_Z2')
         stp_z2.set_type(InterfaceType.ServicePort)
-        sliver_labels = Labels()
-        sliver_capacities = Capacities()
+        sliver_labels = Labels(local_name='TwentyFiveGigE0/0/0/23/2', device_name='uky-data-sw')
+        sliver_capacities = Capacities(bw=1000)
         # untagged w/o vlan label set
-        sliver_labels.set_fields(local_name='TwentyFiveGigE0/0/0/23/2')
-        sliver_labels.set_fields(device_name='uky-data-sw')
-        sliver_capacities.set_fields(bw=1000)
         stp_z2.set_labels(sliver_labels)
         stp_z2.set_capacities(sliver_capacities)
 
@@ -887,7 +866,6 @@ class TestNetHandler(unittest.TestCase):
         self.assertEqual(r[Constants.PROPERTY_TARGET_RESULT_CODE], Constants.RESULT_CODE_OK)
 
     def test_CleanRestart(self):
-
         # create a NetworkService sliver for FABNetv6
         prop = {AmConstants.CONFIG_PROPERTIES_FILE: '../config/net_handler_config.yml'}
 

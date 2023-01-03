@@ -36,6 +36,7 @@ class AmConstants:
     RUNTIME_SECTION = "runtime"
     RT_DISABLE_FIP = "disable_fip"
     RT_SSH_RETRIES = "ssh_retries"
+    RT_DELETE_RETRIES = "delete_retries"
     RT_IMAGES = "images"
 
     PLAYBOOK_SECTION = "playbooks"
@@ -84,6 +85,8 @@ class AmConstants:
     PCI_DOMAIN = "domain"
     PCI_BUS = "bus"
     PCI_SLOT = "slot"
+    PCI_BDF = "bdf"
+    PCI_DEVICE_NUMBER = "pci_device_number"
     PCI_FUNCTION = "function"
     PCI_OPERATION = "pci_prov_op"
     PROV_ATTACH = "attach"
@@ -111,3 +114,6 @@ class AmConstants:
     IPV6_PREFIX = "ipv6_prefix"
     ADDRESS_LIST = "address_list"
     ADMIN_SSH_KEY = "admin_ssh_key"
+
+    NETWORK_SECTION = "network"
+    NET_BORDER_ROUTERS = "border_routers"
