@@ -38,4 +38,4 @@ playbooks:
   L3VPN: netam_nso_data.yml
   PortMirror: netam_nso_data.yml
 network:
-  border_routers: star-data-sw,wash-data-sw
+  border_routers: renc-data-sw,lbnl-data-sw
