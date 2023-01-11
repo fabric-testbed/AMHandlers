@@ -650,7 +650,8 @@ class TestNetHandler(unittest.TestCase):
         # allow one IPv4 address for external access
         # sliver_labs = Labels(ipv4="10.128.128.123")
         # or allow for a list of IPv4 addresses
-        sliver_labs = Labels(ipv4=["10.128.128.10", "10.128.128.20", "10.128.128.30"])
+        #sliver_labs = Labels(ipv4=["10.128.128.10", "10.128.128.20", "10.128.128.30"])
+        sliver_labs = Labels(ipv4=[])
         sliver.set_labels(sliver_labs)
 
         #
