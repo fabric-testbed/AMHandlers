@@ -685,7 +685,7 @@ class NetHandler(HandlerBase):
                 rule = {"id": rule_id, "address": addr}
                 permit_rules.append(rule)
                 rule_id = rule_id + 1
-            data['external-access'] = {'border-router': border_routers, 'permit-ipv4': permit_rules}
+            data['external-access'] = {'ip-type': 'v4', 'border-router': border_routers, 'permit-ipv4': permit_rules}
         return data
 
     def __fabnetv6_create_data(self, sliver: NetworkServiceSliver, service_name: str) -> dict:
@@ -766,7 +766,7 @@ class NetHandler(HandlerBase):
                 rule = {"id": rule_id, "address": addr}
                 permit_rules.append(rule)
                 rule_id = rule_id + 1
-            data['external-access'] = {'border-router': border_routers, 'permit-ipv6': permit_rules}
+            data['external-access'] = {'ip-type': 'v6', 'border-router': border_routers, 'permit-ipv6': permit_rules}
         return data
 
     def __l3vpn_create_data(self, sliver: NetworkServiceSliver, service_name: str) -> dict:
