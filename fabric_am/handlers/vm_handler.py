@@ -134,7 +134,7 @@ class VMHandler(HandlerBase):
 
             user = self.__get_default_user(image=image)
 
-            if disable_fip:
+            if disable_fip or (sliver.flags is not None and not sliver.flags.ipv4_management):
                 self.get_logger().info("Floating IP is disabled, using IPV6 Global Unicast Address")
                 fip = instance_props.get(AmConstants.SERVER_ACCESS_IPV6, None)
             else:
