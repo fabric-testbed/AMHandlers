@@ -657,15 +657,14 @@ class NetHandler(HandlerBase):
         # handle external-access for a FABNetv4Ext service
         if service_type == "fabnetv4ext":
             sliver_labs: Labels = sliver.get_labels()
-            if sliver_labs.ipv4 is None:
-                raise NetHandlerException(f'fabnetv4ext - sliver missing "ipv4" label for one or list of allowed addresses')
             allowed_addrs = []
-            if type(sliver_labs.ipv4) is str:
-                allowed_addrs.append(sliver_labs.ipv4)
-            elif type(sliver_labs.ipv4) is list:
-                allowed_addrs = sliver_labs.ipv4
-            else:
-                raise NetHandlerException(f'fabnetv4ext - sliver label "ipv4" label must be `str` or `list` instead of type {type(sliver_labs.ipv4)}')
+            if sliver_labs is not None and sliver_labs.ipv4 is not None:
+                if type(sliver_labs.ipv4) is str:
+                    allowed_addrs.append(sliver_labs.ipv4)
+                elif type(sliver_labs.ipv4) is list:
+                    allowed_addrs = sliver_labs.ipv4
+                else:
+                    raise NetHandlerException(f'fabnetv4ext - sliver label "ipv4" label must be `str` or `list` instead of type {type(sliver_labs.ipv4)}')
             border_routers = []
             if AmConstants.NETWORK_SECTION not in self.get_config()  \
                 or AmConstants.NET_BORDER_ROUTERS not in self.get_config()[AmConstants.NETWORK_SECTION]:
@@ -738,15 +737,14 @@ class NetHandler(HandlerBase):
         # handle external-access for a FABNetv6Ext service
         if service_type == "fabnetv6ext":
             sliver_labs: Labels = sliver.get_labels()
-            if sliver_labs.ipv6 is None:
-                raise NetHandlerException(f'fabnet64ext - sliver missing "ipv6" label for one or list of allowed addresses')
             allowed_addrs = []
-            if type(sliver_labs.ipv6) is str:
-                allowed_addrs.append(sliver_labs.ipv6)
-            elif type(sliver_labs.ipv6) is list:
-                allowed_addrs = sliver_labs.ipv6
-            else:
-                raise NetHandlerException(f'fabnet64ext - sliver label "ipv6" label must be `str` or `list` instead of type {type(sliver_labs.ipv6)}')
+            if sliver_labs is not None and sliver_labs.ipv6 is not None:
+                if type(sliver_labs.ipv6) is str:
+                    allowed_addrs.append(sliver_labs.ipv6)
+                elif type(sliver_labs.ipv6) is list:
+                    allowed_addrs = sliver_labs.ipv6
+                else:
+                    raise NetHandlerException(f'fabnet64ext - sliver label "ipv6" label must be `str` or `list` instead of type {type(sliver_labs.ipv6)}')
             border_routers = []
             if AmConstants.NETWORK_SECTION not in self.get_config()  \
                 or AmConstants.NET_BORDER_ROUTERS not in self.get_config()[AmConstants.NETWORK_SECTION]:
