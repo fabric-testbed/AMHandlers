@@ -38,6 +38,19 @@
       data: "{{ data }}"
     when: operation == 'delete'
 
+
+  - name: Delete idipa service - upon modify
+    nso_config:
+      url: "{{ url }}"
+      username: "{{ username }}"
+      password: "{{ password }}"
+      data:
+        tailf-ncs:services:
+          idipa:idipa:
+          - name: "{{ service_name }}"
+            __state: absent
+    when: (service == 'l2ptp' or service == 'l2sts' or service == 'l3rt' or service == 'l3vpn') and operation == 'modify'
+
   - name: Modify network service - delete first
     nso_config:
       url: "{{ url }}"
@@ -45,6 +58,19 @@
       password: "{{ password }}"
       data: "{{ data_delete }}"
     when: operation == 'modify'
+
+  - name: Create idipa service - create again
+    nso_config:
+      url: "{{ url }}"
+      username: "{{ username }}"
+      password: "{{ password }}"
+      data:
+        tailf-ncs:services:
+          idipa:idipa:
+          - name: "{{ service_name }}"
+            group:
+              service: "{{ service }}"
+    when: (service == 'l2ptp' or service == 'l2sts' or service == 'l3rt' or service == 'l3vpn') and operation == 'modify'
 
   - name: Modify network service - create again
     nso_config:
