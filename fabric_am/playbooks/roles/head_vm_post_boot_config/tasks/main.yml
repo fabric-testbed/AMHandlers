@@ -25,27 +25,9 @@
 # Author: Komal Thareja (kthare10@renci.org)
 # /tasks/main.yml
 #
-- name: Install needed network manager libs
-  become: true
-  dnf:
-    state: present
-    name:
-      - pciutils
-      - net-tools
-  when: image == 'centos' or image == 'rocky'
-
-- name: Install needed network manager libs
-  apt:
-    name:
-      - pciutils
-      - net-tools
-    state: present
-    update_cache: yes
-  when: image == 'ubuntu'
-
 - name: Determine the PCI Address provided PCI Device Number
   ansible.builtin.shell:
-    lspci -n | grep {{ pci_device_number }} | awk '{print $1}'
+    dmesg | grep {{ pci_device_number }} | awk '{print $4}'
   when: image == 'get_pci'
   register: bdf
 

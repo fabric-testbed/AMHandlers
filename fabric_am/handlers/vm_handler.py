@@ -570,6 +570,7 @@ class VMHandler(HandlerBase):
                           AmConstants.PROV_DEVICE: device_name}
             if attach:
                 extra_vars[AmConstants.PCI_OPERATION] = AmConstants.PROV_ATTACH
+                component.label_allocations.bdf = []
             else:
                 extra_vars[AmConstants.PCI_OPERATION] = AmConstants.PROV_DETACH
 
@@ -595,7 +596,11 @@ class VMHandler(HandlerBase):
                 if attach:
                     pci_device_number = ok.get(AmConstants.ANSIBLE_FACTS)[AmConstants.PCI_DEVICE_NUMBER]
                     ok = self.__post_boot_config(mgmt_ip=mgmt_ip, user=user, pci_device_number=pci_device_number)
-                    component.label_allocations.bdf = f'0000:{str(ok.get(AmConstants.ANSIBLE_FACTS)[AmConstants.PCI_BDF])}'
+                    bdf_list = str(ok.get(AmConstants.ANSIBLE_FACTS)[AmConstants.PCI_BDF]).split("\n")
+                    bdf = bdf_list[-1]
+                    if bdf.endswith(":"):
+                        bdf = bdf[:-1]
+                    component.label_allocations.bdf.append(bdf)
         except Exception as e:
             self.get_logger().error(f"Error occurred attach:{attach}/detach: {not attach} device: {component}")
             self.get_logger().error(traceback.format_exc())
