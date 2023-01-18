@@ -679,7 +679,7 @@ class NetHandler(HandlerBase):
                         f'fabnetv4ext - malformed config of device name {abr} in [{AmConstants.NETWORK_SECTION}][{AmConstants.NET_BORDER_ROUTERS}]')
                 border_routers.append({"device": abr})
             permit_rules = []
-            rule_id = 100
+            rule_id = 10
             for addr in allowed_addrs:
                 rule = {"id": rule_id, "address": addr}
                 permit_rules.append(rule)
@@ -759,7 +759,7 @@ class NetHandler(HandlerBase):
                         f'fabnet64ext - malformed config of device name {abr} in [{AmConstants.NETWORK_SECTION}][{AmConstants.NET_BORDER_ROUTERS}]')
                 border_routers.append({"device": abr})
             permit_rules = []
-            rule_id = 100
+            rule_id = 10
             for addr in allowed_addrs:
                 rule = {"id": rule_id, "address": addr}
                 permit_rules.append(rule)
