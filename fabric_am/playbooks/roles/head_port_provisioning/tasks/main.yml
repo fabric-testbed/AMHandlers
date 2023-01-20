@@ -26,91 +26,64 @@
 # /tasks/main.yml
 #
 
-- name: Create a VM
-  openstack.cloud.server:
+# Create a port
+- name: Create a port for a network
+  openstack.cloud.port:
     state: present
     auth:
       auth_url: "{{ auth_url }}"
       password: "{{ password }}"
       project_name: "{{ project_name }}"
       username: "{{ username }}"
-    name: "{{ vmname }}"
-    image: "{{ image }}"
-    key_name: "{{ key_name }}"
-    timeout: 200
-    flavor: "{{ flavor }}"
-    availability_zone: "{{ availability_zone }}"
-    nics:
-      - net-name: "{{ net_name }}"
-    security_groups: "{{ security_group }}"
-    meta:
-      hostname: "{{ hostname }}"
-    userdata: |
-      {%- raw -%}#!/bin/bash
-      echo {% endraw -%}"{{ sshkey }}"{%- raw -%} >> /home/{% endraw -%}"{{ default_user }}"{%- raw -%}/.ssh/authorized_keys
-      {% endraw %}
-      {{ init_script }}
-  when: vm_prov_op == 'create'
+    name: "{{ portname }}"
+    network: "{{ networkname }}"
+    port_security_enabled: no
+    mac_address: "{{ mac }}"
+  when: port_prov_op == 'create' and ip_address is not defined
 
-- name: Attach a floating IP to the instance
-  openstack.cloud.floating_ip:
-    auth:
-      auth_url: "{{ auth_url }}"
-      password: "{{ password }}"
-      project_name: "{{ project_name }}"
-      username: "{{ username }}"
-    server: "{{ vmname }}"
+- name: Create a port for a network
+  openstack.cloud.port:
     state: present
-    reuse: yes
-    wait: true
-    timeout: 200
-    network: "{{ ext_network }}"
-  when: vm_prov_op == 'attach_fip'
+    auth:
+      auth_url: "{{ auth_url }}"
+      password: "{{ password }}"
+      project_name: "{{ project_name }}"
+      username: "{{ username }}"
+    name: "{{ portname }}"
+    network: "{{ networkname }}"
+    port_security_enabled: no
+    mac_address: "{{ mac }}"
+    ip_address: "{{ ip_address }}"
+  when: port_prov_op == 'create' and ip_address is defined
 
-- name: Delete a VM
-  os_server:
+# Connects the VLans port with the VM using their ID's
+- name: Connects VM to the port
+  ansible.builtin.command: openstack server add port "{{ vmname }}" "{{ portname }}"
+  when: port_prov_op == 'create'
+
+# Detaches a VM from port using their ID's
+- name: Removes VM from port
+  ansible.builtin.command: openstack server remove port "{{ vmname }}" "{{ portname }}"
+  when: port_prov_op == 'detach'
+
+# Deletes a port using its name
+- name: Delete a port for a network
+  openstack.cloud.port:
     state: absent
     auth:
       auth_url: "{{ auth_url }}"
       password: "{{ password }}"
       project_name: "{{ project_name }}"
       username: "{{ username }}"
-    name: "{{ vmname }}"
-    delete_fip: yes
-  when: vm_prov_op == 'delete'
+    name: "{{ portname }}"
+  when: port_prov_op == 'delete' or port_prov_op == 'detach'
 
-- name: Get a VM
-  openstack.cloud.server_info:
-    auth:
-      auth_url: "{{ auth_url }}"
-      password: "{{ password }}"
-      project_name: "{{ project_name }}"
-      username: "{{ username }}"
-    filters:
-      name: "{{ vmname }}"
-  register: result
-  when: vm_prov_op == 'get'
-
-- name: List all VMs
-  openstack.cloud.server_info:
+- name: List all Ports
+  openstack.cloud.port_info:
     auth:
       auth_url: "{{ auth_url }}"
       password: "{{ password }}"
       project_name: "{{ project_name }}"
       username: "{{ username }}"
   register: result
-  when: vm_prov_op == 'delete_all' or vm_prov_op == 'list'
-
-- name: Delete all VMs
-  os_server:
-    state: absent
-    auth:
-      auth_url: "{{ auth_url }}"
-      password: "{{ password }}"
-      project_name: "{{ project_name }}"
-      username: "{{ username }}"
-    name: "{{ item['name'] }}"
-    delete_fip: yes
-  when: vm_prov_op == 'delete_all'
-  with_items:
-    - "{{ result['openstack_servers'] }}"
+  when: port_prov_op == 'delete_all' or port_prov_op == 'list'

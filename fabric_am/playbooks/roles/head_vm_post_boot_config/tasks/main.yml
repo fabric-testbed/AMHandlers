@@ -25,40 +25,12 @@
 # Author: Komal Thareja (kthare10@renci.org)
 # /tasks/main.yml
 #
-- name: Install needed network manager libs
-  become: true
-  dnf:
-    state: present
-    name:
-      - net-tools
-      - NetworkManager
-  when: image == 'centos' or image == 'rocky'
-
-- name: Install needed network manager libs
-  apt:
-    name:
-      - net-tools
-      - network-manager
-      - network-manager-gnome
-    state: present
-    update_cache: yes
-  when: image == 'ubuntu'
-
-- name: Update the renderer to NetworkManager
-  lineinfile:
-    state: present
-    path: /etc/netplan/50-cloud-init.yaml
-    regexp: "renderer: NetworkManager"
-    insertafter: "^network:"
-    line: "    renderer: NetworkManager"
-  when: image == 'ubuntu'
-
-- name: Apply the netplan
+- name: Determine the PCI Address provided PCI Device Number
   ansible.builtin.shell:
-     netplan apply
-  when: image == 'ubuntu'
+    dmesg | grep {{ pci_device_number }} | awk '{print $4}'
+  when: image == 'get_pci'
+  register: bdf
 
-- name: Start service network manager, if not started
-  ansible.builtin.service:
-    name: NetworkManager
-    state: started
+- set_fact:
+    bdf: "{{ bdf.stdout }}"
+  when: image == 'get_pci'
