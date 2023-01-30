@@ -55,8 +55,9 @@
     method: GET
     validate_certs: no
   register: provision_result
+  failed_when: "('error' in provision_result.json)"
   
 - name: Print circuit provison result
   debug:
-    msg: "{{ provision_result }}"
+    msg: "{{ provision_result.json }}"
     
