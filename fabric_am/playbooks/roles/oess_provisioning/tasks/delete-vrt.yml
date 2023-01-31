@@ -61,6 +61,7 @@
   when: item.name == name  
   loop: "{{get_result.json}}"
   register: remove_vrf
+  failed_when: "('error' in remove_vrf.json)"
   
 - name: Print L3 remove result
   debug:

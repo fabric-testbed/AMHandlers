@@ -61,6 +61,7 @@
   when: item.description == description  
   loop: "{{get_result.json.results}}"
   register: remove_result
+  failed_when: "('error' in remove_result.json)"
   
 - name: Print circuit remove result
   debug:
