@@ -1,3 +1,0 @@
-ansible
-paramiko
-fabric-cf==1.4.0
