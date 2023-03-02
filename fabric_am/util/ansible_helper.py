@@ -129,7 +129,9 @@ class ResultsCollectorJSONCallback(CallbackBase):
             status = True
             result = self.get_json_result_failed()
             if result is not None:
-                msg = result.get('msg', None)
+                msg = result.get('json')
+                if msg is None:
+                    msg = result.get('msg', None)
             else:
                 result = self.get_json_result_unreachable()
                 if result is not None:
