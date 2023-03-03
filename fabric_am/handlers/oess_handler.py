@@ -228,7 +228,8 @@ class OessHandler(HandlerBase):
             endpoint['node'] = labs.device_name
             if labs.local_name is None:
                 raise OessHandlerException(f'l2ptp - interface "{interface_name}" has no "local_name" label')
-            endpoint['bandwidth'] = caps.bw * 1000
+            if caps is not None and caps.bw is not None:
+                endpoint['bandwidth'] = caps.bw * 1000
             endpoint['interface'] = labs.local_name
             endpoint['tag'] = labs.vlan
             if labs.account_id != None:
@@ -272,11 +273,11 @@ class OessHandler(HandlerBase):
             endpoint['node'] = labs.device_name
             if labs.local_name is None:
                 raise OessHandlerException(f'l3vpn - interface "{interface_name}" has no "local_name" label')
-                
-            endpoint['bandwidth'] = caps.bw * 1000      # specified in Mbps
+            if caps is not None and caps.bw is not None:
+                endpoint['bandwidth'] = caps.bw * 1000      # specified in Mbps
             endpoint['interface'] = labs.local_name
             endpoint['tag'] = str(labs.vlan)
-            endpoint['jumbo'] = 1 if caps.mtu > 9000 else 0
+            endpoint['jumbo'] = 1 if caps is not None and caps.mtu is not None and caps.mtu > 9000 else 0
             endpoint['cloud_account_id'] = peerlabs.account_id
              
             peering = {}
@@ -327,7 +328,8 @@ class OessHandler(HandlerBase):
             endpoint['node'] = labs.device_name
             if labs.local_name is None:
                 raise OessHandlerException(f'l2ptp - interface "{interface_name}" has no "local_name" label')
-            endpoint['bandwidth'] = caps.bw
+            if caps is not None and caps.bw is not None:
+                endpoint['bandwidth'] = caps.bw
             endpoint['interface'] = labs.local_name
             endpoint['tag'] = labs.vlan
             endpoint['cloud_account_id'] = labs.account_id
@@ -373,12 +375,14 @@ class OessHandler(HandlerBase):
                 self.get_logger().error(f"local asn is inconsistant in __l3cloud_create_data")
                 raise OessHandlerException(f'l3cloud - interface "{interface_name}" has inconsistant local_asn')
             elif not local_asn:
-                local_asn = labs.asn;
-                
-            endpoint['bandwidth'] = caps.bw
+                local_asn = labs.asn
+
+            if caps is not None and caps.bw is not None:
+                endpoint['bandwidth'] = caps.bw
             endpoint['interface'] = labs.local_name
             endpoint['tag'] = labs.vlan
-            endpoint['jumbo'] = caps.jumbo
+            if caps is not None and caps.jumbo is not None:
+                endpoint['jumbo'] = caps.jumbo
             endpoint['cloud_account_id'] = labs.account_id
             endpoint['peers'] = {}
             if interface_name in sliver.get_peer_labels():
