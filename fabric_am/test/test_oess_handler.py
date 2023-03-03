@@ -54,91 +54,91 @@ class TestOessHandler(unittest.TestCase):
         self.unit = Unit(rid=ID(uid="rid-1"))
     
     
-    # def test_L2Cloud(self):
-    #     # create a NetworkService sliver for L2Cloud
-    #     prop = {AmConstants.CONFIG_PROPERTIES_FILE: '../config/oess_handler_config.yml'}
-    #
-    #     handler = OessHandler(logger=self.logger, properties=prop, process_lock=threading.Lock())
-    #
-    #     #
-    #     # create a network sliver for L2Cloud and its interfaces
-    #     #
-    #     sliver = NetworkServiceSliver();
-    #     # service name - can we use the sliver name - only guaranteed unique in the slice
-    #     sliver.set_name('al2s-circuit-cloud')
-    #     sliver.set_type(ServiceType.L2PTP)
-    #     sliver.set_layer(NSLayer.L2)
-    #
-    #     #
-    #     # endpoint_a interface
-    #     #
-    #     endpoint_a = InterfaceSliver()
-    #     endpoint_a.set_name('Interface1')
-    #     endpoint_a.set_type(InterfaceType.ServicePort)
-    #
-    #     sliver_labels = Labels();
-    #     sliver_capacities = Capacities()
-    #
-    #     sliver_labels._set_fields(vlan='2')
-    #     sliver_labels._set_fields(local_name='HundredGigE0/0/0/7')
-    #     sliver_labels._set_fields(device_name='agg4.ashb.net.internet2.edu')
-    #     sliver_labels._set_fields(account_id='296256999979')
-    #
-    #     sliver_capacities._set_fields(bw=1, mtu=9001)
-    #
-    #     endpoint_a.set_labels(sliver_labels)
-    #     endpoint_a.set_capacities(sliver_capacities)
-    #
-    #     #
-    #     # endpoint_b interface
-    #     #
-    #     endpoint_b = InterfaceSliver()
-    #     endpoint_b.set_name('Interface2')
-    #     endpoint_b.set_type(InterfaceType.ServicePort)
-    #
-    #     # sliver_labels = OessLabels()
-    #     # sliver_capacities = OessCapacities()
-    #     sliver_labels = Labels()
-    #     sliver_capacities = Capacities()
-    #
-    #     sliver_labels._set_fields(vlan='2')
-    #     sliver_labels._set_fields(local_name='TenGigE0/0/0/12/2')
-    #     sliver_labels._set_fields(device_name='agg4.sanj.net.internet2.edu')
-    #     sliver_labels._set_fields(account_id='296256999979')
-    #
-    #     sliver_capacities._set_fields(bw=1, mtu=9001)
-    #
-    #     endpoint_b.set_labels(sliver_labels)
-    #     endpoint_b.set_capacities(sliver_capacities)
-    #
-    #     # create interface info object, add interfaces to it
-    #     ifi = InterfaceInfo()
-    #     ifi.add_interface(endpoint_a)
-    #     ifi.add_interface(endpoint_b)
-    #     #
-    #     # # All of this happens automagically in FIM
-    #     sliver.interface_info = ifi
-    #     uid = uuid.uuid3(uuid.NAMESPACE_DNS, 'test_L2Cloud')
-    #     self.unit = Unit(rid=ID(uid=str(uid)))
-    #     self.unit.set_sliver(sliver=sliver)
-    #
-    #     #
-    #     # create a service
-    #     #
-    #     r, updated_unit = handler.create(unit=self.unit)
-    #     self.assertEqual(r[Constants.PROPERTY_TARGET_NAME], Constants.TARGET_CREATE)
-    #     self.assertEqual(r[Constants.PROPERTY_ACTION_SEQUENCE_NUMBER], 0)
-    #     self.assertEqual(r[Constants.PROPERTY_TARGET_RESULT_CODE], Constants.RESULT_CODE_OK)
-    #
-    #     time.sleep(30)
-    #
-    #     #
-    #     # delete - need to make sure the updated unit has the right info to delete the service
-    #     #
-    #     r, updated_unit = handler.delete(updated_unit)
-    #     self.assertEqual(r[Constants.PROPERTY_TARGET_NAME], Constants.TARGET_DELETE)
-    #     self.assertEqual(r[Constants.PROPERTY_ACTION_SEQUENCE_NUMBER], 0)
-    #     self.assertEqual(r[Constants.PROPERTY_TARGET_RESULT_CODE], Constants.RESULT_CODE_OK)
+    def test_L2Cloud(self):
+        # create a NetworkService sliver for L2Cloud
+        prop = {AmConstants.CONFIG_PROPERTIES_FILE: '../config/oess_handler_config.yml'}
+    
+        handler = OessHandler(logger=self.logger, properties=prop, process_lock=threading.Lock())
+    
+        #
+        # create a network sliver for L2Cloud and its interfaces
+        #
+        sliver = NetworkServiceSliver();
+        # service name - can we use the sliver name - only guaranteed unique in the slice
+        sliver.set_name('al2s-circuit-cloud')
+        sliver.set_type(ServiceType.L2PTP)
+        sliver.set_layer(NSLayer.L2)
+    
+        #
+        # endpoint_a interface
+        #
+        endpoint_a = InterfaceSliver()
+        endpoint_a.set_name('Interface1')
+        endpoint_a.set_type(InterfaceType.ServicePort)
+    
+        sliver_labels = Labels();
+        sliver_capacities = Capacities()
+    
+        sliver_labels._set_fields(vlan='2')
+        sliver_labels._set_fields(local_name='HundredGigE0/0/0/7')
+        sliver_labels._set_fields(device_name='agg4.ashb.net.internet2.edu')
+        sliver_labels._set_fields(account_id='296256999979')
+    
+        sliver_capacities._set_fields(bw=1, mtu=9001)
+    
+        endpoint_a.set_labels(sliver_labels)
+        endpoint_a.set_capacities(sliver_capacities)
+    
+        #
+        # endpoint_b interface
+        #
+        endpoint_b = InterfaceSliver()
+        endpoint_b.set_name('Interface2')
+        endpoint_b.set_type(InterfaceType.ServicePort)
+    
+        # sliver_labels = OessLabels()
+        # sliver_capacities = OessCapacities()
+        sliver_labels = Labels()
+        sliver_capacities = Capacities()
+    
+        sliver_labels._set_fields(vlan='2')
+        sliver_labels._set_fields(local_name='TenGigE0/0/0/12/2')
+        sliver_labels._set_fields(device_name='agg4.sanj.net.internet2.edu')
+        sliver_labels._set_fields(account_id='296256999979')
+    
+        sliver_capacities._set_fields(bw=1, mtu=9001)
+    
+        endpoint_b.set_labels(sliver_labels)
+        endpoint_b.set_capacities(sliver_capacities)
+    
+        # create interface info object, add interfaces to it
+        ifi = InterfaceInfo()
+        ifi.add_interface(endpoint_a)
+        ifi.add_interface(endpoint_b)
+        #
+        # # All of this happens automagically in FIM
+        sliver.interface_info = ifi
+        uid = uuid.uuid3(uuid.NAMESPACE_DNS, 'test_L2Cloud')
+        self.unit = Unit(rid=ID(uid=str(uid)))
+        self.unit.set_sliver(sliver=sliver)
+    
+        #
+        # create a service
+        #
+        r, updated_unit = handler.create(unit=self.unit)
+        self.assertEqual(r[Constants.PROPERTY_TARGET_NAME], Constants.TARGET_CREATE)
+        self.assertEqual(r[Constants.PROPERTY_ACTION_SEQUENCE_NUMBER], 0)
+        self.assertEqual(r[Constants.PROPERTY_TARGET_RESULT_CODE], Constants.RESULT_CODE_OK)
+    
+        time.sleep(30)
+    
+        #
+        # delete - need to make sure the updated unit has the right info to delete the service
+        #
+        r, updated_unit = handler.delete(updated_unit)
+        self.assertEqual(r[Constants.PROPERTY_TARGET_NAME], Constants.TARGET_DELETE)
+        self.assertEqual(r[Constants.PROPERTY_ACTION_SEQUENCE_NUMBER], 0)
+        self.assertEqual(r[Constants.PROPERTY_TARGET_RESULT_CODE], Constants.RESULT_CODE_OK)
     
 
     
