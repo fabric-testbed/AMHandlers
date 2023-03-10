@@ -124,10 +124,17 @@ class OessHandler(HandlerBase):
             # Delete VM in case of failure
             if sliver is not None and unit_id is not None:
                 self.__cleanup(sliver=sliver, unit_id=unit_id)
+            
+            if service_type == 'l2ptp':
+                eps = [(ep['node'], ep['interface']) for ep in service_data['l2_endpoints']]
+            elif service_type == 'l3vpn':
+                eps = [(ep['node'], ep['interface']) for ep in service_data['l3_endpoints']]
+            ext_e = Exception(e, eps)
+                                
             result = {Constants.PROPERTY_TARGET_NAME: Constants.TARGET_CREATE,
                       Constants.PROPERTY_TARGET_RESULT_CODE: Constants.RESULT_CODE_EXCEPTION,
                       Constants.PROPERTY_ACTION_SEQUENCE_NUMBER: 0,
-                      Constants.PROPERTY_EXCEPTION_MESSAGE: e}
+                      Constants.PROPERTY_EXCEPTION_MESSAGE: ext_e}
             self.get_logger().error(e)
             self.get_logger().error(traceback.format_exc())
         finally:
@@ -279,6 +286,7 @@ class OessHandler(HandlerBase):
             endpoint['tag'] = str(labs.vlan)
             endpoint['jumbo'] = 1 if caps is not None and caps.mtu is not None and caps.mtu > 9000 else 0
             endpoint['cloud_account_id'] = peerlabs.account_id
+            endpoint['entity'] = str(sliver.get_name())
              
             peering = {}
             peering['bfd'] = 0

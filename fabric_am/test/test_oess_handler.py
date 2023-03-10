@@ -182,17 +182,64 @@ class TestOessHandler(unittest.TestCase):
         # the user adds a NetworkService to the ASM. The name is set by the FIM as '-' concatenation of service
         # name and peer interface sliver name.
         isl1.set_type(InterfaceType.ServicePort)
-    
-        sliver_labels = Labels(ipv4_subnet='192.168.1.2/30',
-                               vlan='2', 
-                               local_name='HundredGigE0/0/0/7',
-                               device_name='agg4.ashb.net.internet2.edu')
-        sliver_peer_labels = Labels(ipv4_subnet='192.168.1.1/30', asn='64512',
-                                    bgp_key='0xzsEwC7xk6c1fK_h.xHyAdx', account_id='296256999979')
-    
+        
+        ####################
+        #   Scenario #1
+        ####################
+        # sliver_labels = Labels(ipv4_subnet='192.168.1.2/30',
+        #                        vlan='2', 
+        #                        local_name='HundredGigE0/0/0/7',
+        #                        device_name='agg4.ashb.net.internet2.edu')
+        # sliver_peer_labels = Labels(ipv4_subnet='192.168.1.1/30', asn='64512',
+        #                             bgp_key='0xzsEwC7xk6c1fK_h.xHyAdx', account_id='296256999979')
+        #
+        # # capacities (bw in Gbps, burst size is in Mbytes) source: (b)
+        # sliver_capacities = Capacities(bw=1, mtu=9001)
+        
+        ####################
+        #   Scenario #2
+        ####################
+        # sliver_labels = Labels(ipv4_subnet='192.168.30.1/24',
+        #                        vlan='203', 
+        #                        local_name='agg4.dall3.net.internet2.edu:TenGigE0/0/0/14/2',
+        #                        device_name='AL2S')
+        # sliver_peer_labels = Labels(ipv4_subnet='192.168.30.2/24', asn='64512',
+        #                             bgp_key='0xzsEwC7xk6c1fK_h.xHyAdx', account_id='296256999979')
+        #
+        # # capacities (bw in Gbps, burst size is in Mbytes) source: (b)
+        # sliver_capacities = Capacities(bw=10)
+        
+        ####################
+        #   Scenario #3
+        ####################
+        # sliver_labels = Labels(ipv4_subnet='192.168.50.1/24',
+        #                        vlan='852', 
+        #                        local_name='HundredGigE0/0/0/24',
+        #                        device_name='core1.loui.net.internet2.edu')
+        # sliver_peer_labels = Labels(ipv4_subnet='192.168.50.2/24', asn='398900',
+        #                             bgp_key='0xzsEwC7xk6c1fK_h.xHyAdx', account_id='296256999979')
+        #
         # capacities (bw in Gbps, burst size is in Mbytes) source: (b)
-        sliver_capacities = Capacities(bw=1, mtu=9001)
-    
+        # sliver_capacities = Capacities(bw=0)
+        
+        ####################
+        #   Scenario #4
+        ####################
+        sliver_labels = Labels(ipv4_subnet='192.168.50.1/24',
+                               vlan='852', 
+                               local_name='HundredGigE0/0/0/24',
+                               device_name='core1.loui.net.internet2.edu',
+                               bgp_key ='secret')
+        sliver_peer_labels = Labels(ipv4_subnet='192.168.50.2/24', asn='398900',
+                                    bgp_key='secret')
+        
+        # capacities (bw in Gbps, burst size is in Mbytes) source: (b)
+        sliver_capacities = Capacities(bw=0)
+        
+        ####################
+        #   End of Scenario
+        ####################
+        
         # assign labels and capacities
         isl1.set_labels(sliver_labels)
         isl1.set_peer_labels(sliver_peer_labels)
@@ -204,17 +251,38 @@ class TestOessHandler(unittest.TestCase):
         isl2 = InterfaceSliver()
         isl2.set_name('Interface2')
         isl2.set_type(InterfaceType.ServicePort)
-    
-        sliver_labels = Labels(ipv4_subnet='192.168.2.2/30',
-                               vlan='2', 
-                               local_name='TenGigE0/0/0/12/2',
-                               device_name='agg4.sanj.net.internet2.edu')
-        sliver_peer_labels = Labels(ipv4_subnet='192.168.2.1/30', asn='64512',
-                                    bgp_key='0xzsEwC7xk6c1fK_h.xHyAdx', account_id='296256999979')
-    
+        
+        ####################
+        #   Scenario #1
+        ####################
+        # sliver_labels = Labels(ipv4_subnet='192.168.2.2/30',
+        #                        vlan='2', 
+        #                        local_name='TenGigE0/0/0/12/2',
+        #                        device_name='agg4.sanj.net.internet2.edu')
+        # sliver_peer_labels = Labels(ipv4_subnet='192.168.2.1/30', asn='64512',
+        #                             bgp_key='0xzsEwC7xk6c1fK_h.xHyAdx', account_id='296256999979')
+        #
+        # # capacities (bw in Gbps, burst size is in Mbytes) source: (b)
+        # sliver_capacities = Capacities(bw=1, mtu=9001)
+        
+        ####################
+        #   Scenario #2
+        ####################
+        sliver_labels = Labels(ipv4_subnet='192.168.30.1/24',
+                               vlan='204', 
+                               local_name='HundredGigE0/0/0/7',
+                               device_name='agg3.ashb.net.internet2.edu')
+        sliver_peer_labels = Labels(ipv4_subnet='192.168.30.2/24', asn='64512',
+                                    bgp_key='0xzsEwC7xk6c1fK_h.xHyAdx',
+                                    account_id='296256999979')
+        
         # capacities (bw in Gbps, burst size is in Mbytes) source: (b)
-        sliver_capacities = Capacities(bw=1, mtu=9001)
-    
+        sliver_capacities = Capacities(bw=1)
+        
+        ####################
+        #   End of Scenario
+        ####################
+        
         isl2.set_labels(sliver_labels)
         isl2.set_peer_labels(sliver_peer_labels)
         isl2.set_capacities(sliver_capacities)
