@@ -589,7 +589,7 @@ class VMHandler(HandlerBase):
                 }
                 mac = None
                 if len(interface_names) > 0:
-                    mac = ns.interface_info.interfaces[interface_names[idx]].label_allocations.mac
+                    mac = ns.interface_info.interfaces[interface_names[idx]].label_allocations.mac.lower()
                     host_vars[AmConstants.MAC] = mac
 
                 ok = self.__execute_ansible(inventory_path=inventory_path, playbook_path=full_playbook_path,
