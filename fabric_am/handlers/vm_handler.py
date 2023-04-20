@@ -557,7 +557,7 @@ class VMHandler(HandlerBase):
                     continue
                 for ifs in ns.interface_info.interfaces.values():
                     if ifs.label_allocations.mac is not None:
-                        mac.append(ifs.label_allocations.mac)
+                        mac.append(ifs.label_allocations.mac.lower())
 
             if isinstance(component.labels.bdf, str):
                 pci_device_list = [component.labels.bdf]
@@ -598,15 +598,25 @@ class VMHandler(HandlerBase):
                     pci_device_number = ok.get(AmConstants.ANSIBLE_FACTS)[AmConstants.PCI_DEVICE_NUMBER]
                     ok = self.__post_boot_config(mgmt_ip=mgmt_ip, user=user, pci_device_number=pci_device_number,
                                                  mac=mac[idx])
-                    bdf_list = str(ok.get(AmConstants.ANSIBLE_FACTS)[AmConstants.PCI_BDF]).split("\n")
-                    bdf = bdf_list[-1]
-                    if bdf.endswith(":"):
-                        bdf = bdf[:-1]
-                    component.label_allocations.bdf.append(bdf)
-                    if_name = str(ok.get(AmConstants.ANSIBLE_FACTS)[AmConstants.INTERFACE_NAME])
-                    if component.label_allocations.local_name is None:
-                        component.label_allocations.local_name = []
-                    component.label_allocations.local_name.append(if_name)
+                    interface_name = None
+                    bdf_facts = None
+                    ansible_facts = ok.get(AmConstants.ANSIBLE_FACTS)
+                    if ansible_facts is not None:
+                        combined_facts = ansible_facts.get(AmConstants.COMBINED_FACTS)
+                        if combined_facts is not None:
+                            bdf_facts = combined_facts.get(AmConstants.PCI_BDF)
+                            interface_name = combined_facts.get(AmConstants.INTERFACE_NAME)
+
+                    if bdf_facts is not None:
+                        bdf_list = str(bdf_facts).split("\n")
+                        bdf = bdf_list[-1]
+                        if bdf.endswith(":"):
+                            bdf = bdf[:-1]
+                        component.label_allocations.bdf.append(bdf)
+                    if interface_name is not None:
+                        if component.label_allocations.local_name is None:
+                            component.label_allocations.local_name = []
+                        component.label_allocations.local_name.append(str(interface_name))
                     idx += 1
         except Exception as e:
             self.get_logger().error(f"Error occurred attach:{attach}/detach: {not attach} device: {component}")

@@ -98,6 +98,7 @@ class AmConstants:
     INTERFACE_NAME = "if_name"
 
     ANSIBLE_FACTS = "ansible_facts"
+    COMBINED_FACTS = "combine_facts"
 
     VM_NAME = "vmname"
     FLAVOR = "flavor"
