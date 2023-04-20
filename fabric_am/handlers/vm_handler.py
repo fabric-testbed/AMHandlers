@@ -601,12 +601,15 @@ class VMHandler(HandlerBase):
                     interface_name = None
                     bdf_facts = None
                     ansible_facts = ok.get(AmConstants.ANSIBLE_FACTS)
+                    self.logger.debug(f"Ansible Facts: {ansible_facts}")
                     if ansible_facts is not None:
                         combined_facts = ansible_facts.get(AmConstants.COMBINED_FACTS)
+                        self.logger.debug(f"Combined Facts: {combined_facts}")
                         if combined_facts is not None:
                             bdf_facts = combined_facts.get(AmConstants.PCI_BDF)
                             interface_name = combined_facts.get(AmConstants.INTERFACE_NAME)
 
+                    self.logger.debug(f"BDF Facts: {bdf_facts} Interface Name: {interface_name}")
                     if bdf_facts is not None:
                         bdf_list = str(bdf_facts).split("\n")
                         bdf = bdf_list[-1]
