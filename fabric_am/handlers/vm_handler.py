@@ -589,7 +589,7 @@ class VMHandler(HandlerBase):
                 }
                 mac = None
                 if len(interface_names) > 0:
-                    mac = ns.interfaces[interface_names[idx]].label_allocations.mac
+                    mac = ns.interface_info.interfaces[interface_names[idx]].label_allocations.mac
                     host_vars[AmConstants.MAC] = mac
 
                 ok = self.__execute_ansible(inventory_path=inventory_path, playbook_path=full_playbook_path,
@@ -618,7 +618,7 @@ class VMHandler(HandlerBase):
                             bdf = bdf[:-1]
                         component.label_allocations.bdf.append(bdf)
                     if interface_name is not None:
-                        ns.interfaces[interface_names[idx]].label_allocations.mac = str(interface_name)
+                        ns.interface_info.interfaces[interface_names[idx]].label_allocations.mac = str(interface_name)
                     self.logger.info(f"Label Allocations: {component.label_allocations} {ns}")
                     idx += 1
         except Exception as e:
