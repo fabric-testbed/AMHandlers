@@ -601,15 +601,15 @@ class VMHandler(HandlerBase):
                     interface_name = None
                     bdf_facts = None
                     ansible_facts = ok.get(AmConstants.ANSIBLE_FACTS)
-                    self.logger.debug(f"Ansible Facts: {ansible_facts}")
+                    self.logger.info(f"Ansible Facts: {ansible_facts}")
                     if ansible_facts is not None:
                         combined_facts = ansible_facts.get(AmConstants.COMBINED_FACTS)
-                        self.logger.debug(f"Combined Facts: {combined_facts}")
+                        self.logger.info(f"Combined Facts: {combined_facts}")
                         if combined_facts is not None:
                             bdf_facts = combined_facts.get(AmConstants.PCI_BDF)
                             interface_name = combined_facts.get(AmConstants.INTERFACE_NAME)
 
-                    self.logger.debug(f"BDF Facts: {bdf_facts} Interface Name: {interface_name}")
+                    self.logger.info(f"BDF Facts: {bdf_facts} Interface Name: {interface_name}")
                     if bdf_facts is not None:
                         bdf_list = str(bdf_facts).split("\n")
                         bdf = bdf_list[-1]
@@ -620,6 +620,7 @@ class VMHandler(HandlerBase):
                         if component.label_allocations.local_name is None:
                             component.label_allocations.local_name = []
                         component.label_allocations.local_name.append(str(interface_name))
+                    self.logger.info(f"Label Allocations: {component.label_allocations}")
                     idx += 1
         except Exception as e:
             self.get_logger().error(f"Error occurred attach:{attach}/detach: {not attach} device: {component}")
