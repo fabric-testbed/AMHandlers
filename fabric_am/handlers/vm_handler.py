@@ -544,7 +544,7 @@ class VMHandler(HandlerBase):
                                              vm_name=vm_name, unit_id=device_name, component=component,
                                              project_id=project_id, attach=attach)
                 return
-            mac = []
+
             if component.get_type() == ComponentType.SharedNIC:
                 if component.get_model() == Constants.OPENSTACK_VNIC_MODEL:
                     if not attach:
@@ -552,12 +552,12 @@ class VMHandler(HandlerBase):
                                             component=component)
                     return
             # Grab the Mac addresses
-            for ns in component.network_service_info.network_services.values():
-                if ns.interface_info is None or ns.interface_info.interfaces is None:
-                    continue
-                for ifs in ns.interface_info.interfaces.values():
-                    if ifs.label_allocations.mac is not None:
-                        mac.append(ifs.label_allocations.mac.lower())
+            interface_names = []
+            ns = None
+            if component.get_type() in [ComponentType.SmartNIC, ComponentType.SharedNIC]:
+                ns_name = list(component.network_service_info.network_services.keys())[0]
+                ns = component.network_service_info.network_services[ns_name]
+                interface_names = list(ns.interface_info.interfaces.keys())
 
             if isinstance(component.labels.bdf, str):
                 pci_device_list = [component.labels.bdf]
@@ -587,9 +587,10 @@ class VMHandler(HandlerBase):
                     AmConstants.PCI_FUNCTION: device_char_arr[3],
                     AmConstants.PCI_BDF: device
                 }
-
-                if len(mac) > 0:
-                    host_vars[AmConstants.MAC] = mac[idx]
+                mac = None
+                if len(interface_names) > 0:
+                    mac = ns.interfaces[interface_names[idx]].label_allocations.mac
+                    host_vars[AmConstants.MAC] = mac
 
                 ok = self.__execute_ansible(inventory_path=inventory_path, playbook_path=full_playbook_path,
                                             extra_vars=extra_vars, host=worker_node, host_vars=host_vars)
@@ -597,7 +598,7 @@ class VMHandler(HandlerBase):
                 if attach:
                     pci_device_number = ok.get(AmConstants.ANSIBLE_FACTS)[AmConstants.PCI_DEVICE_NUMBER]
                     ok = self.__post_boot_config(mgmt_ip=mgmt_ip, user=user, pci_device_number=pci_device_number,
-                                                 mac=mac[idx])
+                                                 mac=mac)
                     interface_name = None
                     bdf_facts = None
                     ansible_facts = ok.get(AmConstants.ANSIBLE_FACTS)
@@ -617,10 +618,8 @@ class VMHandler(HandlerBase):
                             bdf = bdf[:-1]
                         component.label_allocations.bdf.append(bdf)
                     if interface_name is not None:
-                        if component.label_allocations.local_name is None:
-                            component.label_allocations.local_name = []
-                        component.label_allocations.local_name.append(str(interface_name))
-                    self.logger.info(f"Label Allocations: {component.label_allocations}")
+                        ns.interfaces[interface_names[idx]].label_allocations.mac = str(interface_name)
+                    self.logger.info(f"Label Allocations: {component.label_allocations} {ns}")
                     idx += 1
         except Exception as e:
             self.get_logger().error(f"Error occurred attach:{attach}/detach: {not attach} device: {component}")
