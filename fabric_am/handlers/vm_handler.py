@@ -576,6 +576,8 @@ class VMHandler(HandlerBase):
 
             self.get_logger().info(f"Device List Size: {len(pci_device_list)} List: {pci_device_list}")
             idx = 0
+            pci_device_number = None
+            # Attach/ Detach the PCI Device
             for device in pci_device_list:
                 device_char_arr = self.__extract_device_addr_octets(device_address=device)
                 device = device.replace("0000:", "")
@@ -597,6 +599,17 @@ class VMHandler(HandlerBase):
 
                 if attach:
                     pci_device_number = ok.get(AmConstants.ANSIBLE_FACTS)[AmConstants.PCI_DEVICE_NUMBER]
+                    idx += 1
+
+            # In case of Attach, determine the PCI device id from inside the VM
+            # Also, determine the ethernet interface name in case of Shared/Smart NIC
+            # This is done in a separate loop on purpose to give VM OS to identify PCI devices
+            # and associate mac addresses with them
+            if attach:
+                for idx in range(len(pci_device_list)):
+                    mac = None
+                    if len(interface_names) > 0:
+                        mac = ns.interface_info.interfaces[interface_names[idx]].label_allocations.mac.lower()
                     ok = self.__post_boot_config(mgmt_ip=mgmt_ip, user=user, pci_device_number=pci_device_number,
                                                  mac=mac)
                     interface_name = None
@@ -613,14 +626,16 @@ class VMHandler(HandlerBase):
                     self.logger.info(f"BDF Facts: {bdf_facts} Interface Name: {interface_name}")
                     if bdf_facts is not None:
                         bdf_list = str(bdf_facts).split("\n")
-                        bdf = bdf_list[-1]
-                        if bdf.endswith(":"):
-                            bdf = bdf[:-1]
-                        component.label_allocations.bdf.append(bdf)
+                        for bdf in bdf_list:
+                            if bdf.endswith(":"):
+                                bdf = bdf[:-1]
+                            if bdf not in component.label_allocations.bdf:
+                                component.label_allocations.bdf.append(bdf)
                     if interface_name is not None:
-                        ns.interface_info.interfaces[interface_names[idx]].label_allocations.mac = str(interface_name)
+                        ns.interface_info.interfaces[interface_names[idx]].label_allocations.local_name = str(interface_name)
                     self.logger.info(f"Label Allocations: {component.label_allocations} {ns}")
-                    idx += 1
+                    if ns is not None:
+                        self.logger.info(f"{ns.interface_info.interfaces.values()}")
         except Exception as e:
             self.get_logger().error(f"Error occurred attach:{attach}/detach: {not attach} device: {component}")
             self.get_logger().error(traceback.format_exc())
