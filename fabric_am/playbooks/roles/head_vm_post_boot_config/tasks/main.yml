@@ -25,12 +25,31 @@
 # Author: Komal Thareja (kthare10@renci.org)
 # /tasks/main.yml
 #
+- name: Determine the interface name identified by mac address
+  set_fact:
+    if_name:
+      if_name: "{{ item }}"
+  when:
+    (mac is defined)
+    and
+    (item != 'lo')
+    and
+    (ansible_facts[item]['macaddress'] == mac )
+  with_items:
+    - "{{ ansible_interfaces }}"
+
 - name: Determine the PCI Address provided PCI Device Number
   ansible.builtin.shell:
     dmesg | grep {{ pci_device_number }} | awk '{print $4}'
-  when: image == 'get_pci'
+  when: vm_config_op == 'get_pci'
   register: bdf
 
-- set_fact:
-    bdf: "{{ bdf.stdout }}"
-  when: image == 'get_pci'
+- name: Save the PCI Address determined in the previous step
+  set_fact:
+    bdf:
+      bdf: "{{ bdf.stdout }}"
+  when: vm_config_op == 'get_pci'
+
+- name: Combine facts
+  set_fact:
+    combined_facts: "{{ bdf | combine(if_name | default({})) }}"

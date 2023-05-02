@@ -67,6 +67,8 @@ class AmConstants:
     ATTACHMENTS = "attachments"
     PROV_OP_MOUNT = "mount"
 
+    VM_CONFIG_OP = "vm_config_op"
+
     SERVER = "server"
     SERVER_VM_STATE = "vm_state"
     SERVER_INSTANCE_NAME = "instance_name"
@@ -93,8 +95,10 @@ class AmConstants:
     PROV_DETACH = "detach"
     PROV_DEVICE = "device"
     WORKER_NODE_NAME = "worker_node_name"
+    INTERFACE_NAME = "if_name"
 
     ANSIBLE_FACTS = "ansible_facts"
+    COMBINED_FACTS = "combined_facts"
 
     VM_NAME = "vmname"
     FLAVOR = "flavor"
@@ -117,3 +121,8 @@ class AmConstants:
 
     NETWORK_SECTION = "network"
     NET_BORDER_ROUTERS = "border_routers"
+    ROCKY = "rocky"
+    CENTOS = "centos"
+    UBUNTU = "ubuntu"
+    DEBIAN = "debian"
+    FEDORA = "fedora"

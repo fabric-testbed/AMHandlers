@@ -41,6 +41,7 @@ runtime:
     default_fedora_36: fedora
     default_fedora_37: fedora
     default_rocky_8: rocky
+    default_rocky_9: rocky
     default_ubuntu_18: ubuntu
     default_ubuntu_20: ubuntu
     default_ubuntu_21: ubuntu
