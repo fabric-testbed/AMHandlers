@@ -147,8 +147,6 @@ class VMHandler(HandlerBase):
 
             sliver.label_allocations.instance = instance_props.get(AmConstants.SERVER_INSTANCE_NAME, None)
 
-            self.__post_boot_config(mgmt_ip=fip, user=user)
-
             # Attach any attached PCI Devices
             if sliver.attached_components_info is not None:
                 for component in sliver.attached_components_info.devices.values():
@@ -546,19 +544,21 @@ class VMHandler(HandlerBase):
                                              vm_name=vm_name, unit_id=device_name, component=component,
                                              project_id=project_id, attach=attach)
                 return
-            mac = None
+
             if component.get_type() == ComponentType.SharedNIC:
                 if component.get_model() == Constants.OPENSTACK_VNIC_MODEL:
                     if not attach:
                         self.__cleanup_vnic(inventory_path=inventory_path, vm_name=vm_name, device_name=device_name,
                                             component=component)
                     return
-                for ns in component.network_service_info.network_services.values():
-                    if ns.interface_info is None or ns.interface_info.interfaces is None:
-                        continue
+            # Grab the Mac addresses
+            interface_names = []
+            ns = None
+            if component.get_type() in [ComponentType.SmartNIC, ComponentType.SharedNIC]:
+                ns_name = list(component.network_service_info.network_services.keys())[0]
+                ns = component.network_service_info.network_services[ns_name]
+                interface_names = list(ns.interface_info.interfaces.keys())
 
-                    for ifs in ns.interface_info.interfaces.values():
-                        mac = ifs.label_allocations.mac
             if isinstance(component.labels.bdf, str):
                 pci_device_list = [component.labels.bdf]
             else:
@@ -575,6 +575,9 @@ class VMHandler(HandlerBase):
                 extra_vars[AmConstants.PCI_OPERATION] = AmConstants.PROV_DETACH
 
             self.get_logger().info(f"Device List Size: {len(pci_device_list)} List: {pci_device_list}")
+            idx = 0
+            pci_device_number = None
+            # Attach/ Detach the PCI Device
             for device in pci_device_list:
                 device_char_arr = self.__extract_device_addr_octets(device_address=device)
                 device = device.replace("0000:", "")
@@ -586,8 +589,9 @@ class VMHandler(HandlerBase):
                     AmConstants.PCI_FUNCTION: device_char_arr[3],
                     AmConstants.PCI_BDF: device
                 }
-
-                if mac is not None:
+                mac = None
+                if len(interface_names) > 0:
+                    mac = ns.interface_info.interfaces[interface_names[idx]].label_allocations.mac.lower()
                     host_vars[AmConstants.MAC] = mac
 
                 ok = self.__execute_ansible(inventory_path=inventory_path, playbook_path=full_playbook_path,
@@ -595,12 +599,43 @@ class VMHandler(HandlerBase):
 
                 if attach:
                     pci_device_number = ok.get(AmConstants.ANSIBLE_FACTS)[AmConstants.PCI_DEVICE_NUMBER]
-                    ok = self.__post_boot_config(mgmt_ip=mgmt_ip, user=user, pci_device_number=pci_device_number)
-                    bdf_list = str(ok.get(AmConstants.ANSIBLE_FACTS)[AmConstants.PCI_BDF]).split("\n")
-                    bdf = bdf_list[-1]
-                    if bdf.endswith(":"):
-                        bdf = bdf[:-1]
-                    component.label_allocations.bdf.append(bdf)
+                    idx += 1
+
+            # In case of Attach, determine the PCI device id from inside the VM
+            # Also, determine the ethernet interface name in case of Shared/Smart NIC
+            # This is done in a separate loop on purpose to give VM OS to identify PCI devices
+            # and associate mac addresses with them
+            if attach:
+                for idx in range(len(pci_device_list)):
+                    mac = None
+                    if len(interface_names) > 0:
+                        mac = ns.interface_info.interfaces[interface_names[idx]].label_allocations.mac.lower()
+                    ok = self.__post_boot_config(mgmt_ip=mgmt_ip, user=user, pci_device_number=pci_device_number,
+                                                 mac=mac)
+                    interface_name = None
+                    bdf_facts = None
+                    ansible_facts = ok.get(AmConstants.ANSIBLE_FACTS)
+                    self.logger.info(f"Ansible Facts: {ansible_facts}")
+                    if ansible_facts is not None:
+                        combined_facts = ansible_facts.get(AmConstants.COMBINED_FACTS)
+                        self.logger.info(f"Combined Facts: {combined_facts}")
+                        if combined_facts is not None:
+                            bdf_facts = combined_facts.get(AmConstants.PCI_BDF)
+                            interface_name = combined_facts.get(AmConstants.INTERFACE_NAME)
+
+                    self.logger.info(f"BDF Facts: {bdf_facts} Interface Name: {interface_name}")
+                    if bdf_facts is not None:
+                        bdf_list = str(bdf_facts).split("\n")
+                        for bdf in bdf_list:
+                            if bdf.endswith(":"):
+                                bdf = bdf[:-1]
+                            if bdf not in component.label_allocations.bdf:
+                                component.label_allocations.bdf.append(bdf)
+                    if interface_name is not None:
+                        ns.interface_info.interfaces[interface_names[idx]].label_allocations.local_name = str(interface_name)
+                    self.logger.info(f"Label Allocations: {component.label_allocations} {ns}")
+                    if ns is not None:
+                        self.logger.info(f"{ns.interface_info.interfaces.values()}")
         except Exception as e:
             self.get_logger().error(f"Error occurred attach:{attach}/detach: {not attach} device: {component}")
             self.get_logger().error(traceback.format_exc())
@@ -745,6 +780,16 @@ class VMHandler(HandlerBase):
         images = self.get_config()[AmConstants.RUNTIME_SECTION][AmConstants.RT_IMAGES]
         if image in images:
             return images[image]
+        if AmConstants.ROCKY in image:
+            return AmConstants.ROCKY
+        if AmConstants.UBUNTU in image:
+            return AmConstants.UBUNTU
+        if AmConstants.CENTOS in image:
+            return AmConstants.CENTOS
+        if AmConstants.DEBIAN in image:
+            return AmConstants.DEBIAN
+        if AmConstants.FEDORA in image:
+            return AmConstants.FEDORA
         return AmConstants.ROOT_USER
 
     def configure_nic(self, *, component: ComponentSliver, mgmt_ip: str, user: str):
@@ -829,11 +874,14 @@ class VMHandler(HandlerBase):
             self.get_logger().error(f"Exception : {e}")
             self.get_logger().error(traceback.format_exc())
 
-    def __post_boot_config(self, *, mgmt_ip: str, user: str, pci_device_number: str = None):
+    def __post_boot_config(self, *, mgmt_ip: str, user: str, pci_device_number: str = None, mac: str=None):
         """
-        Perform post boot configuration, install required software
+        Perform post boot configuration:
+        - Grabs the PCI device name from inside the VM
+        - For NIC cards, also gets the interface name
         :param mgmt_ip Management IP to access the VM
         :param user Default Linux user to use for SSH/Ansible
+        :param mac Mac Address in case of NICs
         """
         try:
 
@@ -851,8 +899,11 @@ class VMHandler(HandlerBase):
                           AmConstants.IMAGE: user}
 
             if pci_device_number is not None:
-                extra_vars[AmConstants.IMAGE] = 'get_pci'
+                extra_vars[AmConstants.VM_CONFIG_OP] = 'get_pci'
                 extra_vars[AmConstants.PCI_DEVICE_NUMBER] = pci_device_number
+
+            if mac is not None:
+                extra_vars[AmConstants.MAC] = mac
 
             # Grab the SSH Key
             admin_ssh_key = self.get_config()[AmConstants.PLAYBOOK_SECTION][AmConstants.ADMIN_SSH_KEY]
