@@ -13,7 +13,7 @@
     # best to set this high and not worry about collisions
     # must be lower case to match removal
     dest_slot: "0x1a"
-    num_pci_functions: 2
+    num_pci_functions: 1
     usb_ctrlr_idx: 2
     # default U280 info
     fpga_usb_vendor_id: "0x0403"
