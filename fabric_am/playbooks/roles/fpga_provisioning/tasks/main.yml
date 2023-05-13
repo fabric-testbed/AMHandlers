@@ -1,0 +1,77 @@
+---
+- name: Dump domain XML to file
+  command: virsh dumpxml --inactive --security-info {{ kvmguest_name }}
+  register: dumpxml_output
+
+- name: Save XML to file
+  copy:
+    content: "{{ dumpxml_output.stdout }}"
+    dest: /tmp/{{ kvmguest_name }}.xml
+
+- name: Generate new PCI devices XML sections
+  set_fact:
+    pci_devices_xml: |
+          <hostdev mode='subsystem' type='pci' managed='yes'>
+            <source>
+              <address domain='{{ domain }}' bus='{{ bus }}' slot='{{ slot }}' function='0x0'/>
+            </source>
+            <address type='pci' domain='{{ dest_domain }}' bus='{{ dest_bus }}' slot='{{ dest_slot }}' function='0x0' multifunction='on'/>
+          </hostdev>
+          {% for pci_func in range(1, num_pci_functions) %}
+          <hostdev mode='subsystem' type='pci' managed='yes'>
+            <source>
+              <address domain='{{ domain }}' bus='{{ bus }}' slot='{{ slot }}' function='0x0{{ pci_func }}'/>
+            </source>
+            <address type='pci' domain='{{ dest_domain }}' bus='{{ dest_bus }}' slot='{{ dest_slot }}' function='0x0{{ pci_func }}'/>
+          </hostdev>
+          {% endfor %}
+          <controller type='usb' index='2' model='nec-xhci'/>
+          <hostdev mode='subsystem' type='usb' managed='yes'>
+            <source>
+              <vendor id='{{ fpga_usb_vendor_id }}'/>
+              <product id='{{ fpga_usb_product_id }}'/>
+            </source>
+            <address type='usb' bus='{{ fpga_dest_usb_bus }}' port='{{ fpga_dest_usb_port }}'/>
+          </hostdev>
+  when: pci_prov_op == 'attach_fpga'
+
+- name: Update the domain XML
+  # unfortunately XML module is very limited in functionality
+  blockinfile:
+    path: "/tmp/{{ kvmguest_name }}.xml"
+    insertafter: "^  <devices>"
+    marker: "<!-- {mark} ANSIBLE MANAGED BLOCK -->"
+    block: "{{ pci_devices_xml }}"
+  when: pci_prov_op == 'attach_fpga'
+
+- name: Remove FPGA configuration from domain XML file
+  # no choice but to use the XML module
+  xml:
+    path: "/tmp/{{ kvmguest_name }}.xml"
+    xpath: /domain/devices/hostdev[address[@domain='{{ dest_domain }}' and @bus='{{ dest_bus }}' and @slot='{{ dest_slot }}']]
+    state: absent
+  when: pci_prov_op == 'detach_fpga'
+
+- name: Remove USB device
+  # dangerous because only looks at vendor id
+  xml:
+    path: "/tmp/{{ kvmguest_name }}.xml"
+    xpath: /domain/devices/hostdev[source[vendor[@id='{{ fpga_usb_vendor_id }}']]]
+    state: absent
+  when: pci_prov_op == 'detach_fpga'
+
+- name: Remove USB controller
+  xml:
+    path: "/tmp/{{ kvmguest_name }}.xml"
+    xpath: /domain/devices/controller[@model='nec-xhci']
+    state: absent
+  when: pci_prov_op == 'detach_fpga'
+
+- name: Define edited domain
+  shell: virsh define /tmp/{{ kvmguest_name }}.xml
+  register: define_output
+
+- name: Delete XML file
+  file:
+    path: /tmp/{{ kvmguest_name }}.xml
+    state: absent
