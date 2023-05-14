@@ -18,6 +18,14 @@
     content: "{{ dumpxml_output.stdout }}"
     dest: /tmp/{{ kvmguest_name }}.xml
 
+- name: Check that on attach the device isn't already attached
+  xml:
+    path: /tmp/{{ kvmguest_name }}.xml
+    xpath: /domain/devices/hostdev[source[address[@bus='{{ bus }}' and @slot='{{ slot }}']]]
+    count: yes
+  register: device_xml_matches
+  when: pci_prov_op == 'attach_fpga'
+
 - name: Generate new PCI devices XML sections
   # adds primary device (function 0x00) and a specified
   # number of other functions. Also adds an XHCI USB3.0 controller
@@ -46,16 +54,15 @@
             </source>
             <address type='usb' bus='{{ fpga_dest_usb_bus }}' port='{{ fpga_dest_usb_port }}'/>
           </hostdev>
-  when: pci_prov_op == 'attach_fpga'
+  when: pci_prov_op == 'attach_fpga' and device_xml_matches.count == 0
 
 - name: Update the domain XML
-  # unfortunately XML module is very limited in functionality
   blockinfile:
     path: "/tmp/{{ kvmguest_name }}.xml"
     insertafter: "^  <devices>"
     marker: "<!-- {mark} ANSIBLE MANAGED BLOCK -->"
     block: "{{ pci_devices_xml }}"
-  when: pci_prov_op == 'attach_fpga'
+  when: pci_prov_op == 'attach_fpga' and device_xml_matches.count == 0
 
 - name: Remove FPGA configuration from domain XML file
   # notice this removes all PCI functions because they all
