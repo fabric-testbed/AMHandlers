@@ -3,6 +3,16 @@
   command: virsh dumpxml --inactive --security-info {{ kvmguest_name }}
   register: dumpxml_output
 
+- name: Count the number of PCI functions of the device
+  shell: "lspci | grep Xilinx | grep {{ bus[2:] }} | wc -l"
+  register: num_pci_functions_output
+  when: pci_prov_op == 'attach_fpga'
+
+- name: Save integer value as a fact
+  set_fact:
+    num_pci: "{{ num_pci_functions_output.stdout | int }}"
+  when: pci_prov_op == 'attach_fpga'
+
 - name: Save XML to file
   copy:
     content: "{{ dumpxml_output.stdout }}"
@@ -20,7 +30,7 @@
             </source>
             <address type='pci' domain='{{ dest_domain }}' bus='{{ dest_bus }}' slot='{{ dest_slot }}' function='0x0' multifunction='on'/>
           </hostdev>
-          {% for pci_func in range(1, num_pci_functions) %}
+          {% for pci_func in range(1, (num_pci | int)) %}
           <hostdev mode='subsystem' type='pci' managed='yes'>
             <source>
               <address domain='{{ domain }}' bus='{{ bus }}' slot='{{ slot }}' function='0x0{{ pci_func }}'/>
