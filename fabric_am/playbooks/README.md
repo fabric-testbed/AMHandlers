@@ -128,7 +128,7 @@ ansible-playbook -i inventory fpga_provisioning.yml --extra-vars 'pci_prov_op=at
 ```
 
 To detach:
-```commandline
+```bash
 ansible-playbook -i inventory fpga_provisioning.yml --extra-vars 'pci_prov_op=detach_fpga kvmguest_name=instance-000011d4 worker_node_name=renc-w2.fabric-testbed.net bus=0x25 slot=0x00 fpga_usb_vendor_id=0x0403 fpga_usb_product_id=0x6011'
 ```
 Note that this rewrites the domain file, does not do hotplug. It attaches however many PCI functions belong to the device
@@ -138,7 +138,7 @@ virsh doesn't work - the changes do not take effect).
 Note also that the reboot detaches all hotplugs (and unmounts the volumes).
 
 For testing you can skip `bus`, `slot`, and vendor and product id parameters as sane defaults are present in the role file.
-```commandline
+```bash
 ansible-playbook -i inventory fpga_provisioning.yml --extra-vars 'pci_prov_op=attach_fpga kvmguest_name=instance-000011d4 worker_node_name=renc-w2.fabric-testbed.net'
 ```
 #### Cleanup
