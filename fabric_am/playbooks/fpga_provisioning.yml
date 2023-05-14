@@ -15,8 +15,8 @@
     dest_domain: "0x0000"
     dest_bus: "0x00"
     # best to set dest_slot high and not worry about collisions
-    # must be lower case to match removal. must be less than 0x1f
-    dest_slot: "0x1a"
+    # must be lower case to match removal. must no larger than 0x1f
+    dest_slot: "0x1f"
     num_pci_functions: 1
     usb_ctrlr_idx: 2
     # default U280 info
