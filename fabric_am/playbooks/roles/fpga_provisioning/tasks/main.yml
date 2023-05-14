@@ -48,7 +48,7 @@
   # no choice but to use the XML module
   xml:
     path: "/tmp/{{ kvmguest_name }}.xml"
-    xpath: /domain/devices/hostdev[address[@domain='{{ dest_domain }}' and @bus='{{ dest_bus }}' and @slot='{{ dest_slot }}']]
+    xpath: /domain/devices/hostdev[source[address[@bus='{{ bus }}' and @slot='{{ slot }}']]]
     state: absent
   when: pci_prov_op == 'detach_fpga'
 
