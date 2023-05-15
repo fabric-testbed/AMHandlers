@@ -115,14 +115,14 @@
   with_items:
     - "{{ result['openstack_servers'] }}"
 
-- name: Reboot the VM
+- name: perform an action on VM
   openstack.cloud.server_action:
-    action: reboot
+    action: "{{ vm_prov_op }}"
     auth:
       auth_url: "{{ auth_url }}"
       password: "{{ password }}"
       project_name: "{{ project_name }}"
       username: "{{ username }}"
     name: "{{ vmname }}"
-    delete_fip: yes
-  when: vm_prov_op == 'reboot'
+  when: vm_prov_op == 'stop' or vm_prov_op == 'start'
+
