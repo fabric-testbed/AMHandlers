@@ -53,3 +53,4 @@
 - name: Combine facts
   set_fact:
     combined_facts: "{{ bdf | combine(if_name | default({})) }}"
+  when: vm_config_op == 'get_pci'
