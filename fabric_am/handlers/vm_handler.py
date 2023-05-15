@@ -27,7 +27,7 @@ import json
 import re
 import time
 import traceback
-from typing import Tuple, List
+from typing import Tuple, List, Dict
 
 import paramiko
 from fabric_cf.actor.core.common.constants import Constants
@@ -164,17 +164,29 @@ class VMHandler(HandlerBase):
             self.__perform_os_server_action(playbook_path=playbook_path_full, inventory_path=inventory_path,
                                             vm_name=vmname, unit_id=unit_id, action=AmConstants.OP_START)
 
+            vcpuinfo = []
+            numastat = []
             # Grab VcpuInfo for the VM
             ok = self.__perform_virsh_server_action(playbook_path=playbook_path, inventory_path=inventory_path,
                                                     worker_node_name=worker_node, operation=AmConstants.OP_VCPUINFO,
                                                     instance_name=sliver.label_allocations.instance)
-            self.logger.info(f"vcpuinfo for {vmname}: {ok.get(AmConstants.ANSIBLE_FACTS)}")
+            if AmConstants.ANSIBLE_FACTS in ok and AmConstants.OP_VCPUINFO in ok:
+                vcpuinfo = self.parse_vcpuinfo(vcpuinfo_output=ok.get(AmConstants.ANSIBLE_FACTS)[AmConstants.OP_VCPUINFO])
+                self.logger.info(f"{AmConstants.OP_VCPUINFO} for {vmname}: {vcpuinfo}")
 
             # Grab Numa Stat Info for the VM
             ok = self.__perform_virsh_server_action(playbook_path=playbook_path, inventory_path=inventory_path,
                                                     worker_node_name=worker_node, operation=AmConstants.OP_NUMASTAT,
                                                     instance_name=sliver.label_allocations.instance)
-            self.logger.info(f"numastat for {vmname}: {ok.get(AmConstants.ANSIBLE_FACTS)}")
+
+            if AmConstants.ANSIBLE_FACTS in ok and AmConstants.OP_NUMASTAT in ok:
+                numastat = self.parse_numastat(numastat_output=ok.get(AmConstants.ANSIBLE_FACTS)[AmConstants.OP_NUMASTAT])
+                self.logger.info(f"{AmConstants.OP_NUMASTAT} for {vmname}: {numastat}")
+
+            if sliver.user_data is None:
+                sliver.user_data = {}
+            sliver.user_data[AmConstants.OP_VCPUINFO] = vcpuinfo
+            sliver.user_data[AmConstants.OP_NUMASTAT] = numastat
 
             sliver.management_ip = fip
             # Configure Components - only gets triggered via Portal for now
@@ -1031,3 +1043,25 @@ class VMHandler(HandlerBase):
         self.get_logger().info(f"Executing playbook {playbook_path} extra_vars: {extra_vars} host_vars: {host_vars}")
         ansible_helper.run_playbook(playbook_path=playbook_path, private_key_file=private_key_file, user=user)
         return ansible_helper.get_result_callback().get_json_result_ok()
+
+    @staticmethod
+    def parse_vcpuinfo(*, vcpuinfo_output: str) -> List[Dict[str, str]]:
+        vcpuinfo = []
+        data = {}
+        for line in vcpuinfo_output:
+            if line == "":
+                vcpuinfo.append(data)
+                data.clear()
+            else:
+                # Split the line at the first occurrence of ':' character
+                key, value = line.split(':', 1)
+                # Remove leading/trailing spaces from key and value
+                key = key.strip()
+                value = value.strip()
+                # Add the key-value pair to the data dictionary
+                data[key] = value
+        return vcpuinfo
+
+    @staticmethod
+    def parse_numastat(*, numastat_output: str) -> List[Dict[str, str]]:
+        return []
