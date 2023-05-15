@@ -72,7 +72,7 @@
 - name: Get NUMA statistics of a VM
   ansible.builtin.shell:
     numastat -c -s "{{ kvmguest_name }}"
-  register: numa_output
+  register: numastat
   when: operation == 'numastat'
 
 - set_fact:
