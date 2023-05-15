@@ -40,3 +40,36 @@
 - set_fact:
     pci_device_number: "{{ pci_device_number.stdout }}"
   when: pci_prov_op == 'attach'
+
+- name: Start a VM
+  community.libvirt.virt:
+    name: "{{ kvmguest_name }}"
+    state: running
+  when: pci_prov_op == 'start'
+
+- name: Shutdown a VM
+  community.libvirt.virt:
+    name: "{{ kvmguest_name }}"
+    state: shutdown
+  when: pci_prov_op == 'shutdown'
+
+- name: Get vCPU info of a VM
+  community.libvirt.virt:
+    command: vcpuinfo
+    name: "{{ kvmguest_name }}"
+    register: vcpuinfo_output
+  when: pci_prov_op == 'get_cpuinfo'
+
+- set_fact:
+    vcpuinfo_output: "{{ vcpuinfo_output.stdout }}"
+  when: pci_prov_op == 'get_cpuinfo'
+
+- name: Get NUMA statistics of a VM
+  libvirt:
+    command: numastat
+    name: "{{ kvmguest_name }}"
+  register: numa_output
+
+- set_fact:
+    numa_output: "{{ numa_output.stdout }}"
+  when: pci_prov_op == 'get_cpuinfo'
