@@ -123,6 +123,6 @@
       password: "{{ password }}"
       project_name: "{{ project_name }}"
       username: "{{ username }}"
-    name: "{{ vmname }}"
+    server: "{{ vmname }}"
   when: vm_prov_op == 'stop' or vm_prov_op == 'start'
 
