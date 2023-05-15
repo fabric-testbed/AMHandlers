@@ -1,4 +1,4 @@
---- 
+---
 # /tasks/main.yml
 #
 # ansible-galaxy collection install community.libvirt
@@ -8,22 +8,22 @@
     src: device.j2
     dest: /tmp/{{ device }}.yml
     mode: 0600
-  when: mac is not defined
+  when: mac is not defined and (pci_prov_op == 'attach' or pci_prov_op == 'detach')
 
 - name: Create file to add device
   template:
     src: device_with_mac.j2
     dest: /tmp/{{ device }}.yml
     mode: 0600
-  when: mac is defined
+  when: mac is defined and (pci_prov_op == 'attach' or pci_prov_op == 'detach')
 
 - name: Add PCI Card to VM
-  ansible.builtin.shell: 
+  ansible.builtin.shell:
     virsh attach-device {{ kvmguest_name }} /tmp/{{ device }}.yml --live --config
   when: pci_prov_op == 'attach'
 
 - name: Remove PCI Card to VM
-  ansible.builtin.shell: 
+  ansible.builtin.shell:
     virsh detach-device {{ kvmguest_name }} /tmp/{{ device }}.yml --live --config
   when: pci_prov_op == 'detach'
 
@@ -31,6 +31,7 @@
   file:
     path: /tmp/{{ device }}.yml
     state: absent
+  when: pci_prov_op == 'attach' or pci_prov_op == 'detach'
 
 - name: Get PCI Device Number from the Host
   ansible.builtin.shell:
@@ -52,7 +53,6 @@
   community.libvirt.virt:
     name: "{{ kvmguest_name }}"
     state: shutdown
-  when: pci_prov_op == 'shutdown'
 
 - name: Get vCPU info of a VM
   community.libvirt.virt:
@@ -66,7 +66,7 @@
   when: pci_prov_op == 'get_cpuinfo'
 
 - name: Get NUMA statistics of a VM
-  libvirt:
+  community.libvirt.virt:
     command: numastat
     name: "{{ kvmguest_name }}"
   register: numa_output
