@@ -164,6 +164,18 @@ class VMHandler(HandlerBase):
             self.__perform_os_server_action(playbook_path=playbook_path_full, inventory_path=inventory_path,
                                             vm_name=vmname, unit_id=unit_id, action=AmConstants.OP_START)
 
+            # Grab VcpuInfo for the VM
+            ok = self.__perform_virsh_server_action(playbook_path=playbook_path, inventory_path=inventory_path,
+                                                    worker_node_name=worker_node, operation=AmConstants.OP_VCPUINFO,
+                                                    instance_name=sliver.label_allocations.instance)
+            self.logger.info(f"vcpuinfo for {vmname}: {ok.get(AmConstants.ANSIBLE_FACTS)}")
+
+            # Grab Numa Stat Info for the VM
+            ok = self.__perform_virsh_server_action(playbook_path=playbook_path, inventory_path=inventory_path,
+                                                    worker_node_name=worker_node, operation=AmConstants.OP_NUMASTAT,
+                                                    instance_name=sliver.label_allocations.instance)
+            self.logger.info(f"numastat for {vmname}: {ok.get(AmConstants.ANSIBLE_FACTS)}")
+
             sliver.management_ip = fip
             # Configure Components - only gets triggered via Portal for now
             self.__configure_components(sliver=sliver)
@@ -767,6 +779,26 @@ class VMHandler(HandlerBase):
 
             result.append(octet)
         return result
+
+    def __perform_virsh_server_action(self, *, playbook_path: str, inventory_path: str, worker_node_name: str,
+                                      instance_name: str, operation: str):
+        """
+        Invoke ansible playbook to perform a server action via openstack commands
+        :param playbook_path: playbook location
+        :param inventory_path: inventory location
+        :param worker_node_name: Worker Node Name
+        :param instance_name: VM Name
+        :param operation: Action to be performed
+        :return: OK result
+        """
+        playbook = self.get_config()[AmConstants.PLAYBOOK_SECTION][AmConstants.OPERATION][operation]
+        playbook_path_full = f"{playbook_path}/{playbook}"
+        extra_vars = {AmConstants.OPERATION: operation,
+                      AmConstants.SERVER_INSTANCE_NAME: instance_name,
+                      AmConstants.WORKER_NODE_NAME: worker_node_name}
+
+        return self.__execute_ansible(inventory_path=inventory_path, playbook_path=playbook_path_full,
+                                      extra_vars=extra_vars)
 
     def __perform_os_server_action(self, *, playbook_path: str, inventory_path: str, vm_name: str, unit_id: str,
                                    action: str):

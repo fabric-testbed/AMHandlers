@@ -61,6 +61,9 @@ playbooks:
   NVME: worker_pci_provisioning.yml
   Storage: head_volume_provisioning.yml
   SharedNIC-OpenStack-vNIC: head_port_provisioning.yml
+  operation:
+    vcpuinfo: worker_pci_provisioning.yml
+    numastat: worker_pci_provisioning.yml
   config:
     post_boot: head_vm_post_boot_config.yml
     SmartNIC: nmcli_config_nw_interface.yml
