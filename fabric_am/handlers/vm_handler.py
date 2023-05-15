@@ -794,7 +794,7 @@ class VMHandler(HandlerBase):
         playbook = self.get_config()[AmConstants.PLAYBOOK_SECTION][AmConstants.OPERATION][operation]
         playbook_path_full = f"{playbook_path}/{playbook}"
         extra_vars = {AmConstants.OPERATION: operation,
-                      AmConstants.SERVER_INSTANCE_NAME: instance_name,
+                      AmConstants.KVM_GUEST_NAME: instance_name,
                       AmConstants.WORKER_NODE_NAME: worker_node_name}
 
         return self.__execute_ansible(inventory_path=inventory_path, playbook_path=playbook_path_full,
