@@ -48,12 +48,22 @@ class AmConstants:
     PB_CONFIG = "config"
 
     CLEAN_ALL = "ALL"
+
+    OPERATION = "operation"
+    OP_ATTACH = "attach"
+    OP_DETACH = "detach"
     OP_CREATE = "create"
     OP_DELETE = "delete"
     OP_LIST = "list"
     OP_DELETE_ALL = "delete_all"
     OP_ATTACH_FIP = "attach_fip"
     OP_GET = "get"
+    OP_STOP = "stop"
+    OP_START = "start"
+    OP_VCPUINFO = "vcpuinfo"
+    OP_NUMASTAT = "numastat"
+    OP_MOUNT = "mount"
+
     PORT_NAME = "portname"
     NETWORK_NAME = "networkname"
     NETWORK_NAME_PREFIX = "network_name_prefix"
@@ -62,7 +72,6 @@ class AmConstants:
 
     VOL_NAME = "vol_name"
     ATTACHMENTS = "attachments"
-    OP_MOUNT = "mount"
 
     SERVER = "server"
     SERVER_VM_STATE = "vm_state"
@@ -85,9 +94,6 @@ class AmConstants:
     PCI_BDF = "bdf"
     PCI_DEVICE_NUMBER = "pci_device_number"
     PCI_FUNCTION = "function"
-    OPERATION = "operation"
-    OP_ATTACH = "attach"
-    OP_DETACH = "detach"
     DEVICE = "device"
     WORKER_NODE_NAME = "worker_node_name"
     INTERFACE_NAME = "if_name"

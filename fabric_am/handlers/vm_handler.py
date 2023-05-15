@@ -142,6 +142,7 @@ class VMHandler(HandlerBase):
                 fip = self.__attach_fip(playbook_path=playbook_path_full, inventory_path=inventory_path,
                                         vm_name=vmname, unit_id=unit_id)
 
+            # Verify SSH connectivity
             ssh_retries = self.get_config()[AmConstants.RUNTIME_SECTION][AmConstants.RT_SSH_RETRIES]
             self.__verify_ssh(mgmt_ip=fip, user=user, retry=ssh_retries)
 
@@ -154,7 +155,17 @@ class VMHandler(HandlerBase):
                                              host=worker_node, instance_name=sliver.label_allocations.instance,
                                              device_name=unit_id, component=component, vm_name=vmname,
                                              project_id=project_id, raise_exception=True, mgmt_ip=fip, user=user)
+
+            # STOP the VM
+            self.__perform_os_server_action(playbook_path=playbook_path_full, inventory_path=inventory_path,
+                                            vm_name=vmname, unit_id=unit_id, action=AmConstants.OP_STOP)
+
+            # Start the VM
+            self.__perform_os_server_action(playbook_path=playbook_path_full, inventory_path=inventory_path,
+                                            vm_name=vmname, unit_id=unit_id, action=AmConstants.OP_START)
+
             sliver.management_ip = fip
+            # Configure Components - only gets triggered via Portal for now
             self.__configure_components(sliver=sliver)
 
         except Exception as e:
@@ -409,9 +420,9 @@ class VMHandler(HandlerBase):
             result = None
             if floating_ip is None:
                 self.get_logger().info("Floating IP returned by attach was null, trying to get via get_vm")
-                ok = self.__get_vm(playbook_path=playbook_path, inventory_path=inventory_path, vm_name=vm_name,
-                                   unit_id=unit_id)
-                self.get_logger().info(f"Info returned by __get_vm: {ok}")
+                ok = self.__perform_os_server_action(playbook_path=playbook_path, inventory_path=inventory_path,
+                                                     vm_name=vm_name, unit_id=unit_id, action=AmConstants.OP_GET)
+                self.get_logger().info(f"Info returned by GET VM: {ok}")
                 servers = ok[AmConstants.OS_SERVERS]
                 self.get_logger().debug(f"Servers: {servers}")
                 if servers is not None and len(servers) == 1:
@@ -757,18 +768,20 @@ class VMHandler(HandlerBase):
             result.append(octet)
         return result
 
-    def __get_vm(self, *, playbook_path: str, inventory_path: str, vm_name: str, unit_id: str):
+    def __perform_os_server_action(self, *, playbook_path: str, inventory_path: str, vm_name: str, unit_id: str,
+                                   action: str):
         """
-        Invoke ansible playbook to get a provisioned VM
+        Invoke ansible playbook to perform a server action via openstack commands
         :param playbook_path: playbook location
         :param inventory_path: inventory location
         :param vm_name: VM Name
         :param unit_id: Unit Id
+        :param action: Action to be performed
         :return: OK result
         """
         vm_name = f"{unit_id}-{vm_name}"
 
-        extra_vars = {AmConstants.OPERATION: AmConstants.OP_GET,
+        extra_vars = {AmConstants.OPERATION: action,
                       AmConstants.VM_NAME: vm_name}
         return self.__execute_ansible(inventory_path=inventory_path, playbook_path=playbook_path, extra_vars=extra_vars)
 
