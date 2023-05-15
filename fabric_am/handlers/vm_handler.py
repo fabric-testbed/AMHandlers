@@ -64,7 +64,7 @@ class VMHandler(HandlerBase):
             cleanup_section = self.get_config()[AmConstants.PLAYBOOK_SECTION][AmConstants.PB_CLEANUP]
             cleanup_playbook = f"{playbook_path}/{cleanup_section[AmConstants.CLEAN_ALL]}"
             inventory_path = self.get_config()[AmConstants.PLAYBOOK_SECTION][AmConstants.PB_INVENTORY]
-            extra_vars = {AmConstants.VM_PROV_OP: AmConstants.PROV_OP_DELETE_ALL}
+            extra_vars = {AmConstants.OPERATION: AmConstants.OP_DELETE_ALL}
             self.__execute_ansible(inventory_path=inventory_path, playbook_path=cleanup_playbook,
                                    extra_vars=extra_vars)
         except Exception as e:
@@ -322,7 +322,7 @@ class VMHandler(HandlerBase):
             init_script = ""
 
         extra_vars = {
-            AmConstants.VM_PROV_OP: AmConstants.PROV_OP_CREATE,
+            AmConstants.OPERATION: AmConstants.OP_CREATE,
             AmConstants.EC2_AVAILABILITY_ZONE: avail_zone,
             AmConstants.VM_NAME: vm_name_combined,
             AmConstants.FLAVOR: flavor,
@@ -362,7 +362,7 @@ class VMHandler(HandlerBase):
         """
         vm_name = f"{unit_id}-{vm_name}"
 
-        extra_vars = {AmConstants.VM_PROV_OP: AmConstants.PROV_OP_DELETE,
+        extra_vars = {AmConstants.OPERATION: AmConstants.OP_DELETE,
                       AmConstants.VM_NAME: vm_name}
 
         # Retry Delete VM configured number of times in case of failure to delete VMs
@@ -394,7 +394,7 @@ class VMHandler(HandlerBase):
             self.process_lock.acquire()
             vmname = f"{unit_id}-{vm_name}"
 
-            extra_vars = {AmConstants.VM_PROV_OP: AmConstants.VM_PROV_OP_ATTACH_FIP,
+            extra_vars = {AmConstants.OPERATION: AmConstants.OP_ATTACH_FIP,
                           AmConstants.VM_NAME: vmname}
 
             ok = self.__execute_ansible(inventory_path=inventory_path, playbook_path=playbook_path,
@@ -448,9 +448,9 @@ class VMHandler(HandlerBase):
             playbook_path = f"{playbook_location}/{playbook}"
 
             # Set the variables
-            extra_vars = {AmConstants.VOL_PROV_OP: AmConstants.PROV_OP_MOUNT,
+            extra_vars = {AmConstants.OPERATION: AmConstants.OP_MOUNT,
                           AmConstants.VOL_NAME: component.label_allocations.local_name,
-                          AmConstants.PROV_DEVICE: component.label_allocations.device_name,
+                          AmConstants.DEVICE: component.label_allocations.device_name,
                           AmConstants.VM_NAME: mgmt_ip}
 
             # Grab the SSH Key
@@ -471,21 +471,21 @@ class VMHandler(HandlerBase):
         self.get_logger().debug("__attach_detach_storage IN")
         try:
             extra_vars = {
-                AmConstants.VOL_PROV_OP: AmConstants.PROV_DETACH,
+                AmConstants.OPERATION: AmConstants.OP_DETACH,
                 AmConstants.VM_NAME: f"{unit_id}-{vm_name}",
                 AmConstants.VOL_NAME: f"{component.get_label_allocations().local_name}",
                 Constants.PROJECT_ID: f"{project_id}"
             }
             if attach:
-                extra_vars[AmConstants.VOL_PROV_OP] = AmConstants.PROV_ATTACH
+                extra_vars[AmConstants.OPERATION] = AmConstants.OP_ATTACH
 
             ok = self.__execute_ansible(inventory_path=inventory_path, playbook_path=playbook_path, extra_vars=extra_vars)
             attachments = ok.get(AmConstants.ATTACHMENTS, None)
             if attachments is not None:
                 for a in attachments:
                     self.get_logger().info(f"Storage volume: {component.get_name()} for project: {project_id} attached "
-                                           f"as device: {a.get(AmConstants.PROV_DEVICE)}")
-                    component.label_allocations.device_name = str(a.get(AmConstants.PROV_DEVICE))
+                                           f"as device: {a.get(AmConstants.DEVICE)}")
+                    component.label_allocations.device_name = str(a.get(AmConstants.DEVICE))
         finally:
             self.get_logger().debug("__attach_detach_storage OUT")
 
@@ -506,7 +506,7 @@ class VMHandler(HandlerBase):
             for ifs in ns.interface_info.interfaces.values():
                 ifs_name = ifs.get_name()
 
-        extra_vars = {AmConstants.PORT_PROV_OP: AmConstants.PROV_DETACH,
+        extra_vars = {AmConstants.OPERATION: AmConstants.OP_DETACH,
                       AmConstants.VM_NAME: f'{device_name}-{vm_name}',
                       AmConstants.PORT_NAME: f'{device_name}-{vm_name}-{vm_name}-{ifs_name}'}
 
@@ -567,12 +567,12 @@ class VMHandler(HandlerBase):
             worker_node = host
 
             extra_vars = {AmConstants.WORKER_NODE_NAME: worker_node,
-                          AmConstants.PROV_DEVICE: device_name}
+                          AmConstants.DEVICE: device_name}
             if attach:
-                extra_vars[AmConstants.PCI_OPERATION] = AmConstants.PROV_ATTACH
+                extra_vars[AmConstants.OPERATION] = AmConstants.OP_ATTACH
                 component.label_allocations.bdf = []
             else:
-                extra_vars[AmConstants.PCI_OPERATION] = AmConstants.PROV_DETACH
+                extra_vars[AmConstants.OPERATION] = AmConstants.OP_DETACH
 
             self.get_logger().info(f"Device List Size: {len(pci_device_list)} List: {pci_device_list}")
             idx = 0
@@ -678,7 +678,7 @@ class VMHandler(HandlerBase):
 
             self.get_logger().info(f"Device List Size: {len(pci_device_list)} List: {pci_device_list}")
             for device in pci_device_list:
-                extra_vars[AmConstants.PROV_DEVICE] = device
+                extra_vars[AmConstants.DEVICE] = device
                 self.__execute_ansible(inventory_path=inventory_path, playbook_path=full_playbook_path,
                                        extra_vars=extra_vars)
         except Exception as e:
@@ -768,7 +768,7 @@ class VMHandler(HandlerBase):
         """
         vm_name = f"{unit_id}-{vm_name}"
 
-        extra_vars = {AmConstants.VM_PROV_OP: AmConstants.PROV_OP_GET,
+        extra_vars = {AmConstants.OPERATION: AmConstants.OP_GET,
                       AmConstants.VM_NAME: vm_name}
         return self.__execute_ansible(inventory_path=inventory_path, playbook_path=playbook_path, extra_vars=extra_vars)
 
@@ -899,7 +899,7 @@ class VMHandler(HandlerBase):
                           AmConstants.IMAGE: user}
 
             if pci_device_number is not None:
-                extra_vars[AmConstants.VM_CONFIG_OP] = 'get_pci'
+                extra_vars[AmConstants.OPERATION] = 'get_pci'
                 extra_vars[AmConstants.PCI_DEVICE_NUMBER] = pci_device_number
 
             if mac is not None:

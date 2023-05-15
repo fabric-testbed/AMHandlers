@@ -239,9 +239,9 @@ class VnicNetHandler(HandlerBase):
                 elif interface_sliver.label_allocations.ipv6 is not None:
                     extra_vars[AmConstants.IP_ADDRESS] = interface_sliver.label_allocations.ipv6
             if attach:
-                extra_vars[AmConstants.PORT_PROV_OP] = AmConstants.PROV_OP_CREATE
+                extra_vars[AmConstants.OPERATION] = AmConstants.OP_CREATE
             else:
-                extra_vars[AmConstants.PORT_PROV_OP] = AmConstants.PROV_OP_DELETE
+                extra_vars[AmConstants.OPERATION] = AmConstants.OP_DELETE
 
             self.get_logger().info(f"Provisioning Interface: {interface_sliver}")
             self.__execute_ansible(inventory_path=inventory_path, playbook_path=playbook_path,

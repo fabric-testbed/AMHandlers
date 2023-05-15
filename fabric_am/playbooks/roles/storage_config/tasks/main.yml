@@ -30,12 +30,12 @@
   ansible.builtin.shell:
     cmd: lsblk "{{ device }}" -fno FSTYPE
   register: fs_type
-  when: vol_prov_op == 'mount'
+  when: operation == 'mount'
 
 - name: Set the name for the device
   set_fact:
     fs_type: "{{ fs_type.stdout }}"
-  when: vol_prov_op == 'mount'
+  when: operation == 'mount'
 
 - name: Mount the volume
   become: yes
@@ -44,5 +44,5 @@
     src: "{{ device }}"
     fstype: "{{ fs_type }}"
     state: mounted
-  when: vol_prov_op == 'mount' and fs_type is defined and fs_type != ""
+  when: operation == 'mount' and fs_type is defined and fs_type != ""
 

@@ -41,16 +41,16 @@
 - name: Determine the PCI Address provided PCI Device Number
   ansible.builtin.shell:
     dmesg | grep {{ pci_device_number }} | awk '{print $4}'
-  when: vm_config_op == 'get_pci'
+  when: operation == 'get_pci'
   register: bdf
 
 - name: Save the PCI Address determined in the previous step
   set_fact:
     bdf:
       bdf: "{{ bdf.stdout }}"
-  when: vm_config_op == 'get_pci'
+  when: operation == 'get_pci'
 
 - name: Combine facts
   set_fact:
     combined_facts: "{{ bdf | combine(if_name | default({})) }}"
-  when: vm_config_op == 'get_pci'
+  when: operation == 'get_pci'

@@ -40,7 +40,7 @@
       fabric_project_id: "{{ project_id }}"
       expected_lifetime: "{{ life_time }}"
       fabric_volume_name: "{{ vol_name }}"
-  when: vol_prov_op == 'create'
+  when: operation == 'create'
 
 - name: Delete a volume
   openstack.cloud.volume:
@@ -51,7 +51,7 @@
       project_name: "{{ project_name }}"
       username: "{{ username }}"
     display_name: "{{ project_id }}-{{ vol_name }}"
-  when: vol_prov_op == 'delete'
+  when: operation == 'delete'
 
 - name: Attach a volume
   openstack.cloud.server_volume:
@@ -63,7 +63,7 @@
       username: "{{ username }}"
     server: "{{ vmname }}"
     volume: "{{ project_id }}-{{ vol_name }}"
-  when: vol_prov_op == 'attach'
+  when: operation == 'attach'
 
 - name: Detach a volume
   openstack.cloud.server_volume:
@@ -75,4 +75,4 @@
       username: "{{ username }}"
     server: "{{ vmname }}"
     volume: "{{ project_id }}-{{ vol_name }}"
-  when: vol_prov_op == 'detach'
+  when: operation == 'detach'

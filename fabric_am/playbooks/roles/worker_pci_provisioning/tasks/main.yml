@@ -8,70 +8,78 @@
     src: device.j2
     dest: /tmp/{{ device }}.yml
     mode: 0600
-  when: mac is not defined and (pci_prov_op == 'attach' or pci_prov_op == 'detach')
+  when: mac is not defined and (operation == 'attach' or operation == 'detach')
 
 - name: Create file to add device
   template:
     src: device_with_mac.j2
     dest: /tmp/{{ device }}.yml
     mode: 0600
-  when: mac is defined and (pci_prov_op == 'attach' or pci_prov_op == 'detach')
+  when: mac is defined and (operation == 'attach' or operation == 'detach')
 
 - name: Add PCI Card to VM
   ansible.builtin.shell:
     virsh attach-device {{ kvmguest_name }} /tmp/{{ device }}.yml --live --config
-  when: pci_prov_op == 'attach'
+  when: operation == 'attach'
 
 - name: Remove PCI Card to VM
   ansible.builtin.shell:
     virsh detach-device {{ kvmguest_name }} /tmp/{{ device }}.yml --live --config
-  when: pci_prov_op == 'detach'
+  when: operation == 'detach'
 
 - name: Delete file
   file:
     path: /tmp/{{ device }}.yml
     state: absent
-  when: pci_prov_op == 'attach' or pci_prov_op == 'detach'
+  when: operation == 'attach' or operation == 'detach'
 
 - name: Get PCI Device Number from the Host
   ansible.builtin.shell:
     lspci -n | grep {{ bdf }} | awk '{print $3}'
-  when: pci_prov_op == 'attach'
+  when: operation == 'attach'
   register: pci_device_number
 
 - set_fact:
     pci_device_number: "{{ pci_device_number.stdout }}"
-  when: pci_prov_op == 'attach'
+  when: operation == 'attach'
 
 - name: Start a VM
   community.libvirt.virt:
     name: "{{ kvmguest_name }}"
     state: running
-  when: pci_prov_op == 'start'
+  when: operation == 'start'
 
 - name: Shutdown a VM
   community.libvirt.virt:
     name: "{{ kvmguest_name }}"
     state: shutdown
+  when: operation == 'stop'
 
 - name: Get vCPU info of a VM
-  community.libvirt.virt:
-    command: vcpuinfo
-    name: "{{ kvmguest_name }}"
-    register: vcpuinfo_output
-  when: pci_prov_op == 'get_cpuinfo'
+  ansible.builtin.shell:
+    virsh vcpuinfo "{{ kvmguest_name }}"
+  register: vcpuinfo
+  when: operation == 'vcpuinfo'
 
 - set_fact:
-    vcpuinfo_output: "{{ vcpuinfo_output.stdout }}"
-  when: pci_prov_op == 'get_cpuinfo'
+    vcpuinfo: "{{ vcpuinfo.stdout_lines }}"
+  when: operation == 'vcpuinfo'
+
+- name: Print VCPU Info
+  ansible.builtin.debug:
+    msg: "{{ vcpuinfo }}"
 
 - name: Get NUMA statistics of a VM
-  community.libvirt.virt:
-    command: numastat
-    name: "{{ kvmguest_name }}"
+  ansible.builtin.shell:
+    numastat -c -s "{{ kvmguest_name }}"
   register: numa_output
-  when: pci_prov_op == 'get_numainfo'
+  when: operation == 'numastat'
 
 - set_fact:
-    numa_output: "{{ numa_output.stdout }}"
-  when: pci_prov_op == 'get_numainfo'
+    numastat: "{{ numastat.stdout_lines }}"
+  when: operation == 'numastat'
+
+- name: Get NUMA Info
+  ansible.builtin.debug:
+    msg: "{{ numastat }}"
+  when: operation == 'numastat'
