@@ -156,13 +156,11 @@ class VMHandler(HandlerBase):
                                              device_name=unit_id, component=component, vm_name=vmname,
                                              project_id=project_id, raise_exception=True, mgmt_ip=fip, user=user)
 
-            # STOP the VM
+            # REBOOT the VM
             self.__perform_os_server_action(playbook_path=playbook_path_full, inventory_path=inventory_path,
-                                            vm_name=vmname, unit_id=unit_id, action=AmConstants.OP_STOP)
+                                            vm_name=vmname, unit_id=unit_id, action=AmConstants.OP_REBOOT)
 
-            # Start the VM
-            self.__perform_os_server_action(playbook_path=playbook_path_full, inventory_path=inventory_path,
-                                            vm_name=vmname, unit_id=unit_id, action=AmConstants.OP_START)
+            time.sleep(5)
 
             vcpuinfo = []
             numastat = []

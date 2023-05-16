@@ -116,13 +116,7 @@
     - "{{ result['openstack_servers'] }}"
 
 - name: perform an action on VM
-  openstack.cloud.server_action:
-    action: "{{ operation }}"
-    auth:
-      auth_url: "{{ auth_url }}"
-      password: "{{ password }}"
-      project_name: "{{ project_name }}"
-      username: "{{ username }}"
-    server: "{{ vmname }}"
-  when: operation == 'stop' or operation == 'start'
+  ansible.builtin.shell:
+    openstack server {{ operation }} {{ vmname }}
+  when: operation == 'stop' or operation == 'start' or operation == 'reboot'
 

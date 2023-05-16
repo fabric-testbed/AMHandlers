@@ -58,6 +58,7 @@ class AmConstants:
     OP_DELETE_ALL = "delete_all"
     OP_ATTACH_FIP = "attach_fip"
     OP_GET = "get"
+    OP_REBOOT = "reboot"
     OP_STOP = "stop"
     OP_START = "start"
     OP_VCPUINFO = "vcpuinfo"

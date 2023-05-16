@@ -19,12 +19,12 @@
 
 - name: Add PCI Card to VM
   ansible.builtin.shell:
-    virsh attach-device {{ kvmguest_name }} /tmp/{{ device }}.yml --live --config
+    virsh attach-device {{ kvmguest_name }} /tmp/{{ device }}.yml --live --persistent
   when: operation == 'attach'
 
 - name: Remove PCI Card to VM
   ansible.builtin.shell:
-    virsh detach-device {{ kvmguest_name }} /tmp/{{ device }}.yml --live --config
+    virsh detach-device {{ kvmguest_name }} /tmp/{{ device }}.yml --live --persistent
   when: operation == 'detach'
 
 - name: Delete file
@@ -57,7 +57,7 @@
 
 - name: Get vCPU info of a VM
   ansible.builtin.shell:
-    virsh vcpuinfo "{{ kvmguest_name }}"
+    virsh vcpuinfo {{ kvmguest_name }}
   register: vcpuinfo
   when: operation == 'vcpuinfo'
 
@@ -67,7 +67,7 @@
 
 - name: Get NUMA statistics of a VM
   ansible.builtin.shell:
-    numastat -c -s "{{ kvmguest_name }}"
+    numastat -c -s {{ kvmguest_name }}
   register: numastat
   when: operation == 'numastat'
 
