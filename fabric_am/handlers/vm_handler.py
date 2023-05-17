@@ -27,13 +27,14 @@ import json
 import re
 import time
 import traceback
-from typing import Tuple, List, Dict
+from typing import Tuple, List, Dict, Any
 
 import paramiko
 from fabric_cf.actor.core.common.constants import Constants
 from fabric_cf.actor.core.plugins.handlers.config_token import ConfigToken
 from fabric_cf.actor.handlers.handler_base import HandlerBase
 from fim.slivers.attached_components import ComponentSliver, ComponentType
+from fim.slivers.json_data import UserData
 from fim.slivers.network_node import NodeSliver
 
 from fabric_am.util.am_constants import AmConstants
@@ -168,8 +169,9 @@ class VMHandler(HandlerBase):
             ok = self.__perform_virsh_server_action(playbook_path=playbook_path, inventory_path=inventory_path,
                                                     worker_node_name=worker_node, operation=AmConstants.OP_VCPUINFO,
                                                     instance_name=sliver.label_allocations.instance)
-            if AmConstants.ANSIBLE_FACTS in ok and AmConstants.OP_VCPUINFO in ok:
-                vcpuinfo = self.parse_vcpuinfo(vcpuinfo_output=ok.get(AmConstants.ANSIBLE_FACTS)[AmConstants.OP_VCPUINFO])
+            ansible_facts = ok.get(AmConstants.ANSIBLE_FACTS)
+            if ansible_facts is not None and ansible_facts.get(AmConstants.OP_VCPUINFO) is not None:
+                vcpuinfo = self.parse_vcpuinfo(vcpuinfo_output=ansible_facts.get(AmConstants.OP_VCPUINFO))
                 self.logger.info(f"{AmConstants.OP_VCPUINFO} for {vmname}: {vcpuinfo}")
 
             # Grab Numa Stat Info for the VM
@@ -177,14 +179,29 @@ class VMHandler(HandlerBase):
                                                     worker_node_name=worker_node, operation=AmConstants.OP_NUMASTAT,
                                                     instance_name=sliver.label_allocations.instance)
 
-            if AmConstants.ANSIBLE_FACTS in ok and AmConstants.OP_NUMASTAT in ok:
-                numastat = self.parse_numastat(numastat_output=ok.get(AmConstants.ANSIBLE_FACTS)[AmConstants.OP_NUMASTAT])
+            ansible_facts = ok.get(AmConstants.ANSIBLE_FACTS)
+            if ansible_facts is not None and ansible_facts.get(AmConstants.OP_NUMASTAT) is not None:
+                numastat = self.parse_numastat(numastat_output=ansible_facts.get(AmConstants.OP_NUMASTAT))
                 self.logger.info(f"{AmConstants.OP_NUMASTAT} for {vmname}: {numastat}")
 
+            user_data = {AmConstants.OP_VCPUINFO: vcpuinfo,
+                         AmConstants.OP_NUMASTAT: numastat}
+
+            fabric_reserved = {"fabric_reserved": user_data}
+
             if sliver.user_data is None:
-                sliver.user_data = {}
-            sliver.user_data[AmConstants.OP_VCPUINFO] = vcpuinfo
-            sliver.user_data[AmConstants.OP_NUMASTAT] = numastat
+                sliver.user_data = UserData(data=fabric_reserved)
+            else:
+                existing_data = sliver.user_data.data()
+                if existing_data is None:
+                    existing_data = {}
+                if "fabric_reserved" not in existing_data:
+                    existing_data["fabric_reserved"] = user_data
+                else:
+                    existing_data["fabric_reserved"][AmConstants.OP_VCPUINFO] = vcpuinfo
+                    existing_data["fabric_reserved"][AmConstants.OP_NUMASTAT] = numastat
+
+                sliver.set_user_data(user_data=UserData(data=existing_data))
 
             sliver.management_ip = fip
             # Configure Components - only gets triggered via Portal for now
@@ -1042,13 +1059,30 @@ class VMHandler(HandlerBase):
         ansible_helper.run_playbook(playbook_path=playbook_path, private_key_file=private_key_file, user=user)
         return ansible_helper.get_result_callback().get_json_result_ok()
 
-    @staticmethod
-    def parse_vcpuinfo(*, vcpuinfo_output: str) -> List[Dict[str, str]]:
-        vcpuinfo = []
+    def parse_vcpuinfo(self, *, vcpuinfo_output: List[str]) -> List[Dict[str, str]]:
+        """
+        Parse VcpuInfo and transform it to JSON
+        @param vcpuinfo_output: vcpuinfo command output
+        """
+        '''
+        Vcpuinfo Output looks like:
+            cpu_info = ["VCPU:           0",
+                "CPU:            27",
+                "State:          running",
+                "CPU time:       3.1s",
+                "CPU Affinity:   yyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyy", 
+                "", 
+                "VCPU:           1", 
+                "CPU:            9", 
+                "State:          running", 
+                "CPU Affinity:   yyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyy"
+                ]
+        '''
+        result = []
         data = {}
         for line in vcpuinfo_output:
             if line == "":
-                vcpuinfo.append(data)
+                result.append(data)
                 data.clear()
             else:
                 # Split the line at the first occurrence of ':' character
@@ -1058,8 +1092,55 @@ class VMHandler(HandlerBase):
                 value = value.strip()
                 # Add the key-value pair to the data dictionary
                 data[key] = value
-        return vcpuinfo
+        return result
 
     @staticmethod
-    def parse_numastat(*, numastat_output: str) -> List[Dict[str, str]]:
-        return []
+    def parse_numastat(*, numastat_output: str) -> Dict[Any, dict]:
+        """
+        Parse numa stat output and convert it to JSON
+        @param numastat_output: Numa State output
+        """
+        '''
+        Numa Stat Output looks like:
+        numa_info = ["",
+                 "Per-node process memory usage (in MBs) for PID 2676600 (qemu-kvm)",
+                 "         Node 0 Node 1 Total",
+                 "         ------ ------ -----",
+                 "Private   17531  15284 32815",
+                 "Heap          0      6     6",
+                 "Stack         0      0     0",
+                 "Huge          0      0     0",
+                 "-------  ------ ------ -----",
+                 "Total     17531  15290 32821"
+                 ]
+        '''
+        result = {}
+        keys = []
+        for line in numastat_output:
+            # Ignore empty lines and headers
+            if line == "" or "Per-node" in line or "--" in line:
+                continue
+            # Extract Numa Nodes
+            elif "Node" in line:
+                line = line.strip()
+                regex_pattern = r'\b(\w+\s+\d+)\b|\b(\w+)\b'
+                matches = re.findall(regex_pattern, line)
+                # Flatten the list of tuples and remove empty strings
+                keys = [match[0] or match[1] for match in matches if match[0] or match[1]]
+
+                # Add empty dictionary for each Node and Total
+                for x in keys:
+                    result[x] = {}
+            else:
+                # Extract Different types of Memory for each Node and Total
+                regex_pattern = r'(\b\w+\b)|(\b\d+\b)'
+                matches = re.findall(regex_pattern, line)
+                # Flatten the list of tuples and remove empty strings
+                memory_values = [match[0] or match[1] for match in matches if match[0] or match[1]]
+                # Index 0 contains the type of Memory and is used as a key
+                idx = 1
+                for x in keys:
+                    result[x][memory_values[0]] = memory_values[idx]
+                    idx += 1
+
+            return result
