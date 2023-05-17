@@ -192,7 +192,7 @@ class VMHandler(HandlerBase):
             if sliver.user_data is None:
                 sliver.user_data = UserData(data=fabric_reserved)
             else:
-                existing_data = sliver.user_data.data()
+                existing_data = sliver.user_data.data
                 if existing_data is None:
                     existing_data = {}
                 if "fabric_reserved" not in existing_data:
@@ -1143,4 +1143,4 @@ class VMHandler(HandlerBase):
                     result[x][memory_values[0]] = memory_values[idx]
                     idx += 1
 
-            return result
+        return result
