@@ -163,46 +163,6 @@ class VMHandler(HandlerBase):
 
             time.sleep(5)
 
-            vcpuinfo = []
-            numastat = []
-            # Grab VcpuInfo for the VM
-            ok = self.__perform_virsh_server_action(playbook_path=playbook_path, inventory_path=inventory_path,
-                                                    worker_node_name=worker_node, operation=AmConstants.OP_VCPUINFO,
-                                                    instance_name=sliver.label_allocations.instance)
-            ansible_facts = ok.get(AmConstants.ANSIBLE_FACTS)
-            if ansible_facts is not None and ansible_facts.get(AmConstants.OP_VCPUINFO) is not None:
-                vcpuinfo = self.parse_vcpuinfo(vcpuinfo_output=ansible_facts.get(AmConstants.OP_VCPUINFO))
-                self.logger.info(f"{AmConstants.OP_VCPUINFO} for {vmname}: {vcpuinfo}")
-
-            # Grab Numa Stat Info for the VM
-            ok = self.__perform_virsh_server_action(playbook_path=playbook_path, inventory_path=inventory_path,
-                                                    worker_node_name=worker_node, operation=AmConstants.OP_NUMASTAT,
-                                                    instance_name=sliver.label_allocations.instance)
-
-            ansible_facts = ok.get(AmConstants.ANSIBLE_FACTS)
-            if ansible_facts is not None and ansible_facts.get(AmConstants.OP_NUMASTAT) is not None:
-                numastat = self.parse_numastat(numastat_output=ansible_facts.get(AmConstants.OP_NUMASTAT))
-                self.logger.info(f"{AmConstants.OP_NUMASTAT} for {vmname}: {numastat}")
-
-            user_data = {AmConstants.OP_VCPUINFO: vcpuinfo,
-                         AmConstants.OP_NUMASTAT: numastat}
-
-            fabric_reserved = {"fabric_reserved": user_data}
-
-            if sliver.user_data is None:
-                sliver.user_data = UserData(data=fabric_reserved)
-            else:
-                existing_data = sliver.user_data.data
-                if existing_data is None:
-                    existing_data = {}
-                if "fabric_reserved" not in existing_data:
-                    existing_data["fabric_reserved"] = user_data
-                else:
-                    existing_data["fabric_reserved"][AmConstants.OP_VCPUINFO] = vcpuinfo
-                    existing_data["fabric_reserved"][AmConstants.OP_NUMASTAT] = numastat
-
-                sliver.set_user_data(user_data=UserData(data=existing_data))
-
             sliver.management_ip = fip
             # Configure Components - only gets triggered via Portal for now
             self.__configure_components(sliver=sliver)
@@ -1142,5 +1102,219 @@ class VMHandler(HandlerBase):
                 for x in keys:
                     result[x][memory_values[0]] = memory_values[idx]
                     idx += 1
+
+        return result
+
+    def __poa_cpuinfo(self, unit: ConfigToken) -> dict:
+        result = {Constants.PROPERTY_TARGET_NAME: Constants.TARGET_POA,
+                  Constants.PROPERTY_TARGET_RESULT_CODE: Constants.RESULT_CODE_OK,
+                  Constants.PROPERTY_ACTION_SEQUENCE_NUMBER: 0}
+
+        try:
+            self.get_logger().info(f"POA-cpuinfo started")
+
+            sliver = unit.get_sliver()
+            if not isinstance(sliver, NodeSliver):
+                raise VmHandlerException(f"Invalid Sliver type {type(sliver)}")
+
+            if sliver is None:
+                raise VmHandlerException(f"Unit # {unit} has no assigned slivers")
+
+            worker_node = sliver.label_allocations.instance_parent
+            vmname = f"{unit.get_reservation_id()}-{sliver.get_name()}"
+
+            playbook_path = self.get_config()[AmConstants.PLAYBOOK_SECTION][AmConstants.PB_LOCATION]
+            inventory_path = self.get_config()[AmConstants.PLAYBOOK_SECTION][AmConstants.PB_INVENTORY]
+
+            if inventory_path is None or playbook_path is None:
+                raise VmHandlerException(f"Missing config parameters "
+                                         f"playbook_path: {playbook_path} inventory_path: {inventory_path}")
+
+            # Grab VcpuInfo for the VM
+            ok = self.__perform_virsh_server_action(playbook_path=playbook_path, inventory_path=inventory_path,
+                                                    worker_node_name=worker_node, operation=AmConstants.OP_VCPUINFO,
+                                                    instance_name=sliver.label_allocations.instance)
+            ansible_facts = ok.get(AmConstants.ANSIBLE_FACTS)
+            if ansible_facts is not None and ansible_facts.get(AmConstants.OP_VCPUINFO) is not None:
+                vcpuinfo = self.parse_vcpuinfo(vcpuinfo_output=ansible_facts.get(AmConstants.OP_VCPUINFO))
+                self.logger.info(f"{AmConstants.OP_VCPUINFO} for {vmname}: {vcpuinfo}")
+        except Exception as e:
+            self.get_logger().error(e)
+            self.get_logger().error(traceback.format_exc())
+
+            result = {Constants.PROPERTY_TARGET_NAME: Constants.TARGET_POA,
+                      Constants.PROPERTY_TARGET_RESULT_CODE: Constants.RESULT_CODE_EXCEPTION,
+                      Constants.PROPERTY_ACTION_SEQUENCE_NUMBER: 0,
+                      Constants.PROPERTY_EXCEPTION_MESSAGE: e}
+        finally:
+            self.get_logger().info(f"POA-cpuinfo completed")
+
+        return result
+
+    def __poa_numastat(self, unit: ConfigToken) -> dict:
+        result = {Constants.PROPERTY_TARGET_NAME: Constants.TARGET_POA,
+                  Constants.PROPERTY_TARGET_RESULT_CODE: Constants.RESULT_CODE_OK,
+                  Constants.PROPERTY_ACTION_SEQUENCE_NUMBER: 0}
+
+        try:
+            self.get_logger().info(f"POA-numastat started")
+
+            sliver = unit.get_sliver()
+            if not isinstance(sliver, NodeSliver):
+                raise VmHandlerException(f"Invalid Sliver type {type(sliver)}")
+
+            if sliver is None:
+                raise VmHandlerException(f"Unit # {unit} has no assigned slivers")
+
+            worker_node = sliver.label_allocations.instance_parent
+            vmname = f"{unit.get_reservation_id()}-{sliver.get_name()}"
+
+            playbook_path = self.get_config()[AmConstants.PLAYBOOK_SECTION][AmConstants.PB_LOCATION]
+            inventory_path = self.get_config()[AmConstants.PLAYBOOK_SECTION][AmConstants.PB_INVENTORY]
+
+            if inventory_path is None or playbook_path is None:
+                raise VmHandlerException(f"Missing config parameters "
+                                         f"playbook_path: {playbook_path} inventory_path: {inventory_path}")
+
+            # Grab Numa Stat Info for the VM
+            ok = self.__perform_virsh_server_action(playbook_path=playbook_path, inventory_path=inventory_path,
+                                                    worker_node_name=worker_node, operation=AmConstants.OP_NUMASTAT,
+                                                    instance_name=sliver.label_allocations.instance)
+
+            ansible_facts = ok.get(AmConstants.ANSIBLE_FACTS)
+            if ansible_facts is not None and ansible_facts.get(AmConstants.OP_NUMASTAT) is not None:
+                numastat = self.parse_numastat(numastat_output=ansible_facts.get(AmConstants.OP_NUMASTAT))
+                self.logger.info(f"{AmConstants.OP_NUMASTAT} for {vmname}: {numastat}")
+
+        except Exception as e:
+            self.get_logger().error(e)
+            self.get_logger().error(traceback.format_exc())
+
+            result = {Constants.PROPERTY_TARGET_NAME: Constants.TARGET_POA,
+                      Constants.PROPERTY_TARGET_RESULT_CODE: Constants.RESULT_CODE_EXCEPTION,
+                      Constants.PROPERTY_ACTION_SEQUENCE_NUMBER: 0,
+                      Constants.PROPERTY_EXCEPTION_MESSAGE: e}
+        finally:
+            self.get_logger().info(f"POA-numastat completed")
+
+        return result
+
+    def __poa_reboot(self, unit: ConfigToken) -> dict:
+        result = {Constants.PROPERTY_TARGET_NAME: Constants.TARGET_POA,
+                  Constants.PROPERTY_TARGET_RESULT_CODE: Constants.RESULT_CODE_OK,
+                  Constants.PROPERTY_ACTION_SEQUENCE_NUMBER: 0}
+
+        try:
+            self.get_logger().info(f"POA-cpuinfo started")
+
+            sliver = unit.get_sliver()
+            if not isinstance(sliver, NodeSliver):
+                raise VmHandlerException(f"Invalid Sliver type {type(sliver)}")
+
+            if sliver is None:
+                raise VmHandlerException(f"Unit # {unit} has no assigned slivers")
+
+            resource_type = str(sliver.get_type())
+            playbook_path = self.get_config()[AmConstants.PLAYBOOK_SECTION][AmConstants.PB_LOCATION]
+            inventory_path = self.get_config()[AmConstants.PLAYBOOK_SECTION][AmConstants.PB_INVENTORY]
+            playbook = self.get_config()[AmConstants.PLAYBOOK_SECTION][resource_type]
+
+            if playbook is None or inventory_path is None or playbook_path is None:
+                raise VmHandlerException(f"Missing config parameters playbook: {playbook} "
+                                         f"playbook_path: {playbook_path} inventory_path: {inventory_path}")
+            playbook_path_full = f"{playbook_path}/{playbook}"
+
+            # REBOOT the VM
+            self.__perform_os_server_action(playbook_path=playbook_path_full, inventory_path=inventory_path,
+                                            vm_name=sliver.get_name(), unit_id=str(unit.get_reservation_id()),
+                                            action=AmConstants.OP_REBOOT)
+        except Exception as e:
+            self.get_logger().error(e)
+            self.get_logger().error(traceback.format_exc())
+
+            result = {Constants.PROPERTY_TARGET_NAME: Constants.TARGET_POA,
+                      Constants.PROPERTY_TARGET_RESULT_CODE: Constants.RESULT_CODE_EXCEPTION,
+                      Constants.PROPERTY_ACTION_SEQUENCE_NUMBER: 0,
+                      Constants.PROPERTY_EXCEPTION_MESSAGE: e}
+        finally:
+            self.get_logger().info(f"POA-cpuinfo completed")
+
+        return result
+
+    def __poa_cpupin(self, unit: ConfigToken) -> dict:
+        result = {Constants.PROPERTY_TARGET_NAME: Constants.TARGET_POA,
+                  Constants.PROPERTY_TARGET_RESULT_CODE: Constants.RESULT_CODE_OK,
+                  Constants.PROPERTY_ACTION_SEQUENCE_NUMBER: 0}
+
+        try:
+            self.get_logger().info(f"POA-cpuinfo started")
+
+            sliver = unit.get_sliver()
+            if not isinstance(sliver, NodeSliver):
+                raise VmHandlerException(f"Invalid Sliver type {type(sliver)}")
+
+            if sliver is None:
+                raise VmHandlerException(f"Unit # {unit} has no assigned slivers")
+
+            worker_node = sliver.label_allocations.instance_parent
+            vmname = f"{unit.get_reservation_id()}-{sliver.get_name()}"
+
+            playbook_path = self.get_config()[AmConstants.PLAYBOOK_SECTION][AmConstants.PB_LOCATION]
+            inventory_path = self.get_config()[AmConstants.PLAYBOOK_SECTION][AmConstants.PB_INVENTORY]
+
+            if inventory_path is None or playbook_path is None:
+                raise VmHandlerException(f"Missing config parameters "
+                                         f"playbook_path: {playbook_path} inventory_path: {inventory_path}")
+
+            # TODO Ansible to do cpupin
+        except Exception as e:
+            self.get_logger().error(e)
+            self.get_logger().error(traceback.format_exc())
+
+            result = {Constants.PROPERTY_TARGET_NAME: Constants.TARGET_POA,
+                      Constants.PROPERTY_TARGET_RESULT_CODE: Constants.RESULT_CODE_EXCEPTION,
+                      Constants.PROPERTY_ACTION_SEQUENCE_NUMBER: 0,
+                      Constants.PROPERTY_EXCEPTION_MESSAGE: e}
+        finally:
+            self.get_logger().info(f"POA-cpuinfo completed")
+
+        return result
+
+    def __poa_numatune(self, unit: ConfigToken) -> dict:
+        result = {Constants.PROPERTY_TARGET_NAME: Constants.TARGET_POA,
+                  Constants.PROPERTY_TARGET_RESULT_CODE: Constants.RESULT_CODE_OK,
+                  Constants.PROPERTY_ACTION_SEQUENCE_NUMBER: 0}
+
+        try:
+            self.get_logger().info(f"POA-numatune started")
+
+            sliver = unit.get_sliver()
+            if not isinstance(sliver, NodeSliver):
+                raise VmHandlerException(f"Invalid Sliver type {type(sliver)}")
+
+            if sliver is None:
+                raise VmHandlerException(f"Unit # {unit} has no assigned slivers")
+
+            worker_node = sliver.label_allocations.instance_parent
+            vmname = f"{unit.get_reservation_id()}-{sliver.get_name()}"
+
+            playbook_path = self.get_config()[AmConstants.PLAYBOOK_SECTION][AmConstants.PB_LOCATION]
+            inventory_path = self.get_config()[AmConstants.PLAYBOOK_SECTION][AmConstants.PB_INVENTORY]
+
+            if inventory_path is None or playbook_path is None:
+                raise VmHandlerException(f"Missing config parameters "
+                                         f"playbook_path: {playbook_path} inventory_path: {inventory_path}")
+
+            # TODO Ansible to do numatune
+        except Exception as e:
+            self.get_logger().error(e)
+            self.get_logger().error(traceback.format_exc())
+
+            result = {Constants.PROPERTY_TARGET_NAME: Constants.TARGET_POA,
+                      Constants.PROPERTY_TARGET_RESULT_CODE: Constants.RESULT_CODE_EXCEPTION,
+                      Constants.PROPERTY_ACTION_SEQUENCE_NUMBER: 0,
+                      Constants.PROPERTY_EXCEPTION_MESSAGE: e}
+        finally:
+            self.get_logger().info(f"POA-numatune completed")
 
         return result
