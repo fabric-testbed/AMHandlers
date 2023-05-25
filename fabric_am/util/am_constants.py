@@ -63,6 +63,8 @@ class AmConstants:
     OP_START = "start"
     OP_CPUINFO = "cpuinfo"
     OP_NUMASTAT = "numastat"
+    OP_CPUPIN = "cpupin"
+    OP_NUMATUNE = "numatune"
     OP_MOUNT = "mount"
 
     PORT_NAME = "portname"

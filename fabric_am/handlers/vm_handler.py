@@ -218,6 +218,42 @@ class VMHandler(HandlerBase):
             self.get_logger().info(f"Delete completed")
         return result, unit
 
+    def poa(self, unit: ConfigToken, operation: str, data: dict = None) -> dict:
+        """
+        POA - perform operational action on a VM
+        """
+        try:
+            self.get_logger().info(f"POA invoked for unit: {unit}")
+            sliver = unit.get_sliver()
+            if sliver is None:
+                raise VmHandlerException(f"Unit # {unit} has no assigned slivers")
+
+            if not isinstance(sliver, NodeSliver):
+                raise VmHandlerException(f"Invalid Sliver type {type(sliver)}")
+
+            if operation == AmConstants.OP_CPUINFO:
+                result = self.poa_cpuinfo(unit=unit)
+            elif operation == AmConstants.OP_NUMASTAT:
+                result = self.poa_numastat(unit=unit)
+            elif operation == AmConstants.OP_CPUPIN:
+                result = self.__poa_cpupin(unit=unit)
+            elif operation == AmConstants.OP_NUMATUNE:
+                result = self.__poa_numatune(unit=unit)
+            else:
+                raise VmHandlerException(f"Unsupported {operation}")
+
+        except Exception as e:
+            result = {Constants.PROPERTY_TARGET_NAME: Constants.TARGET_DELETE,
+                      Constants.PROPERTY_TARGET_RESULT_CODE: Constants.RESULT_CODE_EXCEPTION,
+                      Constants.PROPERTY_ACTION_SEQUENCE_NUMBER: 0,
+                      Constants.PROPERTY_EXCEPTION_MESSAGE: e}
+            self.get_logger().error(e)
+            self.get_logger().error(traceback.format_exc())
+        finally:
+
+            self.get_logger().info(f"POA completed")
+        return result
+
     def __configure_component(self, *, component: ComponentSliver, user: str, mgmt_ip: str):
         try:
             if component.get_type() not in [ComponentType.SharedNIC, ComponentType.SmartNIC, ComponentType.Storage]:
