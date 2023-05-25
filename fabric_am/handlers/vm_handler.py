@@ -1155,8 +1155,8 @@ class VMHandler(HandlerBase):
                                                     instance_name=sliver.label_allocations.instance)
 
             ansible_facts = ok.get(AmConstants.ANSIBLE_FACTS)
-            numainfo_vm = ok.get(f"{AmConstants.OP_NUMAINFO}_{AmConstants.VM}")
-            numainfo_host = ok.get(f"{AmConstants.OP_NUMAINFO}_{AmConstants.HOST}")
+            numainfo_vm = ansible_facts.get(f"{AmConstants.OP_NUMAINFO}_{AmConstants.VM}")
+            numainfo_host = ansible_facts.get(f"{AmConstants.OP_NUMAINFO}_{AmConstants.HOST}")
             numainfo = {}
             if ansible_facts is not None:
                 if numainfo_vm is not None:

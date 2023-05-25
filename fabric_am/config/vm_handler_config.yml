@@ -64,7 +64,7 @@ playbooks:
   operation:
     cpuinfo: worker_pci_provisioning.yml
     cpupin: worker_pci_provisioning.yml
-    numastat: worker_pci_provisioning.yml
+    numainfo: worker_pci_provisioning.yml
     numatune: worker_pci_provisioning.yml
   config:
     post_boot: head_vm_post_boot_config.yml

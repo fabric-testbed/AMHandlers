@@ -162,17 +162,72 @@ class Utils:
         """
         '''
         Numa Stat Output looks like:
-        numa_info = ["",
-                 "Per-node process memory usage (in MBs) for PID 2676600 (qemu-kvm)",
-                 "         Node 0 Node 1 Total",
-                 "         ------ ------ -----",
-                 "Private   17531  15284 32815",
-                 "Heap          0      6     6",
-                 "Stack         0      0     0",
-                 "Huge          0      0     0",
-                 "-------  ------ ------ -----",
-                 "Total     17531  15290 32821"
-                 ]
+        numa_info = [
+                     'available: 8 nodes (0-7)', 
+                     'node 0 cpus: 0 1 2 3 4 5 6 7 64 65 66 67 68 69 70 71', 
+                     'node 0 size: 63798 MB', 
+                     'node 0 free: 59660 MB', 
+                     'node 1 cpus: 8 9 10 11 12 13 14 15 72 73 74 75 76 77 78 79', 
+                     'node 1 size: 64507 MB', 
+                     'node 1 free: 63042 MB', 
+                     'node 2 cpus: 16 17 18 19 20 21 22 23 80 81 82 83 84 85 86 87', 
+                     'node 2 size: 64507 MB', 
+                     'node 2 free: 63911 MB', 
+                     'node 3 cpus: 24 25 26 27 28 29 30 31 88 89 90 91 92 93 94 95', 
+                     'node 3 size: 64458 MB', 
+                     'node 3 free: 30882 MB', 
+                     'node 4 cpus: 32 33 34 35 36 37 38 39 96 97 98 99 100 101 102 103', 
+                     'node 4 size: 64507 MB', 
+                     'node 4 free: 64069 MB', 
+                     'node 5 cpus: 40 41 42 43 44 45 46 47 104 105 106 107 108 109 110 111', 
+                     'node 5 size: 64507 MB', 
+                     'node 5 free: 63966 MB', 
+                     'node 6 cpus: 48 49 50 51 52 53 54 55 112 113 114 115 116 117 118 119', 
+                     'node 6 size: 64507 MB', 
+                     'node 6 free: 61214 MB', 
+                     'node 7 cpus: 56 57 58 59 60 61 62 63 120 121 122 123 124 125 126 127', 
+                     'node 7 size: 64506 MB', 
+                     'node 7 free: 63869 MB', 
+                     'node distances:', 
+                     'node   0   1   2   3   4   5   6   7 ', 
+                     '  0:  10  12  12  12  32  32  32  32 ', 
+                     '  1:  12  10  12  12  32  32  32  32 ', 
+                     '  2:  12  12  10  12  32  32  32  32 ', 
+                     '  3:  12  12  12  10  32  32  32  32 ', 
+                     '  4:  32  32  32  32  10  12  12  12 ', 
+                     '  5:  32  32  32  32  12  10  12  12 ', 
+                     '  6:  32  32  32  32  12  12  10  12 ', 
+                     '  7:  32  32  32  32  12  12  12  10 '
+                     ]
         '''
         result = {}
+        data = {}
+        for line in numactl_output:
+            # Ignore empty lines and headers
+            if line == "":
+                continue
+            elif "available" in line:
+                key, value = line.split(':')
+                key = key.strip()
+                value = value.strip()
+                result[key] = value
+            elif "node distances" in line:
+                break
+            else:
+                print(line)
+                key, value = line.split(':')
+                key = key.strip()
+                value = value.strip()
+                regex_pattern = r"^(.*?)\s+(\w+)$"
+                matches = re.match(regex_pattern, key)
+                if matches:
+                    node = matches.group(1)
+                    key = matches.group(2)
+                    print(node)
+                    print((key))
+                    if node not in result:
+                        result[node] = {}
+                    result[node][key] = value
+                else:
+                    result[key] = value
         return result
