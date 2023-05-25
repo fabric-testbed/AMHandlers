@@ -1119,7 +1119,7 @@ class VMHandler(HandlerBase):
 
         return result
 
-    def __poa_cpuinfo(self, unit: ConfigToken) -> dict:
+    def poa_cpuinfo(self, unit: ConfigToken) -> dict:
         result = {Constants.PROPERTY_TARGET_NAME: Constants.TARGET_POA,
                   Constants.PROPERTY_TARGET_RESULT_CODE: Constants.RESULT_CODE_OK,
                   Constants.PROPERTY_ACTION_SEQUENCE_NUMBER: 0}
@@ -1144,14 +1144,14 @@ class VMHandler(HandlerBase):
                 raise VmHandlerException(f"Missing config parameters "
                                          f"playbook_path: {playbook_path} inventory_path: {inventory_path}")
 
-            # Grab VcpuInfo for the VM
+            # Grab VcpuInfo for the VM and cpu information for the host
             ok = self.__perform_virsh_server_action(playbook_path=playbook_path, inventory_path=inventory_path,
-                                                    worker_node_name=worker_node, operation=AmConstants.OP_VCPUINFO,
+                                                    worker_node_name=worker_node, operation=AmConstants.OP_CPUINFO,
                                                     instance_name=sliver.label_allocations.instance)
             ansible_facts = ok.get(AmConstants.ANSIBLE_FACTS)
-            if ansible_facts is not None and ansible_facts.get(AmConstants.OP_VCPUINFO) is not None:
-                vcpuinfo = self.parse_vcpuinfo(vcpuinfo_output=ansible_facts.get(AmConstants.OP_VCPUINFO))
-                self.logger.info(f"{AmConstants.OP_VCPUINFO} for {vmname}: {vcpuinfo}")
+            if ansible_facts is not None and ansible_facts.get(AmConstants.OP_CPUINFO) is not None:
+                vcpuinfo = self.parse_vcpuinfo(vcpuinfo_output=ansible_facts.get(AmConstants.OP_CPUINFO))
+                self.logger.info(f"{AmConstants.OP_CPUINFO} for {vmname}: {vcpuinfo}")
         except Exception as e:
             self.get_logger().error(e)
             self.get_logger().error(traceback.format_exc())
@@ -1165,7 +1165,7 @@ class VMHandler(HandlerBase):
 
         return result
 
-    def __poa_numastat(self, unit: ConfigToken) -> dict:
+    def poa_numastat(self, unit: ConfigToken) -> dict:
         result = {Constants.PROPERTY_TARGET_NAME: Constants.TARGET_POA,
                   Constants.PROPERTY_TARGET_RESULT_CODE: Constants.RESULT_CODE_OK,
                   Constants.PROPERTY_ACTION_SEQUENCE_NUMBER: 0}
@@ -1190,7 +1190,7 @@ class VMHandler(HandlerBase):
                 raise VmHandlerException(f"Missing config parameters "
                                          f"playbook_path: {playbook_path} inventory_path: {inventory_path}")
 
-            # Grab Numa Stat Info for the VM
+            # Grab Numa Stat Info for the VM and Numa Info for the Host
             ok = self.__perform_virsh_server_action(playbook_path=playbook_path, inventory_path=inventory_path,
                                                     worker_node_name=worker_node, operation=AmConstants.OP_NUMASTAT,
                                                     instance_name=sliver.label_allocations.instance)

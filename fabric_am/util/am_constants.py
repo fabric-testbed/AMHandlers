@@ -61,7 +61,7 @@ class AmConstants:
     OP_REBOOT = "reboot"
     OP_STOP = "stop"
     OP_START = "start"
-    OP_VCPUINFO = "vcpuinfo"
+    OP_CPUINFO = "cpuinfo"
     OP_NUMASTAT = "numastat"
     OP_MOUNT = "mount"
 
