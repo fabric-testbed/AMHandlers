@@ -62,7 +62,7 @@ class AmConstants:
     OP_STOP = "stop"
     OP_START = "start"
     OP_CPUINFO = "cpuinfo"
-    OP_NUMASTAT = "numastat"
+    OP_NUMAINFO = "numainfo"
     OP_CPUPIN = "cpupin"
     OP_NUMATUNE = "numatune"
     OP_MOUNT = "mount"
@@ -131,3 +131,6 @@ class AmConstants:
     UBUNTU = "ubuntu"
     DEBIAN = "debian"
     FEDORA = "fedora"
+
+    VM = "vm"
+    HOST = "host"

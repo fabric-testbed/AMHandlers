@@ -61,8 +61,8 @@ class TestPlaybooks:
         u = Unit(rid=ID(uid='rid-1'))
         sliver = NodeSliver()
         cap = Capacities(core=2, ram=8, disk=10)
-        sliver.set_properties(type=NodeType.VM, site="RENC", capacity_allocations=cap)
-        sliver.label_allocations = Labels(instance_parent="renc-w3")
+        sliver.set_properties(type=NodeType.VM, site="UKY", capacity_allocations=cap)
+        sliver.label_allocations = Labels(instance_parent="uky-w1.fabric-testbed.net")
         catalog = InstanceCatalog()
         instance_type = catalog.map_capacities_to_instance(cap=cap)
         cap_hints = CapacityHints(instance_type=instance_type)
@@ -84,7 +84,7 @@ class TestPlaybooks:
             sliver.attached_components_info.add_device(device_info=component)
 
         if include_instance_name:
-            sliver.label_allocations.instance="instance-001"
+            sliver.label_allocations.instance = "instance-0000105f"
 
         u.set_sliver(sliver=sliver)
         return u
@@ -147,7 +147,11 @@ class TestPlaybooks:
 
     def test_poa_cpuinfo(self):
         u = self.create_unit(include_instance_name=True, include_name=True)
-        self.handler.poa_cpuinfo(unit=u)
+        self.handler.poa(unit=u, operation="cpuinfo", data=None)
+
+    def test_poa_numastat(self):
+        u = self.create_unit(include_instance_name=True, include_name=True)
+        self.handler.poa(unit=u, operation="numainfo", data=None)
 
 if __name__ == "__main__":
     import time

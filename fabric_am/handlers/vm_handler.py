@@ -27,18 +27,18 @@ import json
 import re
 import time
 import traceback
-from typing import Tuple, List, Dict, Any
+from typing import Tuple, List
 
 import paramiko
 from fabric_cf.actor.core.common.constants import Constants
 from fabric_cf.actor.core.plugins.handlers.config_token import ConfigToken
 from fabric_cf.actor.handlers.handler_base import HandlerBase
 from fim.slivers.attached_components import ComponentSliver, ComponentType
-from fim.slivers.json_data import UserData
 from fim.slivers.network_node import NodeSliver
 
 from fabric_am.util.am_constants import AmConstants
 from fabric_am.util.ansible_helper import AnsibleHelper
+from fabric_am.util.utils import Utils
 
 
 class VmHandlerException(Exception):
@@ -232,9 +232,9 @@ class VMHandler(HandlerBase):
                 raise VmHandlerException(f"Invalid Sliver type {type(sliver)}")
 
             if operation == AmConstants.OP_CPUINFO:
-                result = self.poa_cpuinfo(unit=unit)
-            elif operation == AmConstants.OP_NUMASTAT:
-                result = self.poa_numastat(unit=unit)
+                result = self.__poa_cpuinfo(unit=unit)
+            elif operation == AmConstants.OP_NUMAINFO:
+                result = self.__poa_numainfo(unit=unit)
             elif operation == AmConstants.OP_CPUPIN:
                 result = self.__poa_cpupin(unit=unit)
             elif operation == AmConstants.OP_NUMATUNE:
@@ -1069,93 +1069,7 @@ class VMHandler(HandlerBase):
         ansible_helper.run_playbook(playbook_path=playbook_path, private_key_file=private_key_file, user=user)
         return ansible_helper.get_result_callback().get_json_result_ok()
 
-    def parse_vcpuinfo(self, *, vcpuinfo_output: List[str]) -> List[Dict[str, str]]:
-        """
-        Parse VcpuInfo and transform it to JSON
-        @param vcpuinfo_output: vcpuinfo command output
-        """
-        '''
-        Vcpuinfo Output looks like:
-            cpu_info = ["VCPU:           0",
-                "CPU:            27",
-                "State:          running",
-                "CPU time:       3.1s",
-                "CPU Affinity:   yyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyy", 
-                "", 
-                "VCPU:           1", 
-                "CPU:            9", 
-                "State:          running", 
-                "CPU Affinity:   yyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyy"
-                ]
-        '''
-        result = []
-        data = {}
-        for line in vcpuinfo_output:
-            if line == "":
-                result.append(data)
-                data.clear()
-            else:
-                # Split the line at the first occurrence of ':' character
-                key, value = line.split(':', 1)
-                # Remove leading/trailing spaces from key and value
-                key = key.strip()
-                value = value.strip()
-                # Add the key-value pair to the data dictionary
-                data[key] = value
-        return result
-
-    @staticmethod
-    def parse_numastat(*, numastat_output: str) -> Dict[Any, dict]:
-        """
-        Parse numa stat output and convert it to JSON
-        @param numastat_output: Numa State output
-        """
-        '''
-        Numa Stat Output looks like:
-        numa_info = ["",
-                 "Per-node process memory usage (in MBs) for PID 2676600 (qemu-kvm)",
-                 "         Node 0 Node 1 Total",
-                 "         ------ ------ -----",
-                 "Private   17531  15284 32815",
-                 "Heap          0      6     6",
-                 "Stack         0      0     0",
-                 "Huge          0      0     0",
-                 "-------  ------ ------ -----",
-                 "Total     17531  15290 32821"
-                 ]
-        '''
-        result = {}
-        keys = []
-        for line in numastat_output:
-            # Ignore empty lines and headers
-            if line == "" or "Per-node" in line or "--" in line:
-                continue
-            # Extract Numa Nodes
-            elif "Node" in line:
-                line = line.strip()
-                regex_pattern = r'\b(\w+\s+\d+)\b|\b(\w+)\b'
-                matches = re.findall(regex_pattern, line)
-                # Flatten the list of tuples and remove empty strings
-                keys = [match[0] or match[1] for match in matches if match[0] or match[1]]
-
-                # Add empty dictionary for each Node and Total
-                for x in keys:
-                    result[x] = {}
-            else:
-                # Extract Different types of Memory for each Node and Total
-                regex_pattern = r'(\b\w+\b)|(\b\d+\b)'
-                matches = re.findall(regex_pattern, line)
-                # Flatten the list of tuples and remove empty strings
-                memory_values = [match[0] or match[1] for match in matches if match[0] or match[1]]
-                # Index 0 contains the type of Memory and is used as a key
-                idx = 1
-                for x in keys:
-                    result[x][memory_values[0]] = memory_values[idx]
-                    idx += 1
-
-        return result
-
-    def poa_cpuinfo(self, unit: ConfigToken) -> dict:
+    def __poa_cpuinfo(self, unit: ConfigToken) -> dict:
         result = {Constants.PROPERTY_TARGET_NAME: Constants.TARGET_POA,
                   Constants.PROPERTY_TARGET_RESULT_CODE: Constants.RESULT_CODE_OK,
                   Constants.PROPERTY_ACTION_SEQUENCE_NUMBER: 0}
@@ -1185,9 +1099,18 @@ class VMHandler(HandlerBase):
                                                     worker_node_name=worker_node, operation=AmConstants.OP_CPUINFO,
                                                     instance_name=sliver.label_allocations.instance)
             ansible_facts = ok.get(AmConstants.ANSIBLE_FACTS)
-            if ansible_facts is not None and ansible_facts.get(AmConstants.OP_CPUINFO) is not None:
-                vcpuinfo = self.parse_vcpuinfo(vcpuinfo_output=ansible_facts.get(AmConstants.OP_CPUINFO))
-                self.logger.info(f"{AmConstants.OP_CPUINFO} for {vmname}: {vcpuinfo}")
+            cpu_info_vm = ansible_facts.get(f"{AmConstants.OP_CPUINFO}-{AmConstants.VM}")
+            cpu_info_host = ansible_facts.get(f"{AmConstants.OP_CPUINFO}-{AmConstants.HOST}")
+            cpuinfo = {}
+            if ansible_facts is not None:
+                if cpu_info_vm is not None:
+                    cpu_info_vm = Utils.parse_vcpuinfo(vcpuinfo_output=cpu_info_vm)
+                    cpuinfo[AmConstants.VM] = cpu_info_vm
+                if cpu_info_host is not None:
+                    cpu_info_host = Utils.parse_lscpu(lscpu_output=cpu_info_host)
+                    cpuinfo[AmConstants.HOST] = cpu_info_host
+            self.logger.info(f"{AmConstants.OP_CPUINFO} for {vmname}: {cpuinfo}")
+            result[AmConstants.OP_CPUINFO] = cpuinfo
         except Exception as e:
             self.get_logger().error(e)
             self.get_logger().error(traceback.format_exc())
@@ -1201,13 +1124,13 @@ class VMHandler(HandlerBase):
 
         return result
 
-    def poa_numastat(self, unit: ConfigToken) -> dict:
+    def __poa_numainfo(self, unit: ConfigToken) -> dict:
         result = {Constants.PROPERTY_TARGET_NAME: Constants.TARGET_POA,
                   Constants.PROPERTY_TARGET_RESULT_CODE: Constants.RESULT_CODE_OK,
                   Constants.PROPERTY_ACTION_SEQUENCE_NUMBER: 0}
 
         try:
-            self.get_logger().info(f"POA-numastat started")
+            self.get_logger().info(f"POA-numainfo started")
 
             sliver = unit.get_sliver()
             if not isinstance(sliver, NodeSliver):
@@ -1228,14 +1151,22 @@ class VMHandler(HandlerBase):
 
             # Grab Numa Stat Info for the VM and Numa Info for the Host
             ok = self.__perform_virsh_server_action(playbook_path=playbook_path, inventory_path=inventory_path,
-                                                    worker_node_name=worker_node, operation=AmConstants.OP_NUMASTAT,
+                                                    worker_node_name=worker_node, operation=AmConstants.OP_NUMAINFO,
                                                     instance_name=sliver.label_allocations.instance)
 
             ansible_facts = ok.get(AmConstants.ANSIBLE_FACTS)
-            if ansible_facts is not None and ansible_facts.get(AmConstants.OP_NUMASTAT) is not None:
-                numastat = self.parse_numastat(numastat_output=ansible_facts.get(AmConstants.OP_NUMASTAT))
-                self.logger.info(f"{AmConstants.OP_NUMASTAT} for {vmname}: {numastat}")
-
+            numainfo_vm = ok.get(f"{AmConstants.OP_NUMAINFO}-{AmConstants.VM}")
+            numainfo_host = ok.get(f"{AmConstants.OP_NUMAINFO}-{AmConstants.HOST}")
+            numainfo = {}
+            if ansible_facts is not None:
+                if numainfo_vm is not None:
+                    numainfo_vm = Utils.parse_numastat(numastat_output=numainfo_vm)
+                    numainfo[AmConstants.VM] = numainfo_vm
+                if numainfo_host is not None:
+                    numainfo_host = Utils.parse_numactl(numactl_output=numainfo_host)
+                    numainfo[AmConstants.HOST] = numainfo_host
+            self.logger.info(f"{AmConstants.OP_NUMAINFO} for {vmname}: {numainfo}")
+            result[AmConstants.OP_NUMAINFO] = numainfo
         except Exception as e:
             self.get_logger().error(e)
             self.get_logger().error(traceback.format_exc())
@@ -1245,7 +1176,7 @@ class VMHandler(HandlerBase):
                       Constants.PROPERTY_ACTION_SEQUENCE_NUMBER: 0,
                       Constants.PROPERTY_EXCEPTION_MESSAGE: e}
         finally:
-            self.get_logger().info(f"POA-numastat completed")
+            self.get_logger().info(f"POA-numainfo completed")
 
         return result
 

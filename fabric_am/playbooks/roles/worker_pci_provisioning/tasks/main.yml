@@ -55,6 +55,12 @@
     state: shutdown
   when: operation == 'stop'
 
+- name: Get CPU info of a Host
+  ansible.builtin.shell:
+    lscpu -J -e=cpu,node
+  register: cpuinfo_host
+  when: operation == 'cpuinfo'
+
 - name: Get vCPU info of a VM
   ansible.builtin.shell:
     virsh vcpuinfo {{ kvmguest_name }}
@@ -62,45 +68,23 @@
   when: operation == 'cpuinfo'
 
 - set_fact:
-    cpuinfo_host: "{{ cpuinfo_vm.stdout_lines }}"
-  when: operation == 'cpuinfo'
-
-- name: Get vCPU info of a VM
-  ansible.builtin.shell:
-    lscpu
-  register: cpuinfo_host
-  when: operation == 'cpuinfo'
-
-- set_fact:
     cpuinfo_host: "{{ cpuinfo_host.stdout_lines }}"
+    cpuinfo_vm: "{{ cpuinfo_vm.stdout_lines }}"
   when: operation == 'cpuinfo'
-
-- name: Combine facts
-  set_fact:
-    combined_facts: "{{ cpuinfo_vm | combine(cpuinfo_host | default({})) }}"
-  when: operation == 'cpuinfo'
-
-- name: Get NUMA statistics of a VM
-  ansible.builtin.shell:
-    numastat -c -s {{ kvmguest_name }}
-  register: numastat_vm
-  when: operation == 'numastat'
-
-- set_fact:
-    numastat_vm: "{{ numastat_vm.stdout_lines }}"
-  when: operation == 'numastat'
 
 - name: Get NUMA statistics of the host
   ansible.builtin.shell:
     numactl -H
-  register: numastat_host
-  when: operation == 'numastat'
+  register: numainfo_host
+  when: operation == 'numainfo'
+
+- name: Get NUMA statistics of a VM
+  ansible.builtin.shell:
+    numastat -c -s {{ kvmguest_name }}
+  register: numainfo_vm
+  when: operation == 'numainfo'
 
 - set_fact:
-    numastat_host: "{{ numastat_host.stdout_lines }}"
-  when: operation == 'numastat'
-
-- name: Combine facts
-  set_fact:
-    combined_facts: "{{ numastat_vm | combine(numastat_host | default({})) }}"
-  when: operation == 'numastat'
+    numainfo_host: "{{ numainfo_host.stdout_lines }}"
+    numainfo_vm: "{{ numainfo_vm.stdout_lines }}"
+  when: operation == 'numainfo'
