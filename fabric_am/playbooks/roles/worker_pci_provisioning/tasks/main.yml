@@ -88,3 +88,14 @@
     numainfo_host: "{{ numainfo_host.stdout_lines }}"
     numainfo_vm: "{{ numainfo_vm.stdout_lines }}"
   when: operation == 'numainfo'
+
+- name: Pin vCpu to host cpus for a VM
+  ansible.builtin.shell:
+    virsh vcpupin {{ kvmguest_name }} {{ item.vcpu }} {{ item.cpu }} --live --config
+  loop: "{{ cpu_list }}"
+  when: operation == 'cpupin'
+
+- name: Pin memory to numa node for a VM
+  ansible.builtin.shell:
+    virsh numatune {{ kvmguest_name }} --nodeset {{ nodeset }} --live --config
+  when: operation == 'numatune'

@@ -214,7 +214,6 @@ class Utils:
             elif "node distances" in line:
                 break
             else:
-                print(line)
                 key, value = line.split(':')
                 key = key.strip()
                 value = value.strip()
@@ -223,8 +222,6 @@ class Utils:
                 if matches:
                     node = matches.group(1)
                     key = matches.group(2)
-                    print(node)
-                    print((key))
                     if node not in result:
                         result[node] = {}
                     result[node][key] = value
