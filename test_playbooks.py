@@ -166,5 +166,6 @@ if __name__ == "__main__":
     #time.sleep(10)
     #tpb.test_delete_vm_success(u=u)
     #tpb.test_config_nw_interface_tagged()
-    tpb.test_config_nw_interface()
+    #tpb.test_config_nw_interface()
+    tpb.test_poa_cpuinfo()
 

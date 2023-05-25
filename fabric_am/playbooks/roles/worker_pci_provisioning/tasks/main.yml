@@ -57,7 +57,7 @@
 
 - name: Get CPU info of a Host
   ansible.builtin.shell:
-    lscpu -J -e=cpu,node
+    lscpu -e=cpu,node
   register: cpuinfo_host
   when: operation == 'cpuinfo'
 
