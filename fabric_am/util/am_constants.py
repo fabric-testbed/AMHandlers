@@ -109,6 +109,7 @@ class AmConstants:
     SSH_KEY = "sshkey"
     DEFAULT_USER = "default_user"
     INIT_SCRIPT = "init_script"
+    USER_DATA = "user_data"
 
     ROOT_USER = "root"
 
