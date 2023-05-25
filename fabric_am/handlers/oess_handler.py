@@ -36,7 +36,6 @@ from fim.slivers.network_service import NetworkServiceSliver, MirrorDirection, N
 
 from fabric_am.util.am_constants import AmConstants
 from fabric_am.util.ansible_helper import AnsibleHelper
-from networkx.generators.tests.test_small import null
     
 class OessHandlerException(Exception):
     """

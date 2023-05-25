@@ -1144,6 +1144,27 @@ class TestNetHandler(unittest.TestCase):
         stp1.set_peer_labels(peering_labels)
         stp1.set_capacities(sliver_capacities)
 
+        # route by direct connect ++ (additional direct connecton on same site)
+        stp1a = InterfaceSliver()
+        stp1a.set_name('Interface1a')
+        stp1a.set_type(InterfaceType.ServicePort)
+        interface_labels = Labels(vlan='1002', local_name='TwentyFiveGigE0/0/0/23/1', device_name='lbnl-data-sw', ipv4_subnet='192.168.30.1/24')
+        sliver_capacities = Capacities(bw=1)
+        stp1a.set_labels(interface_labels)
+        stp1a.set_capacities(sliver_capacities)
+
+        # route by BGP peer ++ (additional bgp connecton on same site)
+        stp1b = InterfaceSliver()
+        stp1b.set_name('Interface1b')
+        stp1b.set_type(InterfaceType.ServicePort)
+        interface_labels = Labels(vlan='2001', local_name='TwentyFiveGigE0/0/0/23/1', device_name='lbnl-data-sw', ipv4_subnet='192.168.20.1/24')
+        peering_labels = Labels(ipv4_subnet='192.168.20.2/24', asn='654322',  bgp_key='somesecret')
+        sliver_capacities = Capacities(bw=1)
+        stp1b.set_labels(interface_labels)
+        stp1b.set_peer_labels(peering_labels)
+        stp1b.set_capacities(sliver_capacities)
+
+
         # route by direct connect
         stp2 = InterfaceSliver()
         stp2.set_name('Interface2')
@@ -1165,6 +1186,8 @@ class TestNetHandler(unittest.TestCase):
         ifi = InterfaceInfo()
         sliver.interface_info = ifi
         ifi.add_interface(stp1)
+        ifi.add_interface(stp1a)
+        ifi.add_interface(stp1b)
         ifi.add_interface(stp2)
         ifi.add_interface(stp3)
 

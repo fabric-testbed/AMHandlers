@@ -307,6 +307,17 @@ class VMHandler(HandlerBase):
             self.get_logger().info(f"Modify completed")
         return result, unit
 
+    def __build_user_data(self, *, default_user: str, ssh_key: str, init_script: str = None):
+        user_data = "#!/bin/bash\n"
+        ssh_keys = ssh_key.split(",")
+        for key in ssh_keys:
+            user_data += f"echo {key} >> /home/{default_user}/.ssh/authorized_keys\n"
+
+        if init_script is not None:
+            user_data += init_script
+
+        return user_data
+
     def __create_vm(self, *, playbook_path: str, inventory_path: str, vm_name: str, worker_node: str, image: str,
                     flavor: str, unit_id: str, ssh_key: str, init_script: str = None) -> dict:
         """
@@ -331,6 +342,8 @@ class VMHandler(HandlerBase):
         if init_script is None:
             init_script = ""
 
+        user_data = self.__build_user_data(default_user=default_user, ssh_key=ssh_key, init_script=init_script)
+
         extra_vars = {
             AmConstants.OPERATION: AmConstants.OP_CREATE,
             AmConstants.EC2_AVAILABILITY_ZONE: avail_zone,
@@ -340,7 +353,8 @@ class VMHandler(HandlerBase):
             AmConstants.HOSTNAME: vm_name,
             AmConstants.SSH_KEY: ssh_key,
             AmConstants.DEFAULT_USER: default_user,
-            AmConstants.INIT_SCRIPT: init_script
+            AmConstants.INIT_SCRIPT: init_script,
+            AmConstants.USER_DATA: user_data
         }
         ok = self.__execute_ansible(inventory_path=inventory_path, playbook_path=playbook_path, extra_vars=extra_vars)
 

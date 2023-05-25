@@ -1,0 +1,28 @@
+---
+# file: fpga_provisioning.yml
+
+- hosts:
+    - "{{ worker_node_name }}"
+
+  vars:
+    # note that virsh rewrites these values so
+    # for removal to work these must appear exactly so
+    # you can't, for example say slot: "0x0"
+    # insertion will work but the value in domain xml will be "0x00"
+    domain: "0x0000"
+    bus: "0x25"
+    slot: "0x00"
+    dest_domain: "0x0000"
+    dest_bus: "0x00"
+    # best to set dest_slot high and not worry about collisions
+    # must be lower case to match removal. must no larger than 0x1f
+    dest_slot: "0x1f"
+    usb_ctrlr_idx: 2
+    # default U280 info
+    fpga_usb_vendor_id: "0x0403"
+    fpga_usb_product_id: "0x6011"
+    fpga_dest_usb_bus: "2"
+    fpga_dest_usb_port: "2"
+
+  roles:
+    - fpga_provisioning
