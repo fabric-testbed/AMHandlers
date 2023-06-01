@@ -152,9 +152,14 @@ class TestPlaybooks:
         u = self.create_unit(include_instance_name=True, include_name=True)
         self.handler.poa(unit=u, operation="cpuinfo", data=None)
 
-    def test_poa_numastat(self):
+    def test_poa_numainfo(self):
         u = self.create_unit(include_instance_name=True, include_name=True)
         self.handler.poa(unit=u, operation="numainfo", data=None)
+
+    def test_poa_numatune(self):
+        u = self.create_unit(include_instance_name=True, include_name=True)
+        data = {"node_set": ["1", "2", "3"]}
+        self.handler.poa(unit=u, operation="numatune", data=data)
 
 if __name__ == "__main__":
     import time
@@ -171,4 +176,6 @@ if __name__ == "__main__":
     #tpb.test_config_nw_interface_tagged()
     #tpb.test_config_nw_interface()
     tpb.test_poa_cpuinfo()
+    tpb.test_poa_numainfo()
+    tpb.test_poa_numatune()
 

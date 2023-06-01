@@ -1247,10 +1247,9 @@ class VMHandler(HandlerBase):
                 raise VmHandlerException(f"Missing config parameters "
                                          f"playbook_path: {playbook_path} inventory_path: {inventory_path}")
 
-            # TODO Ansible to do cpupin
             # Pin vCPU to requested CPUs
             self.__perform_virsh_server_action(playbook_path=playbook_path, inventory_path=inventory_path,
-                                               worker_node_name=worker_node, operation=AmConstants.OP_NUMAINFO,
+                                               worker_node_name=worker_node, operation=AmConstants.OP_CPUPIN,
                                                instance_name=sliver.label_allocations.instance,
                                                vcpu_cpu_map=vcpu_cpu_map)
         except Exception as e:
@@ -1293,7 +1292,7 @@ class VMHandler(HandlerBase):
 
             # Numa Tune VM Guest to the requested Numa Nodes
             self.__perform_virsh_server_action(playbook_path=playbook_path, inventory_path=inventory_path,
-                                               worker_node_name=worker_node, operation=AmConstants.OP_NUMAINFO,
+                                               worker_node_name=worker_node, operation=AmConstants.OP_NUMATUNE,
                                                instance_name=sliver.label_allocations.instance,
                                                node_set=node_set)
         except Exception as e:
