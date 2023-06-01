@@ -42,10 +42,13 @@ class TestPlaybooks:
     log_format = \
         '%(asctime)s - %(name)s - {%(filename)s:%(lineno)d} - [%(threadName)s] - %(levelname)s - %(message)s'
     logging.basicConfig(handlers=[logging.StreamHandler()], format=log_format, force=True)
+    logger.setLevel("DEBUG")
 
     prop = {AmConstants.CONFIG_PROPERTIES_FILE: 'fabric_am/config/vm_handler_config.yml'}
     lock = multiprocessing.Lock()
     handler = VMHandler(logger=logger, properties=prop, process_lock=lock)
+    from fabric_cf.actor.core.container.globals import GlobalsSingleton
+    GlobalsSingleton.get().log = logger
 
     @staticmethod
     def create_unit(include_pci: bool = True, include_image: bool = True, include_name: bool = True,
@@ -84,7 +87,7 @@ class TestPlaybooks:
             sliver.attached_components_info.add_device(device_info=component)
 
         if include_instance_name:
-            sliver.label_allocations.instance = "instance-0000105f"
+            sliver.label_allocations.instance = "instance-00001077"
 
         u.set_sliver(sliver=sliver)
         return u
