@@ -1,5 +1,5 @@
 ---
-# file: worker_instance_operations.yml
+# file: worker_libvirt_operations.yml
 
 - hosts: 
     - "{{ worker_node_name }}"
@@ -9,4 +9,4 @@
   vars:
 
   roles:
-    - worker_instance_operations
+    - worker_libvirt_operations
