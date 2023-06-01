@@ -46,8 +46,8 @@
     meta:
       hostname: "{{ hostname }}"
     userdata: |
-      {{ userdata }}
-  when: vm_prov_op == 'create'
+      {{ user_data }}
+  when: operation == 'create'
 
 - name: Attach a floating IP to the instance
   openstack.cloud.floating_ip:

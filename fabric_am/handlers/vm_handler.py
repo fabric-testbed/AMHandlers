@@ -27,7 +27,7 @@ import json
 import re
 import time
 import traceback
-from typing import Tuple, List
+from typing import Tuple, List, Dict
 
 import paramiko
 from fabric_cf.actor.core.common.constants import Constants
@@ -236,9 +236,11 @@ class VMHandler(HandlerBase):
             elif operation == AmConstants.OP_NUMAINFO:
                 result = self.__poa_numainfo(unit=unit)
             elif operation == AmConstants.OP_CPUPIN:
-                result = self.__poa_cpupin(unit=unit)
+                result = self.__poa_cpupin(unit=unit, data=data)
             elif operation == AmConstants.OP_NUMATUNE:
-                result = self.__poa_numatune(unit=unit)
+                result = self.__poa_numatune(unit=unit, data=data)
+            elif operation == AmConstants.OP_REBOOT:
+                result = self.__poa_reboot(unit=unit)
             else:
                 raise VmHandlerException(f"Unsupported {operation}")
 
@@ -818,7 +820,8 @@ class VMHandler(HandlerBase):
         return result
 
     def __perform_virsh_server_action(self, *, playbook_path: str, inventory_path: str, worker_node_name: str,
-                                      instance_name: str, operation: str):
+                                      instance_name: str, operation: str, vcpu_cpu_map:List[Dict[str, str]] = None,
+                                      node_set: List[str] = None):
         """
         Invoke ansible playbook to perform a server action via openstack commands
         :param playbook_path: playbook location
@@ -833,6 +836,12 @@ class VMHandler(HandlerBase):
         extra_vars = {AmConstants.OPERATION: operation,
                       AmConstants.KVM_GUEST_NAME: instance_name,
                       AmConstants.WORKER_NODE_NAME: worker_node_name}
+
+        if vcpu_cpu_map is not None:
+            extra_vars[AmConstants.VCPU_CPU_MAP] = vcpu_cpu_map
+
+        if node_set is not None:
+            extra_vars[AmConstants.NODE_SET] = node_set
 
         return self.__execute_ansible(inventory_path=inventory_path, playbook_path=playbook_path_full,
                                       extra_vars=extra_vars)
@@ -1099,18 +1108,9 @@ class VMHandler(HandlerBase):
                                                     worker_node_name=worker_node, operation=AmConstants.OP_CPUINFO,
                                                     instance_name=sliver.label_allocations.instance)
             ansible_facts = ok.get(AmConstants.ANSIBLE_FACTS)
-            cpu_info_vm = ansible_facts.get(f"{AmConstants.OP_CPUINFO}_{AmConstants.VM}")
-            cpu_info_host = ansible_facts.get(f"{AmConstants.OP_CPUINFO}_{AmConstants.HOST}")
-            cpuinfo = {}
-            if ansible_facts is not None:
-                if cpu_info_vm is not None:
-                    cpu_info_vm = Utils.parse_vcpuinfo(vcpuinfo_output=cpu_info_vm)
-                    cpuinfo[AmConstants.VM] = cpu_info_vm
-                if cpu_info_host is not None:
-                    cpu_info_host = Utils.parse_lscpu(lscpu_output=cpu_info_host)
-                    cpuinfo[AmConstants.HOST] = cpu_info_host
-            self.logger.info(f"{AmConstants.OP_CPUINFO} for {vmname}: {cpuinfo}")
-            result[AmConstants.OP_CPUINFO] = cpuinfo
+            cpu_info = ansible_facts.get(f"{AmConstants.OP_CPUINFO}")[0]
+            self.logger.info(f"{AmConstants.OP_CPUINFO} for {vmname}: {cpu_info}")
+            result[AmConstants.OP_CPUINFO] = cpu_info
         except Exception as e:
             self.get_logger().error(e)
             self.get_logger().error(traceback.format_exc())
@@ -1161,10 +1161,10 @@ class VMHandler(HandlerBase):
             if ansible_facts is not None:
                 if numainfo_vm is not None:
                     numainfo_vm = Utils.parse_numastat(numastat_output=numainfo_vm)
-                    numainfo[AmConstants.VM] = numainfo_vm
+                    numainfo[sliver.label_allocations.instance] = numainfo_vm
                 if numainfo_host is not None:
                     numainfo_host = Utils.parse_numactl(numactl_output=numainfo_host)
-                    numainfo[AmConstants.HOST] = numainfo_host
+                    numainfo[worker_node] = numainfo_host
             self.logger.info(f"{AmConstants.OP_NUMAINFO} for {vmname}: {numainfo}")
             result[AmConstants.OP_NUMAINFO] = numainfo
         except Exception as e:
@@ -1222,7 +1222,7 @@ class VMHandler(HandlerBase):
 
         return result
 
-    def __poa_cpupin(self, unit: ConfigToken) -> dict:
+    def __poa_cpupin(self, unit: ConfigToken, data: dict) -> dict:
         result = {Constants.PROPERTY_TARGET_NAME: Constants.TARGET_POA,
                   Constants.PROPERTY_TARGET_RESULT_CODE: Constants.RESULT_CODE_OK,
                   Constants.PROPERTY_ACTION_SEQUENCE_NUMBER: 0}
@@ -1238,7 +1238,7 @@ class VMHandler(HandlerBase):
                 raise VmHandlerException(f"Unit # {unit} has no assigned slivers")
 
             worker_node = sliver.label_allocations.instance_parent
-            vmname = f"{unit.get_reservation_id()}-{sliver.get_name()}"
+            vcpu_cpu_map = data.get(AmConstants.VCPU_CPU_MAP)
 
             playbook_path = self.get_config()[AmConstants.PLAYBOOK_SECTION][AmConstants.PB_LOCATION]
             inventory_path = self.get_config()[AmConstants.PLAYBOOK_SECTION][AmConstants.PB_INVENTORY]
@@ -1248,6 +1248,11 @@ class VMHandler(HandlerBase):
                                          f"playbook_path: {playbook_path} inventory_path: {inventory_path}")
 
             # TODO Ansible to do cpupin
+            # Pin vCPU to requested CPUs
+            self.__perform_virsh_server_action(playbook_path=playbook_path, inventory_path=inventory_path,
+                                               worker_node_name=worker_node, operation=AmConstants.OP_NUMAINFO,
+                                               instance_name=sliver.label_allocations.instance,
+                                               vcpu_cpu_map=vcpu_cpu_map)
         except Exception as e:
             self.get_logger().error(e)
             self.get_logger().error(traceback.format_exc())
@@ -1261,7 +1266,7 @@ class VMHandler(HandlerBase):
 
         return result
 
-    def __poa_numatune(self, unit: ConfigToken) -> dict:
+    def __poa_numatune(self, unit: ConfigToken, data: dict) -> dict:
         result = {Constants.PROPERTY_TARGET_NAME: Constants.TARGET_POA,
                   Constants.PROPERTY_TARGET_RESULT_CODE: Constants.RESULT_CODE_OK,
                   Constants.PROPERTY_ACTION_SEQUENCE_NUMBER: 0}
@@ -1277,7 +1282,7 @@ class VMHandler(HandlerBase):
                 raise VmHandlerException(f"Unit # {unit} has no assigned slivers")
 
             worker_node = sliver.label_allocations.instance_parent
-            vmname = f"{unit.get_reservation_id()}-{sliver.get_name()}"
+            node_set = data.get(AmConstants.NODE_SET)
 
             playbook_path = self.get_config()[AmConstants.PLAYBOOK_SECTION][AmConstants.PB_LOCATION]
             inventory_path = self.get_config()[AmConstants.PLAYBOOK_SECTION][AmConstants.PB_INVENTORY]
@@ -1286,7 +1291,11 @@ class VMHandler(HandlerBase):
                 raise VmHandlerException(f"Missing config parameters "
                                          f"playbook_path: {playbook_path} inventory_path: {inventory_path}")
 
-            # TODO Ansible to do numatune
+            # Numa Tune VM Guest to the requested Numa Nodes
+            self.__perform_virsh_server_action(playbook_path=playbook_path, inventory_path=inventory_path,
+                                               worker_node_name=worker_node, operation=AmConstants.OP_NUMAINFO,
+                                               instance_name=sliver.label_allocations.instance,
+                                               node_set=node_set)
         except Exception as e:
             self.get_logger().error(e)
             self.get_logger().error(traceback.format_exc())
