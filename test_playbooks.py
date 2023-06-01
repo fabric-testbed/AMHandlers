@@ -61,7 +61,7 @@ class TestPlaybooks:
         :param include_instance_name:
         :return:
         """
-        u = Unit(rid=ID(uid='rid-1'))
+        u = Unit(rid=ID(uid='0a0c2fb9-071a-4a3a-ba94-aa178c237aa2'))
         sliver = NodeSliver()
         cap = Capacities(core=2, ram=8, disk=10)
         sliver.set_properties(type=NodeType.VM, site="UKY", capacity_allocations=cap)
@@ -73,7 +73,7 @@ class TestPlaybooks:
                               capacity_allocations=catalog.get_instance_capacities(instance_type=instance_type))
 
         if include_name:
-            sliver.set_properties(name="n2")
+            sliver.set_properties(name="uky-w1-b")
 
         if include_image:
             sliver.set_properties(image_type='qcow2', image_ref='default_fedora')
