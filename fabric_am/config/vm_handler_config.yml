@@ -62,10 +62,11 @@ playbooks:
   Storage: head_volume_provisioning.yml
   SharedNIC-OpenStack-vNIC: head_port_provisioning.yml
   operation:
-    cpuinfo: worker_pci_provisioning.yml
-    cpupin: worker_pci_provisioning.yml
-    numainfo: worker_pci_provisioning.yml
-    numatune: worker_pci_provisioning.yml
+    cpuinfo: worker_instance_operations.yml
+    cpupin: worker_instance_operations.yml
+    numainfo: worker_instance_operations.yml
+    numatune: worker_instance_operations.yml
+    reboot: head_vm_provisioning.yml
   config:
     post_boot: head_vm_post_boot_config.yml
     SmartNIC: nmcli_config_nw_interface.yml

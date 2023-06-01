@@ -161,6 +161,16 @@ class TestPlaybooks:
         data = {"node_set": ["1", "2", "3"]}
         self.handler.poa(unit=u, operation="numatune", data=data)
 
+    def test_poa_reboot(self):
+        u = self.create_unit(include_instance_name=True, include_name=True)
+        self.handler.poa(unit=u, operation="reboot")
+
+    def test_poa_cpupin(self):
+        u = self.create_unit(include_instance_name=True, include_name=True)
+        data = {"vcpu_cpu_map": [{"vcpu": 0, "cpu": 34}, {"vcpu": 1, "cpu": 35}]}
+        self.handler.poa(unit=u, operation="cpupin", data=data)
+
+
 if __name__ == "__main__":
     import time
     tpb = TestPlaybooks()
@@ -178,4 +188,6 @@ if __name__ == "__main__":
     tpb.test_poa_cpuinfo()
     tpb.test_poa_numainfo()
     tpb.test_poa_numatune()
+    tpb.test_poa_cpupin()
+    tpb.test_poa_reboot()
 
