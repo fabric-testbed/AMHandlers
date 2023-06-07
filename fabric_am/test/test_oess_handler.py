@@ -139,7 +139,6 @@ class TestOessHandler(unittest.TestCase):
         self.assertEqual(r[Constants.PROPERTY_TARGET_NAME], Constants.TARGET_DELETE)
         self.assertEqual(r[Constants.PROPERTY_ACTION_SEQUENCE_NUMBER], 0)
         self.assertEqual(r[Constants.PROPERTY_TARGET_RESULT_CODE], Constants.RESULT_CODE_OK)
-    
 
     
     def test_L3Cloud(self):
@@ -182,7 +181,7 @@ class TestOessHandler(unittest.TestCase):
         # the user adds a NetworkService to the ASM. The name is set by the FIM as '-' concatenation of service
         # name and peer interface sliver name.
         isl1.set_type(InterfaceType.ServicePort)
-        
+
         ####################
         #   Scenario #1
         ####################
@@ -195,7 +194,7 @@ class TestOessHandler(unittest.TestCase):
         #
         # # capacities (bw in Gbps, burst size is in Mbytes) source: (b)
         # sliver_capacities = Capacities(bw=1, mtu=9001)
-        
+    
         ####################
         #   Scenario #2
         ####################
@@ -208,7 +207,7 @@ class TestOessHandler(unittest.TestCase):
         #
         # # capacities (bw in Gbps, burst size is in Mbytes) source: (b)
         # sliver_capacities = Capacities(bw=10)
-        
+    
         ####################
         #   Scenario #3
         ####################
@@ -221,7 +220,7 @@ class TestOessHandler(unittest.TestCase):
         #
         # capacities (bw in Gbps, burst size is in Mbytes) source: (b)
         # sliver_capacities = Capacities(bw=0)
-        
+    
         ####################
         #   Scenario #4
         ####################
@@ -232,14 +231,14 @@ class TestOessHandler(unittest.TestCase):
                                bgp_key ='secret')
         sliver_peer_labels = Labels(ipv4_subnet='192.168.50.2/24', asn='398900',
                                     bgp_key='secret')
-        
+    
         # capacities (bw in Gbps, burst size is in Mbytes) source: (b)
         sliver_capacities = Capacities(bw=0)
-        
+    
         ####################
         #   End of Scenario
         ####################
-        
+    
         # assign labels and capacities
         isl1.set_labels(sliver_labels)
         isl1.set_peer_labels(sliver_peer_labels)
@@ -251,7 +250,7 @@ class TestOessHandler(unittest.TestCase):
         isl2 = InterfaceSliver()
         isl2.set_name('Interface2')
         isl2.set_type(InterfaceType.ServicePort)
-        
+    
         ####################
         #   Scenario #1
         ####################
@@ -264,7 +263,7 @@ class TestOessHandler(unittest.TestCase):
         #
         # # capacities (bw in Gbps, burst size is in Mbytes) source: (b)
         # sliver_capacities = Capacities(bw=1, mtu=9001)
-        
+    
         ####################
         #   Scenario #2
         ####################
@@ -275,14 +274,14 @@ class TestOessHandler(unittest.TestCase):
         sliver_peer_labels = Labels(ipv4_subnet='192.168.30.2/24', asn='64512',
                                     bgp_key='0xzsEwC7xk6c1fK_h.xHyAdx',
                                     account_id='296256999979')
-        
+    
         # capacities (bw in Gbps, burst size is in Mbytes) source: (b)
         sliver_capacities = Capacities(bw=1)
-        
+    
         ####################
         #   End of Scenario
         ####################
-        
+    
         isl2.set_labels(sliver_labels)
         isl2.set_peer_labels(sliver_peer_labels)
         isl2.set_capacities(sliver_capacities)
@@ -310,6 +309,185 @@ class TestOessHandler(unittest.TestCase):
         self.assertEqual(r[Constants.PROPERTY_TARGET_RESULT_CODE], Constants.RESULT_CODE_OK)
     
         time.sleep(30)
+    
+        #
+        # delete - need to make sure the updated unit has the right info to delete the service
+        #
+        r, updated_unit = handler.delete(updated_unit)
+        self.assertEqual(r[Constants.PROPERTY_TARGET_NAME], Constants.TARGET_DELETE)
+        self.assertEqual(r[Constants.PROPERTY_ACTION_SEQUENCE_NUMBER], 0)
+        self.assertEqual(r[Constants.PROPERTY_TARGET_RESULT_CODE], Constants.RESULT_CODE_OK)
+    
+
+    
+    def test_L3Cloud_GCP(self):
+        # create a NetworkService sliver for FABNetv4
+        prop = {AmConstants.CONFIG_PROPERTIES_FILE: '../config/oess_handler_config.yml'}
+    
+        handler = OessHandler(logger=self.logger, properties=prop, process_lock=threading.Lock())
+        #
+        # create a network sliver for FABNetv4 and its interfaces
+        #
+        sliver = NetworkServiceSliver()
+        # service name (set by user) - only guaranteed unique within a slice
+        sliver.set_name('L3VPN-Cloud')
+        # if service name global uniqueness is a requirement use Labels.local_name for that (optional)
+        # e.g. concatenate name + res id (or another unique id)
+        # sliver.set_labels(Labels().set_fields(local_name='test-l2bridge-shortname'))
+        # per @xiyang he uses unit id for service name so this is not needed.
+        sliver.set_type(ServiceType.L3VPN)
+        sliver.set_layer(NSLayer.L3)
+        # the ASN of *this* service
+        sliver.set_labels(Labels(asn='55038', local_name='al2s_l3_gcp_interconn_test'))
+    
+        # this is the gateway with the IP range picked for this sliver in this slice on this site
+        # can also be specified with ipv6/ipv6_subnet and mac is optional for both.
+        # Q: does that mean that the advertisement needs to maintain information about multiple
+        # subnet, gateway and mac tuples for each site?
+        # sliver.set_gateway(Gateway(Labels(ipv4="10.128.128.254", ipv4_subnet="10.128.128.0/24")))
+    
+        #
+        # create a small number of Interface slivers, set their properties and link to service
+        #
+    
+        # #
+        # # First interface
+        # #
+        # isl1 = InterfaceSliver()
+        # # the name is normally set by FIM as '-' concatenation of service name
+        # isl1.set_name('Interface1')
+        # # this will be a ServicePort in the network service sliver. It is created by FIM automatically when
+        # # the user adds a NetworkService to the ASM. The name is set by the FIM as '-' concatenation of service
+        # # name and peer interface sliver name.
+        # isl1.set_type(InterfaceType.ServicePort)
+        #
+        # ####################
+        # #   Scenario #1
+        # ####################
+        # # sliver_labels = Labels(ipv4_subnet='192.168.1.2/30',
+        # #                        vlan='2', 
+        # #                        local_name='HundredGigE0/0/0/7',
+        # #                        device_name='agg4.ashb.net.internet2.edu')
+        # # sliver_peer_labels = Labels(ipv4_subnet='192.168.1.1/30', asn='64512',
+        # #                             bgp_key='0xzsEwC7xk6c1fK_h.xHyAdx', account_id='296256999979')
+        # #
+        # # # capacities (bw in Gbps, burst size is in Mbytes) source: (b)
+        # # sliver_capacities = Capacities(bw=1, mtu=9001)
+        #
+        # ####################
+        # #   Scenario #2
+        # ####################
+        # # sliver_labels = Labels(ipv4_subnet='192.168.30.1/24',
+        # #                        vlan='203', 
+        # #                        local_name='agg4.dall3.net.internet2.edu:TenGigE0/0/0/14/2',
+        # #                        device_name='AL2S')
+        # # sliver_peer_labels = Labels(ipv4_subnet='192.168.30.2/24', asn='64512',
+        # #                             bgp_key='0xzsEwC7xk6c1fK_h.xHyAdx', account_id='296256999979')
+        # #
+        # # # capacities (bw in Gbps, burst size is in Mbytes) source: (b)
+        # # sliver_capacities = Capacities(bw=10)
+        #
+        # ####################
+        # #   Scenario #3
+        # ####################
+        # # sliver_labels = Labels(ipv4_subnet='192.168.50.1/24',
+        # #                        vlan='852', 
+        # #                        local_name='HundredGigE0/0/0/24',
+        # #                        device_name='core1.loui.net.internet2.edu')
+        # # sliver_peer_labels = Labels(ipv4_subnet='192.168.50.2/24', asn='398900',
+        # #                             bgp_key='0xzsEwC7xk6c1fK_h.xHyAdx', account_id='296256999979')
+        # #
+        # # capacities (bw in Gbps, burst size is in Mbytes) source: (b)
+        # # sliver_capacities = Capacities(bw=0)
+        #
+        # ####################
+        # #   Scenario #4
+        # ####################
+        # sliver_labels = Labels(ipv4_subnet='192.168.50.1/24',
+        #                        vlan='852', 
+        #                        local_name='HundredGigE0/0/0/24',
+        #                        device_name='core1.loui.net.internet2.edu',
+        #                        bgp_key ='secret')
+        # sliver_peer_labels = Labels(ipv4_subnet='192.168.50.2/24', asn='398900',
+        #                             bgp_key='secret')
+        #
+        # # capacities (bw in Gbps, burst size is in Mbytes) source: (b)
+        # sliver_capacities = Capacities(bw=0)
+        #
+        # ####################
+        # #   End of Scenario
+        # ####################
+        #
+        # # assign labels and capacities
+        # isl1.set_labels(sliver_labels)
+        # isl1.set_peer_labels(sliver_peer_labels)
+        # isl1.set_capacities(sliver_capacities)
+    
+        #
+        # Second interface (let's assume this is a dedicated card)
+        #
+        isl2 = InterfaceSliver()
+        isl2.set_name('Interface2')
+        isl2.set_type(InterfaceType.ServicePort)
+        
+        ####################
+        #   Scenario #1
+        ####################
+        # sliver_labels = Labels(ipv4_subnet='192.168.2.2/30',
+        #                        vlan='2', 
+        #                        local_name='TenGigE0/0/0/12/2',
+        #                        device_name='agg4.sanj.net.internet2.edu')
+        # sliver_peer_labels = Labels(ipv4_subnet='192.168.2.1/30', asn='64512',
+        #                             bgp_key='0xzsEwC7xk6c1fK_h.xHyAdx', account_id='296256999979')
+        #
+        # # capacities (bw in Gbps, burst size is in Mbytes) source: (b)
+        # sliver_capacities = Capacities(bw=1, mtu=9001)
+        
+        ####################
+        #   Scenario #2
+        ####################
+        sliver_labels = Labels(ipv4_subnet='192.168.30.1/24',
+                               vlan='204', 
+                               local_name='Bundle-Ether5',
+                               device_name='agg4.ashb.net.internet2.edu')
+        sliver_peer_labels = Labels(ipv4_subnet='192.168.30.2/24', asn='16550',
+                                    bgp_key='0xzsEwC7xk6c1fK_h.xHyAdx',
+                                    account_id='8cca06a3-53e6-4993-b229-ec1a841c7f1f/us-east4/any')
+        
+        # capacities (bw in Gbps, burst size is in Mbytes) source: (b)
+        sliver_capacities = Capacities(bw=1)
+        
+        ####################
+        #   End of Scenario
+        ####################
+        
+        isl2.set_labels(sliver_labels)
+        isl2.set_peer_labels(sliver_peer_labels)
+        isl2.set_capacities(sliver_capacities)
+    
+        # create interface info object, add populated interfaces to it
+        ifi = InterfaceInfo()
+        # ifi.add_interface(isl1)
+        ifi.add_interface(isl2)
+    
+        # add interface info object to sliver. All of this happens automagically normally
+        sliver.interface_info = ifi
+    
+        # set a fake unit reservation
+        uid = uuid.uuid3(uuid.NAMESPACE_DNS, 'test_L3Cloud')
+        self.unit = Unit(rid=ID(uid=str(uid)))
+        self.unit.set_sliver(sliver=sliver)
+    
+        #
+        # create a service (create needs to parse out sliver information
+        # into exact parameters the service ansible script needs)
+        #
+        r, updated_unit = handler.create(unit=self.unit)
+        self.assertEqual(r[Constants.PROPERTY_TARGET_NAME], Constants.TARGET_CREATE)
+        self.assertEqual(r[Constants.PROPERTY_ACTION_SEQUENCE_NUMBER], 0)
+        self.assertEqual(r[Constants.PROPERTY_TARGET_RESULT_CODE], Constants.RESULT_CODE_OK)
+    
+        time.sleep(60)
     
         #
         # delete - need to make sure the updated unit has the right info to delete the service
