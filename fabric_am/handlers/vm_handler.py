@@ -218,7 +218,7 @@ class VMHandler(HandlerBase):
             self.get_logger().info(f"Delete completed")
         return result, unit
 
-    def poa(self, unit: ConfigToken, operation: str, data: dict = None) -> dict:
+    def poa(self, unit: ConfigToken, data: dict = None) -> dict:
         """
         POA - perform operational action on a VM
         """
@@ -230,6 +230,8 @@ class VMHandler(HandlerBase):
 
             if not isinstance(sliver, NodeSliver):
                 raise VmHandlerException(f"Invalid Sliver type {type(sliver)}")
+
+            operation = data.get("operation")
 
             if operation == AmConstants.OP_CPUINFO:
                 result = self.__poa_cpuinfo(unit=unit)
