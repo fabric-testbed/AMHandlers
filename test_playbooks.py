@@ -24,6 +24,7 @@
 #
 # Author: Komal Thareja (kthare10@renci.org)
 import logging
+import multiprocessing
 
 from fabric_cf.actor.core.core.unit import Unit
 from fabric_cf.actor.core.util.id import ID
@@ -41,9 +42,13 @@ class TestPlaybooks:
     log_format = \
         '%(asctime)s - %(name)s - {%(filename)s:%(lineno)d} - [%(threadName)s] - %(levelname)s - %(message)s'
     logging.basicConfig(handlers=[logging.StreamHandler()], format=log_format, force=True)
+    logger.setLevel("DEBUG")
 
     prop = {AmConstants.CONFIG_PROPERTIES_FILE: 'fabric_am/config/vm_handler_config.yml'}
-    handler = VMHandler(logger=logger, properties=prop)
+    lock = multiprocessing.Lock()
+    handler = VMHandler(logger=logger, properties=prop, process_lock=lock)
+    from fabric_cf.actor.core.container.globals import GlobalsSingleton
+    GlobalsSingleton.get().log = logger
 
     @staticmethod
     def create_unit(include_pci: bool = True, include_image: bool = True, include_name: bool = True,
@@ -56,37 +61,33 @@ class TestPlaybooks:
         :param include_instance_name:
         :return:
         """
-        u = Unit(rid=ID(uid='rid-1'))
+        u = Unit(rid=ID(uid='0a0c2fb9-071a-4a3a-ba94-aa178c237aa2'))
         sliver = NodeSliver()
-        cap = Capacities()
-        cap.set_fields(core=2, ram=8, disk=10)
-        sliver.set_properties(type=NodeType.VM, site="RENC", capacity_allocations=cap)
-        sliver.label_allocations = Labels().set_fields(instance_parent="renc-w3")
+        cap = Capacities(core=2, ram=8, disk=10)
+        sliver.set_properties(type=NodeType.VM, site="UKY", capacity_allocations=cap)
+        sliver.label_allocations = Labels(instance_parent="uky-w1.fabric-testbed.net")
         catalog = InstanceCatalog()
         instance_type = catalog.map_capacities_to_instance(cap=cap)
-        cap_hints = CapacityHints().set_fields(instance_type=instance_type)
+        cap_hints = CapacityHints(instance_type=instance_type)
         sliver.set_properties(capacity_hints=cap_hints,
                               capacity_allocations=catalog.get_instance_capacities(instance_type=instance_type))
 
         if include_name:
-            sliver.set_properties(name="n2")
+            sliver.set_properties(name="uky-w1-b")
 
         if include_image:
             sliver.set_properties(image_type='qcow2', image_ref='default_fedora')
 
         if include_pci:
             component = ComponentSliver()
-            labels = Labels()
-            labels.set_fields(bdf=["0000:41:00.0", "0000:41:00.1"])
+            labels = Labels(bdf=["0000:41:00.0", "0000:41:00.1"])
             component.set_properties(type=ComponentType.SmartNIC, model='ConnectX-5', name='nic1',
                                      label_allocations=labels)
-            #labels.set_fields(bdf="0000:81:00.0")
-            #component.set_properties(type=ComponentType.GPU, model='Tesla T4', name='nic12', label_allocations=labels)
             sliver.attached_components_info = AttachedComponentsInfo()
             sliver.attached_components_info.add_device(device_info=component)
 
         if include_instance_name:
-            sliver.label_allocations.set_fields(instance="instance-001")
+            sliver.label_allocations.instance = "instance-00001077"
 
         u.set_sliver(sliver=sliver)
         return u
@@ -138,14 +139,37 @@ class TestPlaybooks:
         print(u.get_sliver())
 
     def test_config_nw_interface(self):
-        self.handler.configure_network_interface(mgmt_ip="128.163.179.50", user=AmConstants.CENTOS_DEFAULT_USER,
+        self.handler.configure_network_interface(mgmt_ip="128.163.179.50", user=AmConstants.CENTOS,
                                                  resource_type=str(ComponentType.SmartNIC), mac_address="0C:42:A1:78:F8:04",
                                                  ipv4_address="192.168.11.2")
 
     def test_config_nw_interface_tagged(self):
-        self.handler.configure_network_interface(mgmt_ip="128.163.179.50", user=AmConstants.CENTOS_DEFAULT_USER,
+        self.handler.configure_network_interface(mgmt_ip="128.163.179.50", user=AmConstants.CENTOS,
                                                  resource_type=str(ComponentType.SmartNIC), mac_address="0C:42:A1:78:F8:04",
                                                  ipv4_address="192.168.11.2", vlan="200")
+
+    def test_poa_cpuinfo(self):
+        u = self.create_unit(include_instance_name=True, include_name=True)
+        self.handler.poa(unit=u, operation="cpuinfo", data=None)
+
+    def test_poa_numainfo(self):
+        u = self.create_unit(include_instance_name=True, include_name=True)
+        self.handler.poa(unit=u, operation="numainfo", data=None)
+
+    def test_poa_numatune(self):
+        u = self.create_unit(include_instance_name=True, include_name=True)
+        data = {"node_set": ["1", "2", "3"]}
+        self.handler.poa(unit=u, operation="numatune", data=data)
+
+    def test_poa_reboot(self):
+        u = self.create_unit(include_instance_name=True, include_name=True)
+        self.handler.poa(unit=u, operation="reboot")
+
+    def test_poa_cpupin(self):
+        u = self.create_unit(include_instance_name=True, include_name=True)
+        data = {"vcpu_cpu_map": [{"vcpu": 0, "cpu": 34}, {"vcpu": 1, "cpu": 35}]}
+        self.handler.poa(unit=u, operation="cpupin", data=data)
+
 
 if __name__ == "__main__":
     import time
@@ -160,5 +184,10 @@ if __name__ == "__main__":
     #time.sleep(10)
     #tpb.test_delete_vm_success(u=u)
     #tpb.test_config_nw_interface_tagged()
-    tpb.test_config_nw_interface()
+    #tpb.test_config_nw_interface()
+    tpb.test_poa_cpuinfo()
+    tpb.test_poa_numainfo()
+    tpb.test_poa_numatune()
+    tpb.test_poa_cpupin()
+    tpb.test_poa_reboot()
 

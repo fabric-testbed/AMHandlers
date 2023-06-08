@@ -61,8 +61,10 @@ class AmConstants:
     OP_REBOOT = "reboot"
     OP_STOP = "stop"
     OP_START = "start"
-    OP_VCPUINFO = "vcpuinfo"
-    OP_NUMASTAT = "numastat"
+    OP_CPUINFO = "cpuinfo"
+    OP_NUMAINFO = "numainfo"
+    OP_CPUPIN = "cpupin"
+    OP_NUMATUNE = "numatune"
     OP_MOUNT = "mount"
 
     PORT_NAME = "portname"
@@ -129,3 +131,8 @@ class AmConstants:
     UBUNTU = "ubuntu"
     DEBIAN = "debian"
     FEDORA = "fedora"
+
+    VM = "vm"
+    HOST = "host"
+    VCPU_CPU_MAP = "vcpu_cpu_map"
+    NODE_SET = "node_set"
