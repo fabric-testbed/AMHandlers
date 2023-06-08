@@ -26,6 +26,7 @@
 import logging
 import multiprocessing
 
+from fabric_cf.actor.core.common.constants import Constants
 from fabric_cf.actor.core.core.unit import Unit
 from fabric_cf.actor.core.util.id import ID
 from fim.slivers import InstanceCatalog
@@ -177,9 +178,12 @@ class TestPlaybooks:
 
     def test_fpga_prov(self):
         u = Unit(rid=ID(uid='0a0c2fb9-071a-4a3a-ba94-aa178c237aa2'))
+        u.properties = {Constants.USER_SSH_KEY:
+                        "ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAABAQDIxGUVBf24l4gSgUtQQaScP7S604CpXKh66cCMZB1GoXfGqyhRVO1xQUXGA2Oj8MeZf3bo4tjmrPnVeeTVfwTrxkkFNvekwY4QbGX7o8YPNnEFquLWMmkoLn9RFJI47Cj+JHWQN7sEW4WVnmHNITcw5lD3V+yw1bD5M0boUXvh/MnHTu59MEDRyLUyWY+N1FUxHrO0UgSISczRjFS31zF5WY83ssNWq+zxD0NM6GhLWg5Ynzat1J75NRvnMVkuj0VmFcJuHIl3jYCdL9uE7kCw08oh06p/VZBzUIDP6EB0e+H1udu0DvT7SunqBZnobrTCyj1Bma9BJEHPhocIIcPl komalthareja@dhcp152-54-6-178.wireless.europa.renci.org,"
+                        "ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAABAQDIxGUVBf24l4gSgUtQQaScP7S604CpXKh66cCMZB1GoXfGqyhRVO1xQUXGA2Oj8MeZf3bo4tjmrPnVeeTVfwTrxkkFNvekwY4QbGX7o8YPNnEFquLWMmkoLn9RFJI47Cj+JHWQN7sEW4WVnmHNITcw5lD3V+yw1bD5M0boUXvh/MnHTu59MEDRyLUyWY+N1FUxHrO0UgSISczRjFS31zF5WY83ssNWq+zxD0NM6GhLWg5Ynzat1J75NRvnMVkuj0VmFcJuHIl3jYCdL9uE7kCw08oh06p/VZBzUIDP6EB0e+H1udu0DvT7SunqBZnobrTCyj1Bma9BJEHPhocIIcPl komalthareja@dhcp152-54-6-178.wireless.europa.renci.org"}
         sliver = NodeSliver()
         cap = Capacities(core=2, ram=8, disk=10)
-        sliver.set_properties(type=NodeType.VM, site="RENC", capacity_allocations=cap)
+        sliver.set_properties(type=NodeType.VM, site="RENC", capacity_allocations=cap, name="fpga-vm")
         sliver.label_allocations = Labels(instance_parent="renc-w2.fabric-testbed.net")
         catalog = InstanceCatalog()
         instance_type = catalog.map_capacities_to_instance(cap=cap)
@@ -191,10 +195,10 @@ class TestPlaybooks:
         component = ComponentSliver()
         labels = Labels(bdf=["0000:25:00.0", "0000:25:00.1"])
         component.set_properties(type=ComponentType.FPGA, model='Xilinx', name='nic1',
-                                 label_allocations=labels)
+                                 label_allocations=labels, labels=labels)
         sliver.attached_components_info = AttachedComponentsInfo()
         sliver.attached_components_info.add_device(device_info=component)
-
+        u.set_sliver(sliver=sliver)
         r, u = self.handler.create(unit=u)
 
 

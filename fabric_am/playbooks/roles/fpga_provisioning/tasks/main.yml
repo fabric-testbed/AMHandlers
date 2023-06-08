@@ -6,12 +6,12 @@
 - name: Count the number of PCI functions of the device
   shell: "lspci | grep Xilinx | grep {{ bus[2:] }} | wc -l"
   register: num_pci_functions_output
-  when: pci_prov_op == 'attach'
+  when: operation == 'attach'
 
 - name: Save integer value as a fact
   set_fact:
     num_pci: "{{ num_pci_functions_output.stdout | int }}"
-  when: pci_prov_op == 'attach'
+  when: operation == 'attach'
 
 - name: Save XML to file
   copy:
@@ -24,7 +24,7 @@
     xpath: /domain/devices/hostdev[source[address[@bus='{{ bus }}' and @slot='{{ slot }}']]]
     count: yes
   register: device_xml_matches
-  when: pci_prov_op == 'attach'
+  when: operation == 'attach'
 
 - name: Generate new PCI devices XML sections
   # adds primary device (function 0x00) and a specified
@@ -54,7 +54,7 @@
             </source>
             <address type='usb' bus='{{ fpga_dest_usb_bus }}' port='{{ fpga_dest_usb_port }}'/>
           </hostdev>
-  when: pci_prov_op == 'attach' and device_xml_matches.count == 0
+  when: operation == 'attach' and device_xml_matches.count == 0
 
 - name: Update the domain XML
   blockinfile:
@@ -62,7 +62,7 @@
     insertafter: "^  <devices>"
     marker: "<!-- {mark} ANSIBLE MANAGED BLOCK -->"
     block: "{{ pci_devices_xml }}"
-  when: pci_prov_op == 'attach' and device_xml_matches.count == 0
+  when: operation == 'attach' and device_xml_matches.count == 0
 
 - name: Remove FPGA configuration from domain XML file
   # notice this removes all PCI functions because they all
@@ -71,21 +71,21 @@
     path: "/tmp/{{ kvmguest_name }}.xml"
     xpath: /domain/devices/hostdev[source[address[@bus='{{ bus }}' and @slot='{{ slot }}']]]
     state: absent
-  when: pci_prov_op == 'detach'
+  when: operation == 'detach'
 
 - name: Remove USB JTAG device
   xml:
     path: "/tmp/{{ kvmguest_name }}.xml"
     xpath: /domain/devices/hostdev[source[vendor[@id='{{ fpga_usb_vendor_id }}'] and product[@id='{{ fpga_usb_product_id }}']]]
     state: absent
-  when: pci_prov_op == 'detach'
+  when: operation == 'detach'
 
 - name: Remove USB3.0 XHCI controller
   xml:
     path: "/tmp/{{ kvmguest_name }}.xml"
     xpath: /domain/devices/controller[@model='nec-xhci']
     state: absent
-  when: pci_prov_op == 'detach'
+  when: operation == 'detach'
 
 - name: Define edited domain
   shell: virsh define /tmp/{{ kvmguest_name }}.xml
