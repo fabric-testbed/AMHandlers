@@ -622,13 +622,13 @@ class VMHandler(HandlerBase):
                 extra_vars[AmConstants.OPERATION] = AmConstants.OP_DETACH
 
             self.get_logger().info(f"Device List Size: {len(pci_device_list)} List: {pci_device_list}")
-            device_char_arr = self.__extract_device_addr_octets(device_address=pci_device_list[0])
+            substrings = re.findall(r'\d+', pci_device_list[0])
 
             host_vars = {
                 AmConstants.KVM_GUEST_NAME: instance_name,
-                AmConstants.PCI_DOMAIN: device_char_arr[0],
-                AmConstants.PCI_BUS: device_char_arr[1],
-                AmConstants.PCI_SLOT: device_char_arr[2],
+                AmConstants.PCI_DOMAIN: f"0x{substrings[0]}",
+                AmConstants.PCI_BUS: f"0x{substrings[1]}",
+                AmConstants.PCI_SLOT: f"0x{substrings[2]}"
             }
             self.__execute_ansible(inventory_path=inventory_path, playbook_path=full_playbook_path,
                                    extra_vars=extra_vars, host=worker_node, host_vars=host_vars)
