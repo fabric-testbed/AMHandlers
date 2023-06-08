@@ -140,35 +140,62 @@ class TestPlaybooks:
 
     def test_config_nw_interface(self):
         self.handler.configure_network_interface(mgmt_ip="128.163.179.50", user=AmConstants.CENTOS,
-                                                 resource_type=str(ComponentType.SmartNIC), mac_address="0C:42:A1:78:F8:04",
+                                                 resource_type=str(ComponentType.SmartNIC),
+                                                 mac_address="0C:42:A1:78:F8:04",
                                                  ipv4_address="192.168.11.2")
 
     def test_config_nw_interface_tagged(self):
         self.handler.configure_network_interface(mgmt_ip="128.163.179.50", user=AmConstants.CENTOS,
-                                                 resource_type=str(ComponentType.SmartNIC), mac_address="0C:42:A1:78:F8:04",
+                                                 resource_type=str(ComponentType.SmartNIC),
+                                                 mac_address="0C:42:A1:78:F8:04",
                                                  ipv4_address="192.168.11.2", vlan="200")
 
     def test_poa_cpuinfo(self):
         u = self.create_unit(include_instance_name=True, include_name=True)
-        self.handler.poa(unit=u, operation="cpuinfo", data=None)
+        data = {"operation": "cpuinfo"}
+        self.handler.poa(unit=u, data=data)
 
     def test_poa_numainfo(self):
         u = self.create_unit(include_instance_name=True, include_name=True)
-        self.handler.poa(unit=u, operation="numainfo", data=None)
+        data = {"operation": "numainfo"}
+        self.handler.poa(unit=u, data=data)
 
     def test_poa_numatune(self):
         u = self.create_unit(include_instance_name=True, include_name=True)
-        data = {"node_set": ["1", "2", "3"]}
-        self.handler.poa(unit=u, operation="numatune", data=data)
+        data = {"node_set": ["1", "2", "3"], "operation": "numatune"}
+        self.handler.poa(unit=u,data=data)
 
     def test_poa_reboot(self):
         u = self.create_unit(include_instance_name=True, include_name=True)
-        self.handler.poa(unit=u, operation="reboot")
+        data = {"operation": "reboot"}
+        self.handler.poa(unit=u, data=data)
 
     def test_poa_cpupin(self):
         u = self.create_unit(include_instance_name=True, include_name=True)
-        data = {"vcpu_cpu_map": [{"vcpu": 0, "cpu": 34}, {"vcpu": 1, "cpu": 35}]}
-        self.handler.poa(unit=u, operation="cpupin", data=data)
+        data = {"vcpu_cpu_map": [{"vcpu": 0, "cpu": 34}, {"vcpu": 1, "cpu": 35}], "operation": "cpupin"}
+        self.handler.poa(unit=u, data=data)
+
+    def test_fpga_prov(self):
+        u = Unit(rid=ID(uid='0a0c2fb9-071a-4a3a-ba94-aa178c237aa2'))
+        sliver = NodeSliver()
+        cap = Capacities(core=2, ram=8, disk=10)
+        sliver.set_properties(type=NodeType.VM, site="RENC", capacity_allocations=cap)
+        sliver.label_allocations = Labels(instance_parent="renc-w2.fabric-testbed.net")
+        catalog = InstanceCatalog()
+        instance_type = catalog.map_capacities_to_instance(cap=cap)
+        cap_hints = CapacityHints(instance_type=instance_type)
+        sliver.set_properties(capacity_hints=cap_hints,
+                              capacity_allocations=catalog.get_instance_capacities(instance_type=instance_type))
+        sliver.set_properties(image_type='qcow2', image_ref='docker_rocky_8')
+
+        component = ComponentSliver()
+        labels = Labels(bdf=["0000:25:00.0", "0000:25:00.1"])
+        component.set_properties(type=ComponentType.FPGA, model='Xilinx', name='nic1',
+                                 label_allocations=labels)
+        sliver.attached_components_info = AttachedComponentsInfo()
+        sliver.attached_components_info.add_device(device_info=component)
+
+        r, u = self.handler.create(unit=u)
 
 
 if __name__ == "__main__":
@@ -185,9 +212,12 @@ if __name__ == "__main__":
     #tpb.test_delete_vm_success(u=u)
     #tpb.test_config_nw_interface_tagged()
     #tpb.test_config_nw_interface()
-    tpb.test_poa_cpuinfo()
-    tpb.test_poa_numainfo()
-    tpb.test_poa_numatune()
-    tpb.test_poa_cpupin()
-    tpb.test_poa_reboot()
 
+    #tpb.test_poa_cpuinfo()
+    #tpb.test_poa_numainfo()
+
+    #tpb.test_poa_numatune()
+    #tpb.test_poa_cpupin()
+    #tpb.test_poa_reboot()
+
+    tpb.test_fpga_prov()

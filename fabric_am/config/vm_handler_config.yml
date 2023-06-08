@@ -57,7 +57,7 @@ playbooks:
   GPU: worker_pci_provisioning.yml
   SmartNIC: worker_pci_provisioning.yml
   SharedNIC: worker_pci_provisioning.yml
-  FPGA: worker_pci_provisioning.yml
+  FPGA: fpga_provisioning.yml
   NVME: worker_pci_provisioning.yml
   Storage: head_volume_provisioning.yml
   SharedNIC-OpenStack-vNIC: head_port_provisioning.yml

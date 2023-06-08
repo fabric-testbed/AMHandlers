@@ -576,6 +576,70 @@ class VMHandler(HandlerBase):
 
         return self.__execute_ansible(inventory_path=inventory_path, playbook_path=playbook_path, extra_vars=extra_vars)
 
+    def __attach_detach_multiple_function_pci(self, *, playbook_path: str, inventory_path: str, host: str,
+                                              instance_name: str, device_name: str, component: ComponentSliver,
+                                              vm_name: str, project_id: str, attach: bool = True,
+                                              raise_exception: bool = False, mgmt_ip: str = None, user: str = None):
+        """
+        Invoke ansible playbook to attach/detach a PCI device with multiple functions to a provisioned VM
+        :param playbook_path: playbook location
+        :param inventory_path: inventory location
+        :param host: host
+        :param instance_name: Instance Name
+        :param device_name: Device Name
+        :param component: Component Sliver
+        :param vm_name: VM Name
+        :param project_id: Project Id
+        :param attach: True for attach and False for detach
+        :param mgmt_ip Management IP
+        :param user default user
+        :return:
+        """
+        self.get_logger().debug("__attach_detach_multiple_function_pci IN")
+        try:
+            resource_type = str(component.get_type())
+            playbook = self.get_config()[AmConstants.PLAYBOOK_SECTION][resource_type]
+            if playbook is None or inventory_path is None:
+                raise VmHandlerException(f"Missing config parameters playbook: {playbook} "
+                                         f"playbook_path: {playbook_path} inventory_path: {inventory_path}")
+            full_playbook_path = f"{playbook_path}/{playbook}"
+
+            # Grab the Mac addresses
+            interface_names = []
+            ns = None
+            if component.get_type() in [ComponentType.SmartNIC, ComponentType.SharedNIC]:
+                ns_name = list(component.network_service_info.network_services.keys())[0]
+                ns = component.network_service_info.network_services[ns_name]
+                interface_names = list(ns.interface_info.interfaces.keys())
+
+            pci_device_list = component.labels.bdf
+            worker_node = host
+            extra_vars = {AmConstants.WORKER_NODE_NAME: worker_node,
+                          AmConstants.DEVICE: device_name}
+            if attach:
+                extra_vars[AmConstants.OPERATION] = AmConstants.OP_ATTACH
+            else:
+                extra_vars[AmConstants.OPERATION] = AmConstants.OP_DETACH
+
+            self.get_logger().info(f"Device List Size: {len(pci_device_list)} List: {pci_device_list}")
+            device_char_arr = self.__extract_device_addr_octets(device_address=pci_device_list[0])
+
+            host_vars = {
+                AmConstants.KVM_GUEST_NAME: instance_name,
+                AmConstants.PCI_DOMAIN: device_char_arr[0],
+                AmConstants.PCI_BUS: device_char_arr[1],
+                AmConstants.PCI_SLOT: device_char_arr[2],
+            }
+            self.__execute_ansible(inventory_path=inventory_path, playbook_path=full_playbook_path,
+                                   extra_vars=extra_vars, host=worker_node, host_vars=host_vars)
+        except Exception as e:
+            self.get_logger().error(f"Error occurred attach:{attach}/detach: {not attach} device: {component}")
+            self.get_logger().error(traceback.format_exc())
+            if raise_exception:
+                raise e
+        finally:
+            self.get_logger().debug("__attach_detach_multiple_function_pci OUT")
+
     def __attach_detach_pci(self, *, playbook_path: str, inventory_path: str, host: str, instance_name: str,
                             device_name: str, component: ComponentSliver, vm_name: str, project_id: str,
                             attach: bool = True, raise_exception: bool = False, mgmt_ip: str = None, user: str = None):
@@ -602,6 +666,15 @@ class VMHandler(HandlerBase):
                 raise VmHandlerException(f"Missing config parameters playbook: {playbook} "
                                          f"playbook_path: {playbook_path} inventory_path: {inventory_path}")
             full_playbook_path = f"{playbook_path}/{playbook}"
+
+            if component.get_type() == ComponentType.FPGA:
+                self.__attach_detach_multiple_function_pci(playbook_path=playbook_path, inventory_path=inventory_path,
+                                                           host=host, instance_name=instance_name,
+                                                           device_name=device_name, component=component,
+                                                           vm_name=vm_name, project_id=project_id,
+                                                           attach=attach, raise_exception=raise_exception,
+                                                           mgmt_ip=mgmt_ip, user=user)
+                return
 
             if component.get_type() == ComponentType.Storage:
                 self.__attach_detach_storage(playbook_path=full_playbook_path, inventory_path=inventory_path,
