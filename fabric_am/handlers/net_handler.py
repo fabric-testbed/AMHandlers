@@ -901,3 +901,9 @@ class NetHandler(HandlerBase):
             raise NetHandlerException(f'interface name "{interface_name}" is malformed')
         interface = {'type': interface_type_id[0][0], 'id': interface_type_id[0][1]}
         return interface
+
+    def poa(self, unit: ConfigToken, data: dict) -> Tuple[dict, ConfigToken]:
+        """
+        Not implemented
+        """
+        pass

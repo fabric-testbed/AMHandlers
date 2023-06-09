@@ -422,4 +422,10 @@ class OessHandler(HandlerBase):
         return data
     
     def clean_restart(self):
-        return;
+        pass
+
+    def poa(self, unit: ConfigToken, data: dict) -> Tuple[dict, ConfigToken]:
+        """
+        Not implemented
+        """
+        pass
