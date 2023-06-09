@@ -218,7 +218,7 @@ class VMHandler(HandlerBase):
             self.get_logger().info(f"Delete completed")
         return result, unit
 
-    def poa(self, unit: ConfigToken, data: dict = None) -> dict:
+    def poa(self, unit: ConfigToken, data: dict) -> Tuple[dict, ConfigToken]:
         """
         POA - perform operational action on a VM
         """
@@ -234,15 +234,15 @@ class VMHandler(HandlerBase):
             operation = data.get("operation")
 
             if operation == AmConstants.OP_CPUINFO:
-                result = self.__poa_cpuinfo(unit=unit)
+                result = self.__poa_cpuinfo(unit=unit, data=data)
             elif operation == AmConstants.OP_NUMAINFO:
-                result = self.__poa_numainfo(unit=unit)
+                result = self.__poa_numainfo(unit=unit, data=data)
             elif operation == AmConstants.OP_CPUPIN:
                 result = self.__poa_cpupin(unit=unit, data=data)
             elif operation == AmConstants.OP_NUMATUNE:
                 result = self.__poa_numatune(unit=unit, data=data)
             elif operation == AmConstants.OP_REBOOT:
-                result = self.__poa_reboot(unit=unit)
+                result = self.__poa_reboot(unit=unit, data=data)
             else:
                 raise VmHandlerException(f"Unsupported {operation}")
 
@@ -256,7 +256,7 @@ class VMHandler(HandlerBase):
         finally:
 
             self.get_logger().info(f"POA completed")
-        return result
+        return result, unit
 
     def __configure_component(self, *, component: ComponentSliver, user: str, mgmt_ip: str):
         try:
@@ -612,7 +612,11 @@ class VMHandler(HandlerBase):
                 ns = component.network_service_info.network_services[ns_name]
                 interface_names = list(ns.interface_info.interfaces.keys())
 
-            pci_device_list = component.labels.bdf
+            if isinstance(component.labels.bdf, str):
+                pci_device_list = [component.labels.bdf]
+            else:
+                pci_device_list = component.labels.bdf
+
             worker_node = host
             extra_vars = {AmConstants.WORKER_NODE_NAME: worker_node,
                           AmConstants.DEVICE: device_name}
@@ -622,13 +626,15 @@ class VMHandler(HandlerBase):
                 extra_vars[AmConstants.OPERATION] = AmConstants.OP_DETACH
 
             self.get_logger().info(f"Device List Size: {len(pci_device_list)} List: {pci_device_list}")
-            substrings = re.findall(r'\d+', pci_device_list[0])
+            bdf = str(pci_device_list[0])
+            pattern = r'(\d+):(\d+):(\d+)\.(\d)'
+            matches = re.match(pattern, bdf)
 
             host_vars = {
                 AmConstants.KVM_GUEST_NAME: instance_name,
-                AmConstants.PCI_DOMAIN: f"0x{substrings[0]}",
-                AmConstants.PCI_BUS: f"0x{substrings[1]}",
-                AmConstants.PCI_SLOT: f"0x{substrings[2]}"
+                AmConstants.PCI_DOMAIN: f"0x{matches[1]}",
+                AmConstants.PCI_BUS: f"0x{matches[2]}",
+                AmConstants.PCI_SLOT: f"0x{matches[3]}"
             }
             self.__execute_ansible(inventory_path=inventory_path, playbook_path=full_playbook_path,
                                    extra_vars=extra_vars, host=worker_node, host_vars=host_vars)
@@ -1153,7 +1159,7 @@ class VMHandler(HandlerBase):
         ansible_helper.run_playbook(playbook_path=playbook_path, private_key_file=private_key_file, user=user)
         return ansible_helper.get_result_callback().get_json_result_ok()
 
-    def __poa_cpuinfo(self, unit: ConfigToken) -> dict:
+    def __poa_cpuinfo(self, unit: ConfigToken, data: dict) -> dict:
         result = {Constants.PROPERTY_TARGET_NAME: Constants.TARGET_POA,
                   Constants.PROPERTY_TARGET_RESULT_CODE: Constants.RESULT_CODE_OK,
                   Constants.PROPERTY_ACTION_SEQUENCE_NUMBER: 0}
@@ -1185,7 +1191,15 @@ class VMHandler(HandlerBase):
             ansible_facts = ok.get(AmConstants.ANSIBLE_FACTS)
             cpu_info = ansible_facts.get(f"{AmConstants.OP_CPUINFO}")[0]
             self.logger.info(f"{AmConstants.OP_CPUINFO} for {vmname}: {cpu_info}")
-            result[AmConstants.OP_CPUINFO] = cpu_info
+
+            result[Constants.PROPERTY_POA_INFO] = {
+                AmConstants.OPERATION: data.get(AmConstants.OPERATION),
+                Constants.POA_ID: data.get(Constants.POA_ID),
+                Constants.PROPERTY_CODE: Constants.RESULT_CODE_OK,
+                Constants.PROPERTY_INFO: {
+                    AmConstants.OP_CPUINFO: cpu_info
+                }
+            }
         except Exception as e:
             self.get_logger().error(e)
             self.get_logger().error(traceback.format_exc())
@@ -1199,7 +1213,7 @@ class VMHandler(HandlerBase):
 
         return result
 
-    def __poa_numainfo(self, unit: ConfigToken) -> dict:
+    def __poa_numainfo(self, unit: ConfigToken, data: dict) -> dict:
         result = {Constants.PROPERTY_TARGET_NAME: Constants.TARGET_POA,
                   Constants.PROPERTY_TARGET_RESULT_CODE: Constants.RESULT_CODE_OK,
                   Constants.PROPERTY_ACTION_SEQUENCE_NUMBER: 0}
@@ -1240,8 +1254,16 @@ class VMHandler(HandlerBase):
                 if numainfo_host is not None:
                     numainfo_host = Utils.parse_numactl(numactl_output=numainfo_host)
                     numainfo[worker_node] = numainfo_host
+
             self.logger.info(f"{AmConstants.OP_NUMAINFO} for {vmname}: {numainfo}")
-            result[AmConstants.OP_NUMAINFO] = numainfo
+            result[Constants.PROPERTY_POA_INFO] = {
+                AmConstants.OPERATION: data.get(AmConstants.OPERATION),
+                Constants.POA_ID: data.get(Constants.POA_ID),
+                Constants.PROPERTY_CODE: Constants.RESULT_CODE_OK,
+                Constants.PROPERTY_INFO: {
+                    AmConstants.OP_NUMAINFO: numainfo
+                }
+            }
         except Exception as e:
             self.get_logger().error(e)
             self.get_logger().error(traceback.format_exc())
@@ -1255,7 +1277,7 @@ class VMHandler(HandlerBase):
 
         return result
 
-    def __poa_reboot(self, unit: ConfigToken) -> dict:
+    def __poa_reboot(self, unit: ConfigToken, data: dict) -> dict:
         result = {Constants.PROPERTY_TARGET_NAME: Constants.TARGET_POA,
                   Constants.PROPERTY_TARGET_RESULT_CODE: Constants.RESULT_CODE_OK,
                   Constants.PROPERTY_ACTION_SEQUENCE_NUMBER: 0}
@@ -1284,6 +1306,12 @@ class VMHandler(HandlerBase):
             self.__perform_os_server_action(playbook_path=playbook_path_full, inventory_path=inventory_path,
                                             vm_name=sliver.get_name(), unit_id=str(unit.get_reservation_id()),
                                             action=AmConstants.OP_REBOOT)
+
+            result[Constants.PROPERTY_POA_INFO] = {
+                AmConstants.OPERATION: data.get(AmConstants.OPERATION),
+                Constants.POA_ID: data.get(Constants.POA_ID),
+                Constants.PROPERTY_CODE: Constants.RESULT_CODE_OK,
+            }
         except Exception as e:
             self.get_logger().error(e)
             self.get_logger().error(traceback.format_exc())
@@ -1327,6 +1355,11 @@ class VMHandler(HandlerBase):
                                                worker_node_name=worker_node, operation=AmConstants.OP_CPUPIN,
                                                instance_name=sliver.label_allocations.instance,
                                                vcpu_cpu_map=vcpu_cpu_map)
+            result[Constants.PROPERTY_POA_INFO] = {
+                AmConstants.OPERATION: data.get(AmConstants.OPERATION),
+                Constants.POA_ID: data.get(Constants.POA_ID),
+                Constants.PROPERTY_CODE: Constants.RESULT_CODE_OK,
+            }
         except Exception as e:
             self.get_logger().error(e)
             self.get_logger().error(traceback.format_exc())
@@ -1370,6 +1403,11 @@ class VMHandler(HandlerBase):
                                                worker_node_name=worker_node, operation=AmConstants.OP_NUMATUNE,
                                                instance_name=sliver.label_allocations.instance,
                                                node_set=node_set)
+            result[Constants.PROPERTY_POA_INFO] = {
+                AmConstants.OPERATION: data.get(AmConstants.OPERATION),
+                Constants.POA_ID: data.get(Constants.POA_ID),
+                Constants.PROPERTY_CODE: Constants.RESULT_CODE_OK,
+            }
         except Exception as e:
             self.get_logger().error(e)
             self.get_logger().error(traceback.format_exc())
