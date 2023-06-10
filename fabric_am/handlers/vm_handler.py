@@ -1189,7 +1189,7 @@ class VMHandler(HandlerBase):
                                                     worker_node_name=worker_node, operation=AmConstants.OP_CPUINFO,
                                                     instance_name=sliver.label_allocations.instance)
             ansible_facts = ok.get(AmConstants.ANSIBLE_FACTS)
-            cpu_info = ansible_facts.get(f"{AmConstants.OP_CPUINFO}")[0]
+            cpu_info = str(ansible_facts.get(f"{AmConstants.OP_CPUINFO}")[0])
             self.logger.info(f"{AmConstants.OP_CPUINFO} for {vmname}: {cpu_info}")
 
             result[Constants.PROPERTY_POA_INFO] = {
@@ -1244,8 +1244,8 @@ class VMHandler(HandlerBase):
                                                     instance_name=sliver.label_allocations.instance)
 
             ansible_facts = ok.get(AmConstants.ANSIBLE_FACTS)
-            numainfo_vm = ansible_facts.get(f"{AmConstants.OP_NUMAINFO}_{AmConstants.VM}")
-            numainfo_host = ansible_facts.get(f"{AmConstants.OP_NUMAINFO}_{AmConstants.HOST}")
+            numainfo_vm = str(ansible_facts.get(f"{AmConstants.OP_NUMAINFO}_{AmConstants.VM}"))
+            numainfo_host = str(ansible_facts.get(f"{AmConstants.OP_NUMAINFO}_{AmConstants.HOST}"))
             numainfo = {}
             if ansible_facts is not None:
                 if numainfo_vm is not None:
