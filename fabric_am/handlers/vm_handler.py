@@ -1189,7 +1189,7 @@ class VMHandler(HandlerBase):
                                                     worker_node_name=worker_node, operation=AmConstants.OP_CPUINFO,
                                                     instance_name=sliver.label_allocations.instance)
             ansible_facts = ok.get(AmConstants.ANSIBLE_FACTS)
-            cpu_info = str(ansible_facts.get(f"{AmConstants.OP_CPUINFO}")[0])
+            cpu_info = json.loads(str(ansible_facts.get(f"{AmConstants.OP_CPUINFO}")[0]))
             self.logger.info(f"{AmConstants.OP_CPUINFO} for {vmname}: {cpu_info}")
 
             result[Constants.PROPERTY_POA_INFO] = {
@@ -1207,7 +1207,13 @@ class VMHandler(HandlerBase):
             result = {Constants.PROPERTY_TARGET_NAME: Constants.TARGET_POA,
                       Constants.PROPERTY_TARGET_RESULT_CODE: Constants.RESULT_CODE_EXCEPTION,
                       Constants.PROPERTY_ACTION_SEQUENCE_NUMBER: 0,
-                      Constants.PROPERTY_EXCEPTION_MESSAGE: e}
+                      Constants.PROPERTY_EXCEPTION_MESSAGE: e,
+                      Constants.PROPERTY_POA_INFO: {
+                          "operation": data.get("operation"),
+                          "poa_id": data.get("poa_id"),
+                          "code": Constants.RESULT_CODE_EXCEPTION
+                      }
+                      }
         finally:
             self.get_logger().info(f"POA-cpuinfo completed")
 
@@ -1244,8 +1250,8 @@ class VMHandler(HandlerBase):
                                                     instance_name=sliver.label_allocations.instance)
 
             ansible_facts = ok.get(AmConstants.ANSIBLE_FACTS)
-            numainfo_vm = str(ansible_facts.get(f"{AmConstants.OP_NUMAINFO}_{AmConstants.VM}"))
-            numainfo_host = str(ansible_facts.get(f"{AmConstants.OP_NUMAINFO}_{AmConstants.HOST}"))
+            numainfo_vm = ansible_facts.get(f"{AmConstants.OP_NUMAINFO}_{AmConstants.VM}")
+            numainfo_host = ansible_facts.get(f"{AmConstants.OP_NUMAINFO}_{AmConstants.HOST}")
             numainfo = {}
             if ansible_facts is not None:
                 if numainfo_vm is not None:
@@ -1271,7 +1277,13 @@ class VMHandler(HandlerBase):
             result = {Constants.PROPERTY_TARGET_NAME: Constants.TARGET_POA,
                       Constants.PROPERTY_TARGET_RESULT_CODE: Constants.RESULT_CODE_EXCEPTION,
                       Constants.PROPERTY_ACTION_SEQUENCE_NUMBER: 0,
-                      Constants.PROPERTY_EXCEPTION_MESSAGE: e}
+                      Constants.PROPERTY_EXCEPTION_MESSAGE: e,
+                      Constants.PROPERTY_POA_INFO: {
+                          "operation": data.get("operation"),
+                          "poa_id": data.get("poa_id"),
+                          "code": Constants.RESULT_CODE_EXCEPTION
+                      }
+                      }
         finally:
             self.get_logger().info(f"POA-numainfo completed")
 
@@ -1311,6 +1323,11 @@ class VMHandler(HandlerBase):
                 AmConstants.OPERATION: data.get(AmConstants.OPERATION),
                 Constants.POA_ID: data.get(Constants.POA_ID),
                 Constants.PROPERTY_CODE: Constants.RESULT_CODE_OK,
+                Constants.PROPERTY_POA_INFO: {
+                    "operation": data.get("operation"),
+                    "poa_id": data.get("poa_id"),
+                    "code": Constants.RESULT_CODE_OK
+                }
             }
         except Exception as e:
             self.get_logger().error(e)
@@ -1319,7 +1336,13 @@ class VMHandler(HandlerBase):
             result = {Constants.PROPERTY_TARGET_NAME: Constants.TARGET_POA,
                       Constants.PROPERTY_TARGET_RESULT_CODE: Constants.RESULT_CODE_EXCEPTION,
                       Constants.PROPERTY_ACTION_SEQUENCE_NUMBER: 0,
-                      Constants.PROPERTY_EXCEPTION_MESSAGE: e}
+                      Constants.PROPERTY_EXCEPTION_MESSAGE: e,
+                      Constants.PROPERTY_POA_INFO: {
+                          "operation": data.get("operation"),
+                          "poa_id": data.get("poa_id"),
+                          "code": Constants.RESULT_CODE_EXCEPTION
+                      }
+                      }
         finally:
             self.get_logger().info(f"POA-cpuinfo completed")
 
@@ -1359,6 +1382,11 @@ class VMHandler(HandlerBase):
                 AmConstants.OPERATION: data.get(AmConstants.OPERATION),
                 Constants.POA_ID: data.get(Constants.POA_ID),
                 Constants.PROPERTY_CODE: Constants.RESULT_CODE_OK,
+                Constants.PROPERTY_POA_INFO: {
+                    "operation": data.get("operation"),
+                    "poa_id": data.get("poa_id"),
+                    "code": Constants.RESULT_CODE_OK
+                }
             }
         except Exception as e:
             self.get_logger().error(e)
@@ -1407,6 +1435,11 @@ class VMHandler(HandlerBase):
                 AmConstants.OPERATION: data.get(AmConstants.OPERATION),
                 Constants.POA_ID: data.get(Constants.POA_ID),
                 Constants.PROPERTY_CODE: Constants.RESULT_CODE_OK,
+                Constants.PROPERTY_POA_INFO: {
+                    "operation": data.get("operation"),
+                    "poa_id": data.get("poa_id"),
+                    "code": Constants.RESULT_CODE_OK
+                }
             }
         except Exception as e:
             self.get_logger().error(e)
@@ -1415,7 +1448,13 @@ class VMHandler(HandlerBase):
             result = {Constants.PROPERTY_TARGET_NAME: Constants.TARGET_POA,
                       Constants.PROPERTY_TARGET_RESULT_CODE: Constants.RESULT_CODE_EXCEPTION,
                       Constants.PROPERTY_ACTION_SEQUENCE_NUMBER: 0,
-                      Constants.PROPERTY_EXCEPTION_MESSAGE: e}
+                      Constants.PROPERTY_EXCEPTION_MESSAGE: e,
+                      Constants.PROPERTY_POA_INFO: {
+                          "operation": data.get("operation"),
+                          "poa_id": data.get("poa_id"),
+                          "code": Constants.RESULT_CODE_EXCEPTION
+                      }
+                      }
         finally:
             self.get_logger().info(f"POA-numatune completed")
 
