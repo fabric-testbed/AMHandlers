@@ -46,11 +46,8 @@
     meta:
       hostname: "{{ hostname }}"
     userdata: |
-      {%- raw -%}#!/bin/bash
-      echo {% endraw -%}"{{ sshkey }}"{%- raw -%} >> /home/{% endraw -%}"{{ default_user }}"{%- raw -%}/.ssh/authorized_keys
-      {% endraw %}
-      {{ init_script }}
-  when: vm_prov_op == 'create'
+      {{ user_data }}
+  when: operation == 'create'
 
 - name: Attach a floating IP to the instance
   openstack.cloud.floating_ip:
@@ -65,7 +62,7 @@
     wait: true
     timeout: 200
     network: "{{ ext_network }}"
-  when: vm_prov_op == 'attach_fip'
+  when: operation == 'attach_fip'
 
 - name: Delete a VM
   os_server:
@@ -77,7 +74,7 @@
       username: "{{ username }}"
     name: "{{ vmname }}"
     delete_fip: yes
-  when: vm_prov_op == 'delete'
+  when: operation == 'delete'
 
 - name: Get a VM
   openstack.cloud.server_info:
@@ -89,7 +86,7 @@
     filters:
       name: "{{ vmname }}"
   register: result
-  when: vm_prov_op == 'get'
+  when: operation == 'get'
 
 - name: List all VMs
   openstack.cloud.server_info:
@@ -99,10 +96,10 @@
       project_name: "{{ project_name }}"
       username: "{{ username }}"
   register: result
-  when: vm_prov_op == 'delete_all' or vm_prov_op == 'list'
+  when: operation == 'delete_all' or operation == 'list'
 
 - name: Delete all VMs
-  os_server:
+  openstack.cloud.server:
     state: absent
     auth:
       auth_url: "{{ auth_url }}"
@@ -111,6 +108,12 @@
       username: "{{ username }}"
     name: "{{ item['name'] }}"
     delete_fip: yes
-  when: vm_prov_op == 'delete_all'
+  when: operation == 'delete_all'
   with_items:
     - "{{ result['openstack_servers'] }}"
+
+- name: perform an action on VM
+  ansible.builtin.shell:
+    openstack server {{ operation }} {{ vmname }}
+  when: operation == 'stop' or operation == 'start' or operation == 'reboot'
+

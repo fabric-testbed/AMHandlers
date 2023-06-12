@@ -1,0 +1,53 @@
+---
+# /tasks/main.yml
+#
+# ansible-galaxy collection install community.libvirt
+- name: Start a VM
+  community.libvirt.virt:
+    name: "{{ kvmguest_name }}"
+    state: running
+  when: operation == 'start'
+
+- name: Shutdown a VM
+  community.libvirt.virt:
+    name: "{{ kvmguest_name }}"
+    state: shutdown
+  when: operation == 'stop'
+
+- name: Get CPU Info
+  ansible.builtin.shell:
+    fabric-virt-tools-cli cpu info --domain_name {{ kvmguest_name }}
+  register: cpuinfo
+  when: operation == 'cpuinfo'
+
+- set_fact:
+    cpuinfo: "{{ cpuinfo.stdout_lines }}"
+  when: operation == 'cpuinfo'
+
+- name: Get NUMA statistics of the host
+  ansible.builtin.shell:
+    numactl -H
+  register: numainfo_host
+  when: operation == 'numainfo'
+
+- name: Get NUMA statistics of a VM
+  ansible.builtin.shell:
+    numastat -c -s {{ kvmguest_name }}
+  register: numainfo_vm
+  when: operation == 'numainfo'
+
+- set_fact:
+    numainfo_host: "{{ numainfo_host.stdout_lines }}"
+    numainfo_vm: "{{ numainfo_vm.stdout_lines }}"
+  when: operation == 'numainfo'
+
+- name: Pin vCpu to host cpus for a VM
+  ansible.builtin.shell:
+    fabric-virt-tools-cli cpu pin --domain_name {{ kvmguest_name }} --vcpu {{ item.vcpu }} --cpu {{ item.cpu }}
+  loop: "{{ vcpu_cpu_map }}"
+  when: operation == 'cpupin'
+
+- name: Pin memory to numa node for a VM
+  ansible.builtin.shell:
+    fabric-virt-tools-cli numa tune --domain_name {{ kvmguest_name }} --node_set {{ node_set | join(' --node_set ') }}
+  when: operation == 'numatune'
