@@ -265,6 +265,11 @@ class NetHandler(HandlerBase):
             modified_sliver = unit.get_modified()
             self.get_logger().info(f"Modified sliver: {modified_sliver}")
 
+            diff = sliver.diff(other_sliver=modified_sliver)
+            if diff is None:
+                self.get_logger().info(f"Modify - NO OP")
+                return result, unit
+
             if sliver is None or modified_sliver is None:
                 raise NetHandlerException(f"Unit # {unit} has no assigned slivers for modify")
 
