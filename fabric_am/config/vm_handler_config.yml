@@ -72,6 +72,7 @@ playbooks:
     SmartNIC: nmcli_config_nw_interface.yml
     SharedNIC: nmcli_config_nw_interface.yml
     Storage: storage_config.yml
+    ssh_keys: ssh_keys_config.yml
   cleanup:
     NVME: nvme_cleanup.yml
     ALL: head_vm_provisioning.yml
