@@ -29,7 +29,8 @@
   ansible.posix.authorized_key:
     user: {{ user }}
     state: present
-    key: {{ item }}
+    key: {{ item.key }}
+    comment: {{ item.comment }}
   loop: "{{ keys }}"
   when: operation == 'addkey'
 
@@ -37,6 +38,7 @@
   ansible.posix.authorized_key:
     user: {{ user }}
     state: absent
-    key: {{ item }}
+    key: {{ item.key }}
+    comment: {{ item.comment }}
   loop: "{{ keys }}"
   when: operation == 'removekey'
