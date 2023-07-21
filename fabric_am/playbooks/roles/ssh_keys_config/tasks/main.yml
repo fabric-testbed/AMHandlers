@@ -27,18 +27,18 @@
 #
 - name: Add authorized key for user
   ansible.posix.authorized_key:
-    user: {{ user }}
+    user: "{{ user }}"
     state: present
-    key: {{ item.key }}
-    comment: {{ item.comment }}
+    key: "{{ item.key }}"
+    comment: "{{ item.comment }}"
   loop: "{{ keys }}"
   when: operation == 'addkey'
 
 - name: Remove authorized key for user
   ansible.posix.authorized_key:
-    user: {{ user }}
+    user: "{{ user }}"
     state: absent
-    key: {{ item.key }}
-    comment: {{ item.comment }}
+    key: "{{ item.key }}"
+    comment: "{{ item.comment }}"
   loop: "{{ keys }}"
   when: operation == 'removekey'
