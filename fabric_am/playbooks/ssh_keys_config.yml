@@ -1,0 +1,14 @@
+---
+# file: ssh_keys_config.yml
+
+- hosts:
+    - "{{ vmname }}"
+
+  become: true
+
+  gather_facts: no
+
+  vars:
+
+  roles:
+    - ssh_keys_config
