@@ -161,7 +161,7 @@ class VMHandler(HandlerBase):
             self.__perform_os_server_action(playbook_path=playbook_path_full, inventory_path=inventory_path,
                                             vm_name=vmname, unit_id=unit_id, action=AmConstants.OP_REBOOT)
 
-            time.sleep(5)
+            self.__verify_ssh(mgmt_ip=fip, user=user, retry=ssh_retries)
 
             sliver.management_ip = fip
             # Configure Components - only gets triggered via Portal for now
