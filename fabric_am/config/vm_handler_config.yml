@@ -32,7 +32,7 @@ runtime:
   delete_retries: 5
   images:
     default_centos8_stream: centos
-    default_centos9_stream: centos
+    default_centos9_stream: cloud-user 
     default_centos_7: centos
     default_centos_8: centos
     default_debian_10: debian
