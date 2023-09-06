@@ -1,0 +1,8 @@
+---
+# file: smart_nic_provisioning.yml
+
+- hosts:
+    - "{{ worker_node_name }}"
+
+  roles:
+    - smart_nic_provisioning

@@ -673,7 +673,7 @@ class VMHandler(HandlerBase):
                                          f"playbook_path: {playbook_path} inventory_path: {inventory_path}")
             full_playbook_path = f"{playbook_path}/{playbook}"
 
-            if component.get_type() == ComponentType.FPGA:
+            if component.get_type() in [ComponentType.FPGA, ComponentType.SmartNIC]:
                 self.__attach_detach_multiple_function_pci(playbook_path=playbook_path, inventory_path=inventory_path,
                                                            host=host, instance_name=instance_name,
                                                            device_name=device_name, component=component,
