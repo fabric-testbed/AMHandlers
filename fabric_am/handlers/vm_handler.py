@@ -309,28 +309,26 @@ class VMHandler(HandlerBase):
             if diff is not None:
                 # Modify topology
                 for x in diff.added.components:
-                    component = modified_sliver.attached_components_info.devices[x]
                     user = self.__get_default_user(image=current_sliver.get_image_ref())
                     self.__attach_detach_pci(playbook_path=playbook_path, inventory_path=inventory_path,
                                              host=current_sliver.label_allocations.instance_parent,
                                              instance_name=current_sliver.label_allocations.instance,
                                              device_name=str(unit.get_reservation_id()),
-                                             component=component, vm_name=current_sliver.get_name(),
+                                             component=x, vm_name=current_sliver.get_name(),
                                              project_id=project_id, mgmt_ip=current_sliver.get_management_ip(),
                                              user=user)
 
                     user = self.__get_default_user(image=current_sliver.get_image_ref())
-                    self.__configure_component(component=component,
+                    self.__configure_component(component=x,
                                                mgmt_ip=current_sliver.management_ip,
                                                user=user)
 
                 for x in diff.removed.components:
-                    component = modified_sliver.attached_components_info.devices[x]
                     self.__attach_detach_pci(playbook_path=playbook_path, inventory_path=inventory_path,
                                              host=current_sliver.label_allocations.instance_parent,
                                              instance_name=current_sliver.label_allocations.instance,
                                              device_name=str(unit.get_reservation_id()),
-                                             component=component, vm_name=current_sliver.get_name(),
+                                             component=x, vm_name=current_sliver.get_name(),
                                              project_id=project_id, attach=False)
             else:
                 # Modify configuration
