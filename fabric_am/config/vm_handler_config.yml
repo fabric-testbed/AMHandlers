@@ -67,6 +67,7 @@ playbooks:
     numainfo: worker_libvirt_operations.yml
     numatune: worker_libvirt_operations.yml
     reboot: head_vm_provisioning.yml
+    delete: worker_libvirt_operations.yml
   config:
     post_boot: head_vm_post_boot_config.yml
     SmartNIC: nmcli_config_nw_interface.yml

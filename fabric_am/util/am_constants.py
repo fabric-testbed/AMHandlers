@@ -54,6 +54,7 @@ class AmConstants:
     OP_DETACH = "detach"
     OP_CREATE = "create"
     OP_DELETE = "delete"
+    OP_IS_DELETED = "is_deleted"
     OP_LIST = "list"
     OP_DELETE_ALL = "delete_all"
     OP_ATTACH_FIP = "attach_fip"
