@@ -161,7 +161,7 @@ class VMHandler(HandlerBase):
             self.__perform_os_server_action(playbook_path=playbook_path_full, inventory_path=inventory_path,
                                             vm_name=vmname, unit_id=unit_id, action=AmConstants.OP_REBOOT)
 
-            time.sleep(5)
+            self.__verify_ssh(mgmt_ip=fip, user=user, retry=ssh_retries)
 
             sliver.management_ip = fip
             # Configure Components - only gets triggered via Portal for now
@@ -243,6 +243,8 @@ class VMHandler(HandlerBase):
                 result = self.__poa_numatune(unit=unit, data=data)
             elif operation == AmConstants.OP_REBOOT:
                 result = self.__poa_reboot(unit=unit, data=data)
+            elif operation == AmConstants.OP_ADDKEY or operation == AmConstants.OP_REMOVEKEY:
+                result = self.__poa_sshkey(unit=unit, data=data, operation=operation)
             else:
                 raise VmHandlerException(f"Unsupported {operation}")
 
@@ -1330,7 +1332,7 @@ class VMHandler(HandlerBase):
                   Constants.PROPERTY_ACTION_SEQUENCE_NUMBER: 0}
 
         try:
-            self.get_logger().info(f"POA-cpuinfo started")
+            self.get_logger().info(f"POA-reboot started")
 
             sliver = unit.get_sliver()
             if not isinstance(sliver, NodeSliver):
@@ -1379,7 +1381,7 @@ class VMHandler(HandlerBase):
                       }
                       }
         finally:
-            self.get_logger().info(f"POA-cpuinfo completed")
+            self.get_logger().info(f"POA-reboot completed")
 
         return result
 
@@ -1389,7 +1391,7 @@ class VMHandler(HandlerBase):
                   Constants.PROPERTY_ACTION_SEQUENCE_NUMBER: 0}
 
         try:
-            self.get_logger().info(f"POA-cpuinfo started")
+            self.get_logger().info(f"POA-cpupin started")
 
             sliver = unit.get_sliver()
             if not isinstance(sliver, NodeSliver):
@@ -1432,7 +1434,7 @@ class VMHandler(HandlerBase):
                       Constants.PROPERTY_ACTION_SEQUENCE_NUMBER: 0,
                       Constants.PROPERTY_EXCEPTION_MESSAGE: e}
         finally:
-            self.get_logger().info(f"POA-cpuinfo completed")
+            self.get_logger().info(f"POA-cpupin completed")
 
         return result
 
@@ -1492,5 +1494,75 @@ class VMHandler(HandlerBase):
                       }
         finally:
             self.get_logger().info(f"POA-numatune completed")
+
+        return result
+
+    def __poa_sshkey(self, unit: ConfigToken, data: dict, operation: str) -> dict:
+        result = {Constants.PROPERTY_TARGET_NAME: Constants.TARGET_POA,
+                  Constants.PROPERTY_TARGET_RESULT_CODE: Constants.RESULT_CODE_OK,
+                  Constants.PROPERTY_ACTION_SEQUENCE_NUMBER: 0}
+
+        try:
+            self.get_logger().info(f"POA-sshkey started {operation}")
+
+            sliver = unit.get_sliver()
+            if not isinstance(sliver, NodeSliver):
+                raise VmHandlerException(f"Invalid Sliver type {type(sliver)}")
+
+            if sliver is None:
+                raise VmHandlerException(f"Unit # {unit} has no assigned slivers")
+
+            # Grab the playbook location
+            playbook_location = self.get_config()[AmConstants.PLAYBOOK_SECTION][AmConstants.PB_LOCATION]
+
+            # Grab the playbook name
+            playbook = self.get_config()[AmConstants.PLAYBOOK_SECTION][AmConstants.PB_CONFIG][AmConstants.PB_SSH_KEYS]
+
+            # Construct the playbook path
+            playbook_path = f"{playbook_location}/{playbook}"
+
+            if playbook_path is None:
+                raise VmHandlerException(f"Missing config parameters playbook_path: {playbook_path}")
+
+            user = self.__get_default_user(image=sliver.get_image_ref())
+
+            # Set the variables
+            extra_vars = {AmConstants.VM_NAME: sliver.management_ip,
+                          AmConstants.USER: user,
+                          AmConstants.KEYS: data.get(AmConstants.KEYS),
+                          AmConstants.OPERATION: operation}
+
+            # Grab the SSH Key
+            admin_ssh_key = self.get_config()[AmConstants.PLAYBOOK_SECTION][AmConstants.ADMIN_SSH_KEY]
+
+            self.__execute_ansible(inventory_path=None, playbook_path=playbook_path, extra_vars=extra_vars,
+                                   sources=f"{sliver.management_ip},", private_key_file=admin_ssh_key, user=user)
+
+            result[Constants.PROPERTY_POA_INFO] = {
+                AmConstants.OPERATION: data.get(AmConstants.OPERATION),
+                Constants.POA_ID: data.get(Constants.POA_ID),
+                Constants.PROPERTY_CODE: Constants.RESULT_CODE_OK,
+                Constants.PROPERTY_POA_INFO: {
+                    "operation": data.get("operation"),
+                    "poa_id": data.get("poa_id"),
+                    "code": Constants.RESULT_CODE_OK
+                }
+            }
+        except Exception as e:
+            self.get_logger().error(e)
+            self.get_logger().error(traceback.format_exc())
+
+            result = {Constants.PROPERTY_TARGET_NAME: Constants.TARGET_POA,
+                      Constants.PROPERTY_TARGET_RESULT_CODE: Constants.RESULT_CODE_EXCEPTION,
+                      Constants.PROPERTY_ACTION_SEQUENCE_NUMBER: 0,
+                      Constants.PROPERTY_EXCEPTION_MESSAGE: e,
+                      Constants.PROPERTY_POA_INFO: {
+                          "operation": data.get("operation"),
+                          "poa_id": data.get("poa_id"),
+                          "code": Constants.RESULT_CODE_EXCEPTION
+                      }
+                      }
+        finally:
+            self.get_logger().info(f"POA-sshkey completed {operation}")
 
         return result

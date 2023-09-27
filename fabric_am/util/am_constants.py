@@ -46,6 +46,7 @@ class AmConstants:
     PB_HOSTNAME_SUFFIX = "hostname_suffix"
     PB_CLEANUP = "cleanup"
     PB_CONFIG = "config"
+    PB_SSH_KEYS = "ssh_keys"
 
     CLEAN_ALL = "ALL"
 
@@ -67,6 +68,8 @@ class AmConstants:
     OP_CPUPIN = "cpupin"
     OP_NUMATUNE = "numatune"
     OP_MOUNT = "mount"
+    OP_ADDKEY = "addkey"
+    OP_REMOVEKEY = "removekey"
 
     PORT_NAME = "portname"
     NETWORK_NAME = "networkname"
@@ -113,6 +116,8 @@ class AmConstants:
     DEFAULT_USER = "default_user"
     INIT_SCRIPT = "init_script"
     USER_DATA = "user_data"
+    USER = "user"
+    KEYS = "keys"
 
     ROOT_USER = "root"
 
