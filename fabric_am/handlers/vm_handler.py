@@ -311,28 +311,26 @@ class VMHandler(HandlerBase):
             if diff is not None:
                 # Modify topology
                 for x in diff.added.components:
-                    component = modified_sliver.attached_components_info.devices[x]
                     user = self.__get_default_user(image=current_sliver.get_image_ref())
                     self.__attach_detach_pci(playbook_path=playbook_path, inventory_path=inventory_path,
                                              host=current_sliver.label_allocations.instance_parent,
                                              instance_name=current_sliver.label_allocations.instance,
                                              device_name=str(unit.get_reservation_id()),
-                                             component=component, vm_name=current_sliver.get_name(),
+                                             component=x, vm_name=current_sliver.get_name(),
                                              project_id=project_id, mgmt_ip=current_sliver.get_management_ip(),
                                              user=user)
 
                     user = self.__get_default_user(image=current_sliver.get_image_ref())
-                    self.__configure_component(component=component,
+                    self.__configure_component(component=x,
                                                mgmt_ip=current_sliver.management_ip,
                                                user=user)
 
                 for x in diff.removed.components:
-                    component = modified_sliver.attached_components_info.devices[x]
                     self.__attach_detach_pci(playbook_path=playbook_path, inventory_path=inventory_path,
                                              host=current_sliver.label_allocations.instance_parent,
                                              instance_name=current_sliver.label_allocations.instance,
                                              device_name=str(unit.get_reservation_id()),
-                                             component=component, vm_name=current_sliver.get_name(),
+                                             component=x, vm_name=current_sliver.get_name(),
                                              project_id=project_id, attach=False)
             else:
                 # Modify configuration
@@ -417,16 +415,16 @@ class VMHandler(HandlerBase):
 
         return result
 
-    def __delete_vm(self, *, playbook_path: str, inventory_path: str, vm_name: str, unit_id: str) -> bool:
+    def __delete_vm(self, *, playbook_path: str, inventory_path: str, sliver: NodeSliver, unit_id: str) -> bool:
         """
         Invoke ansible playbook to remove a provisioned VM
         :param playbook_path: playbook location
         :param inventory_path: inventory location
-        :param vm_name: VM Name
+        :param sliver: VM Sliver
         :param unit_id: Unit Id
         :return: True or False representing success/failure
         """
-        vm_name = f"{unit_id}-{vm_name}"
+        vm_name = f"{unit_id}-{sliver.get_name()}"
 
         extra_vars = {AmConstants.OPERATION: AmConstants.OP_DELETE,
                       AmConstants.VM_NAME: vm_name}
@@ -444,6 +442,43 @@ class VMHandler(HandlerBase):
                     continue
                 else:
                     raise e
+
+        playbook_path = self.get_config()[AmConstants.PLAYBOOK_SECTION][AmConstants.PB_LOCATION]
+        playbook = self.get_config()[AmConstants.PLAYBOOK_SECTION][AmConstants.OPERATION][AmConstants.OP_DELETE]
+        full_playbook_path = f"{playbook_path}/{playbook}"
+
+        extra_vars = {
+            AmConstants.WORKER_NODE_NAME: sliver.get_label_allocations().instance_parent,
+            AmConstants.OPERATION: AmConstants.OP_IS_DELETED,
+            AmConstants.KVM_GUEST_NAME: sliver.get_label_allocations().instance
+        }
+
+        # Verify VM has been deleted via libvirt and check if needs to be destroyed by virsh
+        force_destroy = False
+        for i in range(delete_retries):
+            try:
+                self.__execute_ansible(inventory_path=inventory_path, playbook_path=full_playbook_path,
+                                       extra_vars=extra_vars)
+            except Exception as e:
+                if i < delete_retries:
+                    continue
+                else:
+                    force_destroy = True
+                    self.get_logger().error(e)
+
+        # VM failed to delete and is leaked even after openstack delete was successful
+        if force_destroy:
+            extra_vars[AmConstants.OPERATION] = AmConstants.OP_DELETE
+            for i in range(delete_retries):
+                try:
+                    self.__execute_ansible(inventory_path=inventory_path, playbook_path=full_playbook_path,
+                                           extra_vars=extra_vars)
+                except Exception as e:
+                    if i < delete_retries:
+                        continue
+                    else:
+                        self.get_logger().error(e)
+
         return True
 
     def __attach_fip(self, *, playbook_path: str, inventory_path: str, vm_name: str, unit_id: str) -> str:
@@ -875,7 +910,7 @@ class VMHandler(HandlerBase):
 
             # Delete VM
             self.__delete_vm(playbook_path=full_playbook_path, inventory_path=inventory_path,
-                             vm_name=sliver.get_name(), unit_id=unit_id)
+                             sliver=sliver, unit_id=unit_id)
         except Exception as e:
             self.get_logger().error(f"Exception occurred in cleanup {unit_id} error: {e}")
             self.get_logger().error(traceback.format_exc())

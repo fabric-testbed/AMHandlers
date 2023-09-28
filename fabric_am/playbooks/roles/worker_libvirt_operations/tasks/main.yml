@@ -14,6 +14,23 @@
     state: shutdown
   when: operation == 'stop'
 
+- name: Destory a VM
+  community.libvirt.virt:
+    name: "{{ kvmguest_name }}"
+    state: destroyed
+  when: operation == 'delete'
+
+- name: List all VMs
+  community.libvirt.virt:
+    command: list_vms
+  register: vm_list
+  when: operation == 'list' or operation == 'is_deleted'
+
+- name: Verify VM has been deleted
+  fail:
+    msg: "VM {{ kvmguest_name }} has not been deleted yet."
+  when: operation == 'is_deleted' and kvmguest_name in vm_list.list_vms
+
 - name: Get CPU Info
   ansible.builtin.shell:
     fabric-virt-tools-cli cpu info --domain_name {{ kvmguest_name }}
