@@ -1,0 +1,12 @@
+---
+# file: worker_libvirt_operations.yml
+
+- hosts: 
+    - "{{ worker_node_name }}"
+
+  gather_facts: no
+
+  vars:
+
+  roles:
+    - worker_libvirt_operations

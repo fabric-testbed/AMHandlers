@@ -36,7 +36,6 @@ from fim.slivers.network_service import NetworkServiceSliver, MirrorDirection, N
 
 from fabric_am.util.am_constants import AmConstants
 from fabric_am.util.ansible_helper import AnsibleHelper
-from networkx.generators.tests.test_small import null
     
 class OessHandlerException(Exception):
     """
@@ -423,4 +422,10 @@ class OessHandler(HandlerBase):
         return data
     
     def clean_restart(self):
-        return;
+        pass
+
+    def poa(self, unit: ConfigToken, data: dict) -> Tuple[dict, ConfigToken]:
+        """
+        Not implemented
+        """
+        pass

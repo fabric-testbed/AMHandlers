@@ -265,6 +265,11 @@ class NetHandler(HandlerBase):
             modified_sliver = unit.get_modified()
             self.get_logger().info(f"Modified sliver: {modified_sliver}")
 
+            diff = sliver.diff(other_sliver=modified_sliver)
+            if diff is None:
+                self.get_logger().info(f"Modify - NO OP")
+                return result, unit
+
             if sliver is None or modified_sliver is None:
                 raise NetHandlerException(f"Unit # {unit} has no assigned slivers for modify")
 
@@ -785,7 +790,7 @@ class NetHandler(HandlerBase):
                     break
             if site_data is None:
                 if peer_labs:
-                    site_data = {"device": labs.device_name, "bgp": {}}
+                    site_data = {"device": labs.device_name, "bgp": []}
                 else:
                     site_data = {"device": labs.device_name, "direct": {"interface": []}}
                 data['site'].append(site_data)
@@ -804,34 +809,46 @@ class NetHandler(HandlerBase):
             if int(interface['outervlan']) > 0 and labs.inner_vlan is not None:
                 interface['innervlan'] = labs.inner_vlan
             if peer_labs:
-                if 'interface' in site_data['bgp']:
-                    raise NetHandlerException(f'l3vpn - cannot have more than one BGP interface for site {site_data["device"]}')
-                site_data['bgp']['interface'] = interface
+                if peer_labs.asn:
+                    for bgp_data in site_data['bgp']:
+                        if {bgp_data["remote-asn"]} == peer_labs.asn:
+                            raise NetHandlerException(
+                                f'l3vpn - cannot have more than one BGP interface with "remote-asn"={peer_labs.asn} for site {site_data["device"]}')
+                    bgp_data = {}
+                    bgp_data['remote-asn'] = peer_labs.asn
+                    site_data['bgp'].append(bgp_data)
+                else:
+                    raise NetHandlerException(
+                        f'l3vpn - missing asn in peer labels for site {site_data["device"]} - interface {str(interface)}')
+
+                bgp_data['interface'] = interface
                 # add peering local
                 if labs.ipv4_subnet:
                     ipv4_addr_mask = labs.ipv4_subnet.split('/')
-                    site_data['bgp']['local-ipv4'] = {'address': ipv4_addr_mask[0], 'netmask': ipv4_addr_mask[1]}
+                    bgp_data['local-ipv4'] = {'address': ipv4_addr_mask[0], 'netmask': ipv4_addr_mask[1]}
                 elif labs.ipv6_subnet:
                     ipv6_addr_mask = labs.ipv6_subnet.split('/')
-                    site_data['bgp']['local-ipv4'] = {'address': ipv6_addr_mask[0], 'netmask': ipv6_addr_mask[1]}
+                    bgp_data['local-ipv4'] = {'address': ipv6_addr_mask[0], 'netmask': ipv6_addr_mask[1]}
                 else:
-                    raise NetHandlerException(f'l3vpn - missing ipv4_subnet or ipv6_subnet label on BGP interface for site {site_data["device"]}')
+                    raise NetHandlerException(f'l3vpn - missing ipv4_subnet or ipv6_subnet label for site {site_data["device"]} on BGP interface {str(interface)}')
                 # add bgp peering remote
                 if peer_labs.ipv4_subnet:
                     ipv4_addr_mask = peer_labs.ipv4_subnet.split('/')
-                    site_data['bgp']['remote-ipv4'] = {'address': ipv4_addr_mask[0], 'netmask': ipv4_addr_mask[1]}
+                    bgp_data['remote-ipv4'] = {'address': ipv4_addr_mask[0], 'netmask': ipv4_addr_mask[1]}
                 elif labs.ipv6_subnet:
                     ipv6_addr_mask = peer_labs.ipv6_subnet.split('/')
-                    site_data['bgp']['remote-ipv4'] = {'address': ipv6_addr_mask[0], 'netmask': ipv6_addr_mask[1]}
+                    bgp_data['remote-ipv4'] = {'address': ipv6_addr_mask[0], 'netmask': ipv6_addr_mask[1]}
                 else:
-                    raise NetHandlerException(f'l3vpn - missing peering label ipv4_subnet or ipv6_subnet on BGP interface for site {site_data["device"]}')
+                    raise NetHandlerException(f'l3vpn - missing peering label ipv4_subnet or ipv6_subnet for site {site_data["device"]} on BGP interface {str(interface)}')
                 if peer_labs.asn:
-                    site_data['bgp']['remote-asn'] = peer_labs.asn
+                    bgp_data['remote-asn'] = peer_labs.asn
                 else:
-                    raise NetHandlerException(f'l3vpn - missing peering label asn on BGP interface for site {site_data["device"]}')
+                    raise NetHandlerException(f'l3vpn - missing peering label asn for site {site_data["device"]} on BGP interface {str(interface)}')
                 if peer_labs.bgp_key:
-                    site_data['bgp']['auth-key'] = peer_labs.bgp_key
+                    bgp_data['auth-key'] = peer_labs.bgp_key
             else:
+                if "direct" not in site_data:
+                    site_data["direct"] = {"interface": []}
                 site_data['direct']['interface'].append(interface)
                 # add gateway
                 if labs.ipv4_subnet:
@@ -889,3 +906,9 @@ class NetHandler(HandlerBase):
             raise NetHandlerException(f'interface name "{interface_name}" is malformed')
         interface = {'type': interface_type_id[0][0], 'id': interface_type_id[0][1]}
         return interface
+
+    def poa(self, unit: ConfigToken, data: dict) -> Tuple[dict, ConfigToken]:
+        """
+        Not implemented
+        """
+        pass

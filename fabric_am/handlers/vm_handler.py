@@ -27,7 +27,7 @@ import json
 import re
 import time
 import traceback
-from typing import Tuple, List
+from typing import Tuple, List, Dict
 
 import paramiko
 from fabric_cf.actor.core.common.constants import Constants
@@ -38,6 +38,7 @@ from fim.slivers.network_node import NodeSliver
 
 from fabric_am.util.am_constants import AmConstants
 from fabric_am.util.ansible_helper import AnsibleHelper
+from fabric_am.util.utils import Utils
 
 
 class VmHandlerException(Exception):
@@ -64,7 +65,7 @@ class VMHandler(HandlerBase):
             cleanup_section = self.get_config()[AmConstants.PLAYBOOK_SECTION][AmConstants.PB_CLEANUP]
             cleanup_playbook = f"{playbook_path}/{cleanup_section[AmConstants.CLEAN_ALL]}"
             inventory_path = self.get_config()[AmConstants.PLAYBOOK_SECTION][AmConstants.PB_INVENTORY]
-            extra_vars = {AmConstants.VM_PROV_OP: AmConstants.PROV_OP_DELETE_ALL}
+            extra_vars = {AmConstants.OPERATION: AmConstants.OP_DELETE_ALL}
             self.__execute_ansible(inventory_path=inventory_path, playbook_path=cleanup_playbook,
                                    extra_vars=extra_vars)
         except Exception as e:
@@ -142,12 +143,11 @@ class VMHandler(HandlerBase):
                 fip = self.__attach_fip(playbook_path=playbook_path_full, inventory_path=inventory_path,
                                         vm_name=vmname, unit_id=unit_id)
 
+            # Verify SSH connectivity
             ssh_retries = self.get_config()[AmConstants.RUNTIME_SECTION][AmConstants.RT_SSH_RETRIES]
             self.__verify_ssh(mgmt_ip=fip, user=user, retry=ssh_retries)
 
             sliver.label_allocations.instance = instance_props.get(AmConstants.SERVER_INSTANCE_NAME, None)
-
-            self.__post_boot_config(mgmt_ip=fip, user=user)
 
             # Attach any attached PCI Devices
             if sliver.attached_components_info is not None:
@@ -156,7 +156,15 @@ class VMHandler(HandlerBase):
                                              host=worker_node, instance_name=sliver.label_allocations.instance,
                                              device_name=unit_id, component=component, vm_name=vmname,
                                              project_id=project_id, raise_exception=True, mgmt_ip=fip, user=user)
+
+            # REBOOT the VM
+            self.__perform_os_server_action(playbook_path=playbook_path_full, inventory_path=inventory_path,
+                                            vm_name=vmname, unit_id=unit_id, action=AmConstants.OP_REBOOT)
+
+            time.sleep(5)
+
             sliver.management_ip = fip
+            # Configure Components - only gets triggered via Portal for now
             self.__configure_components(sliver=sliver)
 
         except Exception as e:
@@ -210,6 +218,46 @@ class VMHandler(HandlerBase):
             self.get_logger().info(f"Delete completed")
         return result, unit
 
+    def poa(self, unit: ConfigToken, data: dict) -> Tuple[dict, ConfigToken]:
+        """
+        POA - perform operational action on a VM
+        """
+        try:
+            self.get_logger().info(f"POA invoked for unit: {unit}")
+            sliver = unit.get_sliver()
+            if sliver is None:
+                raise VmHandlerException(f"Unit # {unit} has no assigned slivers")
+
+            if not isinstance(sliver, NodeSliver):
+                raise VmHandlerException(f"Invalid Sliver type {type(sliver)}")
+
+            operation = data.get("operation")
+
+            if operation == AmConstants.OP_CPUINFO:
+                result = self.__poa_cpuinfo(unit=unit, data=data)
+            elif operation == AmConstants.OP_NUMAINFO:
+                result = self.__poa_numainfo(unit=unit, data=data)
+            elif operation == AmConstants.OP_CPUPIN:
+                result = self.__poa_cpupin(unit=unit, data=data)
+            elif operation == AmConstants.OP_NUMATUNE:
+                result = self.__poa_numatune(unit=unit, data=data)
+            elif operation == AmConstants.OP_REBOOT:
+                result = self.__poa_reboot(unit=unit, data=data)
+            else:
+                raise VmHandlerException(f"Unsupported {operation}")
+
+        except Exception as e:
+            result = {Constants.PROPERTY_TARGET_NAME: Constants.TARGET_DELETE,
+                      Constants.PROPERTY_TARGET_RESULT_CODE: Constants.RESULT_CODE_EXCEPTION,
+                      Constants.PROPERTY_ACTION_SEQUENCE_NUMBER: 0,
+                      Constants.PROPERTY_EXCEPTION_MESSAGE: e}
+            self.get_logger().error(e)
+            self.get_logger().error(traceback.format_exc())
+        finally:
+
+            self.get_logger().info(f"POA completed")
+        return result, unit
+
     def __configure_component(self, *, component: ComponentSliver, user: str, mgmt_ip: str):
         try:
             if component.get_type() not in [ComponentType.SharedNIC, ComponentType.SmartNIC, ComponentType.Storage]:
@@ -261,28 +309,26 @@ class VMHandler(HandlerBase):
             if diff is not None:
                 # Modify topology
                 for x in diff.added.components:
-                    component = modified_sliver.attached_components_info.devices[x]
                     user = self.__get_default_user(image=current_sliver.get_image_ref())
                     self.__attach_detach_pci(playbook_path=playbook_path, inventory_path=inventory_path,
                                              host=current_sliver.label_allocations.instance_parent,
                                              instance_name=current_sliver.label_allocations.instance,
                                              device_name=str(unit.get_reservation_id()),
-                                             component=component, vm_name=current_sliver.get_name(),
+                                             component=x, vm_name=current_sliver.get_name(),
                                              project_id=project_id, mgmt_ip=current_sliver.get_management_ip(),
                                              user=user)
 
                     user = self.__get_default_user(image=current_sliver.get_image_ref())
-                    self.__configure_component(component=component,
+                    self.__configure_component(component=x,
                                                mgmt_ip=current_sliver.management_ip,
                                                user=user)
 
                 for x in diff.removed.components:
-                    component = modified_sliver.attached_components_info.devices[x]
                     self.__attach_detach_pci(playbook_path=playbook_path, inventory_path=inventory_path,
                                              host=current_sliver.label_allocations.instance_parent,
                                              instance_name=current_sliver.label_allocations.instance,
                                              device_name=str(unit.get_reservation_id()),
-                                             component=component, vm_name=current_sliver.get_name(),
+                                             component=x, vm_name=current_sliver.get_name(),
                                              project_id=project_id, attach=False)
             else:
                 # Modify configuration
@@ -298,6 +344,17 @@ class VMHandler(HandlerBase):
 
             self.get_logger().info(f"Modify completed")
         return result, unit
+
+    def __build_user_data(self, *, default_user: str, ssh_key: str, init_script: str = None):
+        user_data = "#!/bin/bash\n"
+        ssh_keys = ssh_key.split(",")
+        for key in ssh_keys:
+            user_data += f"echo {key} >> /home/{default_user}/.ssh/authorized_keys\n"
+
+        if init_script is not None:
+            user_data += init_script
+
+        return user_data
 
     def __create_vm(self, *, playbook_path: str, inventory_path: str, vm_name: str, worker_node: str, image: str,
                     flavor: str, unit_id: str, ssh_key: str, init_script: str = None) -> dict:
@@ -323,8 +380,10 @@ class VMHandler(HandlerBase):
         if init_script is None:
             init_script = ""
 
+        user_data = self.__build_user_data(default_user=default_user, ssh_key=ssh_key, init_script=init_script)
+
         extra_vars = {
-            AmConstants.VM_PROV_OP: AmConstants.PROV_OP_CREATE,
+            AmConstants.OPERATION: AmConstants.OP_CREATE,
             AmConstants.EC2_AVAILABILITY_ZONE: avail_zone,
             AmConstants.VM_NAME: vm_name_combined,
             AmConstants.FLAVOR: flavor,
@@ -332,7 +391,8 @@ class VMHandler(HandlerBase):
             AmConstants.HOSTNAME: vm_name,
             AmConstants.SSH_KEY: ssh_key,
             AmConstants.DEFAULT_USER: default_user,
-            AmConstants.INIT_SCRIPT: init_script
+            AmConstants.INIT_SCRIPT: init_script,
+            AmConstants.USER_DATA: user_data
         }
         ok = self.__execute_ansible(inventory_path=inventory_path, playbook_path=playbook_path, extra_vars=extra_vars)
 
@@ -364,7 +424,7 @@ class VMHandler(HandlerBase):
         """
         vm_name = f"{unit_id}-{vm_name}"
 
-        extra_vars = {AmConstants.VM_PROV_OP: AmConstants.PROV_OP_DELETE,
+        extra_vars = {AmConstants.OPERATION: AmConstants.OP_DELETE,
                       AmConstants.VM_NAME: vm_name}
 
         # Retry Delete VM configured number of times in case of failure to delete VMs
@@ -396,7 +456,7 @@ class VMHandler(HandlerBase):
             self.process_lock.acquire()
             vmname = f"{unit_id}-{vm_name}"
 
-            extra_vars = {AmConstants.VM_PROV_OP: AmConstants.VM_PROV_OP_ATTACH_FIP,
+            extra_vars = {AmConstants.OPERATION: AmConstants.OP_ATTACH_FIP,
                           AmConstants.VM_NAME: vmname}
 
             ok = self.__execute_ansible(inventory_path=inventory_path, playbook_path=playbook_path,
@@ -411,9 +471,9 @@ class VMHandler(HandlerBase):
             result = None
             if floating_ip is None:
                 self.get_logger().info("Floating IP returned by attach was null, trying to get via get_vm")
-                ok = self.__get_vm(playbook_path=playbook_path, inventory_path=inventory_path, vm_name=vm_name,
-                                   unit_id=unit_id)
-                self.get_logger().info(f"Info returned by __get_vm: {ok}")
+                ok = self.__perform_os_server_action(playbook_path=playbook_path, inventory_path=inventory_path,
+                                                     vm_name=vm_name, unit_id=unit_id, action=AmConstants.OP_GET)
+                self.get_logger().info(f"Info returned by GET VM: {ok}")
                 servers = ok[AmConstants.OS_SERVERS]
                 self.get_logger().debug(f"Servers: {servers}")
                 if servers is not None and len(servers) == 1:
@@ -450,9 +510,9 @@ class VMHandler(HandlerBase):
             playbook_path = f"{playbook_location}/{playbook}"
 
             # Set the variables
-            extra_vars = {AmConstants.VOL_PROV_OP: AmConstants.PROV_OP_MOUNT,
+            extra_vars = {AmConstants.OPERATION: AmConstants.OP_MOUNT,
                           AmConstants.VOL_NAME: component.label_allocations.local_name,
-                          AmConstants.PROV_DEVICE: component.label_allocations.device_name,
+                          AmConstants.DEVICE: component.label_allocations.device_name,
                           AmConstants.VM_NAME: mgmt_ip}
 
             # Grab the SSH Key
@@ -473,21 +533,21 @@ class VMHandler(HandlerBase):
         self.get_logger().debug("__attach_detach_storage IN")
         try:
             extra_vars = {
-                AmConstants.VOL_PROV_OP: AmConstants.PROV_DETACH,
+                AmConstants.OPERATION: AmConstants.OP_DETACH,
                 AmConstants.VM_NAME: f"{unit_id}-{vm_name}",
                 AmConstants.VOL_NAME: f"{component.get_label_allocations().local_name}",
                 Constants.PROJECT_ID: f"{project_id}"
             }
             if attach:
-                extra_vars[AmConstants.VOL_PROV_OP] = AmConstants.PROV_ATTACH
+                extra_vars[AmConstants.OPERATION] = AmConstants.OP_ATTACH
 
             ok = self.__execute_ansible(inventory_path=inventory_path, playbook_path=playbook_path, extra_vars=extra_vars)
             attachments = ok.get(AmConstants.ATTACHMENTS, None)
             if attachments is not None:
                 for a in attachments:
                     self.get_logger().info(f"Storage volume: {component.get_name()} for project: {project_id} attached "
-                                           f"as device: {a.get(AmConstants.PROV_DEVICE)}")
-                    component.label_allocations.device_name = str(a.get(AmConstants.PROV_DEVICE))
+                                           f"as device: {a.get(AmConstants.DEVICE)}")
+                    component.label_allocations.device_name = str(a.get(AmConstants.DEVICE))
         finally:
             self.get_logger().debug("__attach_detach_storage OUT")
 
@@ -508,11 +568,81 @@ class VMHandler(HandlerBase):
             for ifs in ns.interface_info.interfaces.values():
                 ifs_name = ifs.get_name()
 
-        extra_vars = {AmConstants.PORT_PROV_OP: AmConstants.PROV_DETACH,
+        extra_vars = {AmConstants.OPERATION: AmConstants.OP_DETACH,
                       AmConstants.VM_NAME: f'{device_name}-{vm_name}',
                       AmConstants.PORT_NAME: f'{device_name}-{vm_name}-{vm_name}-{ifs_name}'}
 
         return self.__execute_ansible(inventory_path=inventory_path, playbook_path=playbook_path, extra_vars=extra_vars)
+
+    def __attach_detach_multiple_function_pci(self, *, playbook_path: str, inventory_path: str, host: str,
+                                              instance_name: str, device_name: str, component: ComponentSliver,
+                                              vm_name: str, project_id: str, attach: bool = True,
+                                              raise_exception: bool = False, mgmt_ip: str = None, user: str = None):
+        """
+        Invoke ansible playbook to attach/detach a PCI device with multiple functions to a provisioned VM
+        :param playbook_path: playbook location
+        :param inventory_path: inventory location
+        :param host: host
+        :param instance_name: Instance Name
+        :param device_name: Device Name
+        :param component: Component Sliver
+        :param vm_name: VM Name
+        :param project_id: Project Id
+        :param attach: True for attach and False for detach
+        :param mgmt_ip Management IP
+        :param user default user
+        :return:
+        """
+        self.get_logger().debug("__attach_detach_multiple_function_pci IN")
+        try:
+            resource_type = str(component.get_type())
+            playbook = self.get_config()[AmConstants.PLAYBOOK_SECTION][resource_type]
+            if playbook is None or inventory_path is None:
+                raise VmHandlerException(f"Missing config parameters playbook: {playbook} "
+                                         f"playbook_path: {playbook_path} inventory_path: {inventory_path}")
+            full_playbook_path = f"{playbook_path}/{playbook}"
+
+            # Grab the Mac addresses
+            interface_names = []
+            ns = None
+            if component.get_type() in [ComponentType.SmartNIC, ComponentType.SharedNIC]:
+                ns_name = list(component.network_service_info.network_services.keys())[0]
+                ns = component.network_service_info.network_services[ns_name]
+                interface_names = list(ns.interface_info.interfaces.keys())
+
+            if isinstance(component.labels.bdf, str):
+                pci_device_list = [component.labels.bdf]
+            else:
+                pci_device_list = component.labels.bdf
+
+            worker_node = host
+            extra_vars = {AmConstants.WORKER_NODE_NAME: worker_node,
+                          AmConstants.DEVICE: device_name}
+            if attach:
+                extra_vars[AmConstants.OPERATION] = AmConstants.OP_ATTACH
+            else:
+                extra_vars[AmConstants.OPERATION] = AmConstants.OP_DETACH
+
+            self.get_logger().info(f"Device List Size: {len(pci_device_list)} List: {pci_device_list}")
+            bdf = str(pci_device_list[0])
+            pattern = r'(\d+):(\d+):(\d+)\.(\d)'
+            matches = re.match(pattern, bdf)
+
+            host_vars = {
+                AmConstants.KVM_GUEST_NAME: instance_name,
+                AmConstants.PCI_DOMAIN: f"0x{matches[1]}",
+                AmConstants.PCI_BUS: f"0x{matches[2]}",
+                AmConstants.PCI_SLOT: f"0x{matches[3]}"
+            }
+            self.__execute_ansible(inventory_path=inventory_path, playbook_path=full_playbook_path,
+                                   extra_vars=extra_vars, host=worker_node, host_vars=host_vars)
+        except Exception as e:
+            self.get_logger().error(f"Error occurred attach:{attach}/detach: {not attach} device: {component}")
+            self.get_logger().error(traceback.format_exc())
+            if raise_exception:
+                raise e
+        finally:
+            self.get_logger().debug("__attach_detach_multiple_function_pci OUT")
 
     def __attach_detach_pci(self, *, playbook_path: str, inventory_path: str, host: str, instance_name: str,
                             device_name: str, component: ComponentSliver, vm_name: str, project_id: str,
@@ -541,24 +671,35 @@ class VMHandler(HandlerBase):
                                          f"playbook_path: {playbook_path} inventory_path: {inventory_path}")
             full_playbook_path = f"{playbook_path}/{playbook}"
 
+            if component.get_type() == ComponentType.FPGA:
+                self.__attach_detach_multiple_function_pci(playbook_path=playbook_path, inventory_path=inventory_path,
+                                                           host=host, instance_name=instance_name,
+                                                           device_name=device_name, component=component,
+                                                           vm_name=vm_name, project_id=project_id,
+                                                           attach=attach, raise_exception=raise_exception,
+                                                           mgmt_ip=mgmt_ip, user=user)
+                return
+
             if component.get_type() == ComponentType.Storage:
                 self.__attach_detach_storage(playbook_path=full_playbook_path, inventory_path=inventory_path,
                                              vm_name=vm_name, unit_id=device_name, component=component,
                                              project_id=project_id, attach=attach)
                 return
-            mac = None
+
             if component.get_type() == ComponentType.SharedNIC:
                 if component.get_model() == Constants.OPENSTACK_VNIC_MODEL:
                     if not attach:
                         self.__cleanup_vnic(inventory_path=inventory_path, vm_name=vm_name, device_name=device_name,
                                             component=component)
                     return
-                for ns in component.network_service_info.network_services.values():
-                    if ns.interface_info is None or ns.interface_info.interfaces is None:
-                        continue
+            # Grab the Mac addresses
+            interface_names = []
+            ns = None
+            if component.get_type() in [ComponentType.SmartNIC, ComponentType.SharedNIC]:
+                ns_name = list(component.network_service_info.network_services.keys())[0]
+                ns = component.network_service_info.network_services[ns_name]
+                interface_names = list(ns.interface_info.interfaces.keys())
 
-                    for ifs in ns.interface_info.interfaces.values():
-                        mac = ifs.label_allocations.mac
             if isinstance(component.labels.bdf, str):
                 pci_device_list = [component.labels.bdf]
             else:
@@ -567,14 +708,17 @@ class VMHandler(HandlerBase):
             worker_node = host
 
             extra_vars = {AmConstants.WORKER_NODE_NAME: worker_node,
-                          AmConstants.PROV_DEVICE: device_name}
+                          AmConstants.DEVICE: device_name}
             if attach:
-                extra_vars[AmConstants.PCI_OPERATION] = AmConstants.PROV_ATTACH
+                extra_vars[AmConstants.OPERATION] = AmConstants.OP_ATTACH
                 component.label_allocations.bdf = []
             else:
-                extra_vars[AmConstants.PCI_OPERATION] = AmConstants.PROV_DETACH
+                extra_vars[AmConstants.OPERATION] = AmConstants.OP_DETACH
 
             self.get_logger().info(f"Device List Size: {len(pci_device_list)} List: {pci_device_list}")
+            idx = 0
+            pci_device_number = None
+            # Attach/ Detach the PCI Device
             for device in pci_device_list:
                 device_char_arr = self.__extract_device_addr_octets(device_address=device)
                 device = device.replace("0000:", "")
@@ -586,8 +730,9 @@ class VMHandler(HandlerBase):
                     AmConstants.PCI_FUNCTION: device_char_arr[3],
                     AmConstants.PCI_BDF: device
                 }
-
-                if mac is not None:
+                mac = None
+                if len(interface_names) > 0:
+                    mac = ns.interface_info.interfaces[interface_names[idx]].label_allocations.mac.lower()
                     host_vars[AmConstants.MAC] = mac
 
                 ok = self.__execute_ansible(inventory_path=inventory_path, playbook_path=full_playbook_path,
@@ -595,12 +740,43 @@ class VMHandler(HandlerBase):
 
                 if attach:
                     pci_device_number = ok.get(AmConstants.ANSIBLE_FACTS)[AmConstants.PCI_DEVICE_NUMBER]
-                    ok = self.__post_boot_config(mgmt_ip=mgmt_ip, user=user, pci_device_number=pci_device_number)
-                    bdf_list = str(ok.get(AmConstants.ANSIBLE_FACTS)[AmConstants.PCI_BDF]).split("\n")
-                    bdf = bdf_list[-1]
-                    if bdf.endswith(":"):
-                        bdf = bdf[:-1]
-                    component.label_allocations.bdf.append(bdf)
+                    idx += 1
+
+            # In case of Attach, determine the PCI device id from inside the VM
+            # Also, determine the ethernet interface name in case of Shared/Smart NIC
+            # This is done in a separate loop on purpose to give VM OS to identify PCI devices
+            # and associate mac addresses with them
+            if attach:
+                for idx in range(len(pci_device_list)):
+                    mac = None
+                    if len(interface_names) > 0:
+                        mac = ns.interface_info.interfaces[interface_names[idx]].label_allocations.mac.lower()
+                    ok = self.__post_boot_config(mgmt_ip=mgmt_ip, user=user, pci_device_number=pci_device_number,
+                                                 mac=mac)
+                    interface_name = None
+                    bdf_facts = None
+                    ansible_facts = ok.get(AmConstants.ANSIBLE_FACTS)
+                    self.logger.info(f"Ansible Facts: {ansible_facts}")
+                    if ansible_facts is not None:
+                        combined_facts = ansible_facts.get(AmConstants.COMBINED_FACTS)
+                        self.logger.info(f"Combined Facts: {combined_facts}")
+                        if combined_facts is not None:
+                            bdf_facts = combined_facts.get(AmConstants.PCI_BDF)
+                            interface_name = combined_facts.get(AmConstants.INTERFACE_NAME)
+
+                    self.logger.info(f"BDF Facts: {bdf_facts} Interface Name: {interface_name}")
+                    if bdf_facts is not None:
+                        bdf_list = str(bdf_facts).split("\n")
+                        for bdf in bdf_list:
+                            if bdf.endswith(":"):
+                                bdf = bdf[:-1]
+                            if bdf not in component.label_allocations.bdf:
+                                component.label_allocations.bdf.append(bdf)
+                    if interface_name is not None:
+                        ns.interface_info.interfaces[interface_names[idx]].label_allocations.local_name = str(interface_name)
+                    self.logger.info(f"Label Allocations: {component.label_allocations} {ns}")
+                    if ns is not None:
+                        self.logger.info(f"{ns.interface_info.interfaces.values()}")
         except Exception as e:
             self.get_logger().error(f"Error occurred attach:{attach}/detach: {not attach} device: {component}")
             self.get_logger().error(traceback.format_exc())
@@ -643,7 +819,7 @@ class VMHandler(HandlerBase):
 
             self.get_logger().info(f"Device List Size: {len(pci_device_list)} List: {pci_device_list}")
             for device in pci_device_list:
-                extra_vars[AmConstants.PROV_DEVICE] = device
+                extra_vars[AmConstants.DEVICE] = device
                 self.__execute_ansible(inventory_path=inventory_path, playbook_path=full_playbook_path,
                                        extra_vars=extra_vars)
         except Exception as e:
@@ -722,18 +898,47 @@ class VMHandler(HandlerBase):
             result.append(octet)
         return result
 
-    def __get_vm(self, *, playbook_path: str, inventory_path: str, vm_name: str, unit_id: str):
+    def __perform_virsh_server_action(self, *, playbook_path: str, inventory_path: str, worker_node_name: str,
+                                      instance_name: str, operation: str, vcpu_cpu_map:List[Dict[str, str]] = None,
+                                      node_set: List[str] = None):
         """
-        Invoke ansible playbook to get a provisioned VM
+        Invoke ansible playbook to perform a server action via openstack commands
+        :param playbook_path: playbook location
+        :param inventory_path: inventory location
+        :param worker_node_name: Worker Node Name
+        :param instance_name: VM Name
+        :param operation: Action to be performed
+        :return: OK result
+        """
+        playbook = self.get_config()[AmConstants.PLAYBOOK_SECTION][AmConstants.OPERATION][operation]
+        playbook_path_full = f"{playbook_path}/{playbook}"
+        extra_vars = {AmConstants.OPERATION: operation,
+                      AmConstants.KVM_GUEST_NAME: instance_name,
+                      AmConstants.WORKER_NODE_NAME: worker_node_name}
+
+        if vcpu_cpu_map is not None:
+            extra_vars[AmConstants.VCPU_CPU_MAP] = vcpu_cpu_map
+
+        if node_set is not None:
+            extra_vars[AmConstants.NODE_SET] = node_set
+
+        return self.__execute_ansible(inventory_path=inventory_path, playbook_path=playbook_path_full,
+                                      extra_vars=extra_vars)
+
+    def __perform_os_server_action(self, *, playbook_path: str, inventory_path: str, vm_name: str, unit_id: str,
+                                   action: str):
+        """
+        Invoke ansible playbook to perform a server action via openstack commands
         :param playbook_path: playbook location
         :param inventory_path: inventory location
         :param vm_name: VM Name
         :param unit_id: Unit Id
+        :param action: Action to be performed
         :return: OK result
         """
         vm_name = f"{unit_id}-{vm_name}"
 
-        extra_vars = {AmConstants.VM_PROV_OP: AmConstants.PROV_OP_GET,
+        extra_vars = {AmConstants.OPERATION: action,
                       AmConstants.VM_NAME: vm_name}
         return self.__execute_ansible(inventory_path=inventory_path, playbook_path=playbook_path, extra_vars=extra_vars)
 
@@ -745,6 +950,16 @@ class VMHandler(HandlerBase):
         images = self.get_config()[AmConstants.RUNTIME_SECTION][AmConstants.RT_IMAGES]
         if image in images:
             return images[image]
+        if AmConstants.ROCKY in image:
+            return AmConstants.ROCKY
+        if AmConstants.UBUNTU in image:
+            return AmConstants.UBUNTU
+        if AmConstants.CENTOS in image:
+            return AmConstants.CENTOS
+        if AmConstants.DEBIAN in image:
+            return AmConstants.DEBIAN
+        if AmConstants.FEDORA in image:
+            return AmConstants.FEDORA
         return AmConstants.ROOT_USER
 
     def configure_nic(self, *, component: ComponentSliver, mgmt_ip: str, user: str):
@@ -829,11 +1044,14 @@ class VMHandler(HandlerBase):
             self.get_logger().error(f"Exception : {e}")
             self.get_logger().error(traceback.format_exc())
 
-    def __post_boot_config(self, *, mgmt_ip: str, user: str, pci_device_number: str = None):
+    def __post_boot_config(self, *, mgmt_ip: str, user: str, pci_device_number: str = None, mac: str=None):
         """
-        Perform post boot configuration, install required software
+        Perform post boot configuration:
+        - Grabs the PCI device name from inside the VM
+        - For NIC cards, also gets the interface name
         :param mgmt_ip Management IP to access the VM
         :param user Default Linux user to use for SSH/Ansible
+        :param mac Mac Address in case of NICs
         """
         try:
 
@@ -851,8 +1069,11 @@ class VMHandler(HandlerBase):
                           AmConstants.IMAGE: user}
 
             if pci_device_number is not None:
-                extra_vars[AmConstants.IMAGE] = 'get_pci'
+                extra_vars[AmConstants.OPERATION] = 'get_pci'
                 extra_vars[AmConstants.PCI_DEVICE_NUMBER] = pci_device_number
+
+            if mac is not None:
+                extra_vars[AmConstants.MAC] = mac
 
             # Grab the SSH Key
             admin_ssh_key = self.get_config()[AmConstants.PLAYBOOK_SECTION][AmConstants.ADMIN_SSH_KEY]
@@ -935,3 +1156,304 @@ class VMHandler(HandlerBase):
         self.get_logger().info(f"Executing playbook {playbook_path} extra_vars: {extra_vars} host_vars: {host_vars}")
         ansible_helper.run_playbook(playbook_path=playbook_path, private_key_file=private_key_file, user=user)
         return ansible_helper.get_result_callback().get_json_result_ok()
+
+    def __poa_cpuinfo(self, unit: ConfigToken, data: dict) -> dict:
+        result = {Constants.PROPERTY_TARGET_NAME: Constants.TARGET_POA,
+                  Constants.PROPERTY_TARGET_RESULT_CODE: Constants.RESULT_CODE_OK,
+                  Constants.PROPERTY_ACTION_SEQUENCE_NUMBER: 0}
+
+        try:
+            self.get_logger().info(f"POA-cpuinfo started")
+
+            sliver = unit.get_sliver()
+            if not isinstance(sliver, NodeSliver):
+                raise VmHandlerException(f"Invalid Sliver type {type(sliver)}")
+
+            if sliver is None:
+                raise VmHandlerException(f"Unit # {unit} has no assigned slivers")
+
+            worker_node = sliver.label_allocations.instance_parent
+            vmname = f"{unit.get_reservation_id()}-{sliver.get_name()}"
+
+            playbook_path = self.get_config()[AmConstants.PLAYBOOK_SECTION][AmConstants.PB_LOCATION]
+            inventory_path = self.get_config()[AmConstants.PLAYBOOK_SECTION][AmConstants.PB_INVENTORY]
+
+            if inventory_path is None or playbook_path is None:
+                raise VmHandlerException(f"Missing config parameters "
+                                         f"playbook_path: {playbook_path} inventory_path: {inventory_path}")
+
+            # Grab VcpuInfo for the VM and cpu information for the host
+            ok = self.__perform_virsh_server_action(playbook_path=playbook_path, inventory_path=inventory_path,
+                                                    worker_node_name=worker_node, operation=AmConstants.OP_CPUINFO,
+                                                    instance_name=sliver.label_allocations.instance)
+            ansible_facts = ok.get(AmConstants.ANSIBLE_FACTS)
+            cpu_info = json.loads(str(ansible_facts.get(f"{AmConstants.OP_CPUINFO}")[0]))
+            self.logger.info(f"{AmConstants.OP_CPUINFO} for {vmname}: {cpu_info}")
+
+            result[Constants.PROPERTY_POA_INFO] = {
+                AmConstants.OPERATION: data.get(AmConstants.OPERATION),
+                Constants.POA_ID: data.get(Constants.POA_ID),
+                Constants.PROPERTY_CODE: Constants.RESULT_CODE_OK,
+                Constants.PROPERTY_INFO: {
+                    AmConstants.OP_CPUINFO: cpu_info
+                }
+            }
+        except Exception as e:
+            self.get_logger().error(e)
+            self.get_logger().error(traceback.format_exc())
+
+            result = {Constants.PROPERTY_TARGET_NAME: Constants.TARGET_POA,
+                      Constants.PROPERTY_TARGET_RESULT_CODE: Constants.RESULT_CODE_EXCEPTION,
+                      Constants.PROPERTY_ACTION_SEQUENCE_NUMBER: 0,
+                      Constants.PROPERTY_EXCEPTION_MESSAGE: e,
+                      Constants.PROPERTY_POA_INFO: {
+                          "operation": data.get("operation"),
+                          "poa_id": data.get("poa_id"),
+                          "code": Constants.RESULT_CODE_EXCEPTION
+                      }
+                      }
+        finally:
+            self.get_logger().info(f"POA-cpuinfo completed")
+
+        return result
+
+    def __poa_numainfo(self, unit: ConfigToken, data: dict) -> dict:
+        result = {Constants.PROPERTY_TARGET_NAME: Constants.TARGET_POA,
+                  Constants.PROPERTY_TARGET_RESULT_CODE: Constants.RESULT_CODE_OK,
+                  Constants.PROPERTY_ACTION_SEQUENCE_NUMBER: 0}
+
+        try:
+            self.get_logger().info(f"POA-numainfo started")
+
+            sliver = unit.get_sliver()
+            if not isinstance(sliver, NodeSliver):
+                raise VmHandlerException(f"Invalid Sliver type {type(sliver)}")
+
+            if sliver is None:
+                raise VmHandlerException(f"Unit # {unit} has no assigned slivers")
+
+            worker_node = sliver.label_allocations.instance_parent
+            vmname = f"{unit.get_reservation_id()}-{sliver.get_name()}"
+
+            playbook_path = self.get_config()[AmConstants.PLAYBOOK_SECTION][AmConstants.PB_LOCATION]
+            inventory_path = self.get_config()[AmConstants.PLAYBOOK_SECTION][AmConstants.PB_INVENTORY]
+
+            if inventory_path is None or playbook_path is None:
+                raise VmHandlerException(f"Missing config parameters "
+                                         f"playbook_path: {playbook_path} inventory_path: {inventory_path}")
+
+            # Grab Numa Stat Info for the VM and Numa Info for the Host
+            ok = self.__perform_virsh_server_action(playbook_path=playbook_path, inventory_path=inventory_path,
+                                                    worker_node_name=worker_node, operation=AmConstants.OP_NUMAINFO,
+                                                    instance_name=sliver.label_allocations.instance)
+
+            ansible_facts = ok.get(AmConstants.ANSIBLE_FACTS)
+            numainfo_vm = ansible_facts.get(f"{AmConstants.OP_NUMAINFO}_{AmConstants.VM}")
+            numainfo_host = ansible_facts.get(f"{AmConstants.OP_NUMAINFO}_{AmConstants.HOST}")
+            numainfo = {}
+            if ansible_facts is not None:
+                if numainfo_vm is not None:
+                    numainfo_vm = Utils.parse_numastat(numastat_output=numainfo_vm)
+                    numainfo[sliver.label_allocations.instance] = numainfo_vm
+                if numainfo_host is not None:
+                    numainfo_host = Utils.parse_numactl(numactl_output=numainfo_host)
+                    numainfo[worker_node] = numainfo_host
+
+            self.logger.info(f"{AmConstants.OP_NUMAINFO} for {vmname}: {numainfo}")
+            result[Constants.PROPERTY_POA_INFO] = {
+                AmConstants.OPERATION: data.get(AmConstants.OPERATION),
+                Constants.POA_ID: data.get(Constants.POA_ID),
+                Constants.PROPERTY_CODE: Constants.RESULT_CODE_OK,
+                Constants.PROPERTY_INFO: {
+                    AmConstants.OP_NUMAINFO: numainfo
+                }
+            }
+        except Exception as e:
+            self.get_logger().error(e)
+            self.get_logger().error(traceback.format_exc())
+
+            result = {Constants.PROPERTY_TARGET_NAME: Constants.TARGET_POA,
+                      Constants.PROPERTY_TARGET_RESULT_CODE: Constants.RESULT_CODE_EXCEPTION,
+                      Constants.PROPERTY_ACTION_SEQUENCE_NUMBER: 0,
+                      Constants.PROPERTY_EXCEPTION_MESSAGE: e,
+                      Constants.PROPERTY_POA_INFO: {
+                          "operation": data.get("operation"),
+                          "poa_id": data.get("poa_id"),
+                          "code": Constants.RESULT_CODE_EXCEPTION
+                      }
+                      }
+        finally:
+            self.get_logger().info(f"POA-numainfo completed")
+
+        return result
+
+    def __poa_reboot(self, unit: ConfigToken, data: dict) -> dict:
+        result = {Constants.PROPERTY_TARGET_NAME: Constants.TARGET_POA,
+                  Constants.PROPERTY_TARGET_RESULT_CODE: Constants.RESULT_CODE_OK,
+                  Constants.PROPERTY_ACTION_SEQUENCE_NUMBER: 0}
+
+        try:
+            self.get_logger().info(f"POA-cpuinfo started")
+
+            sliver = unit.get_sliver()
+            if not isinstance(sliver, NodeSliver):
+                raise VmHandlerException(f"Invalid Sliver type {type(sliver)}")
+
+            if sliver is None:
+                raise VmHandlerException(f"Unit # {unit} has no assigned slivers")
+
+            resource_type = str(sliver.get_type())
+            playbook_path = self.get_config()[AmConstants.PLAYBOOK_SECTION][AmConstants.PB_LOCATION]
+            inventory_path = self.get_config()[AmConstants.PLAYBOOK_SECTION][AmConstants.PB_INVENTORY]
+            playbook = self.get_config()[AmConstants.PLAYBOOK_SECTION][resource_type]
+
+            if playbook is None or inventory_path is None or playbook_path is None:
+                raise VmHandlerException(f"Missing config parameters playbook: {playbook} "
+                                         f"playbook_path: {playbook_path} inventory_path: {inventory_path}")
+            playbook_path_full = f"{playbook_path}/{playbook}"
+
+            # REBOOT the VM
+            self.__perform_os_server_action(playbook_path=playbook_path_full, inventory_path=inventory_path,
+                                            vm_name=sliver.get_name(), unit_id=str(unit.get_reservation_id()),
+                                            action=AmConstants.OP_REBOOT)
+
+            result[Constants.PROPERTY_POA_INFO] = {
+                AmConstants.OPERATION: data.get(AmConstants.OPERATION),
+                Constants.POA_ID: data.get(Constants.POA_ID),
+                Constants.PROPERTY_CODE: Constants.RESULT_CODE_OK,
+                Constants.PROPERTY_POA_INFO: {
+                    "operation": data.get("operation"),
+                    "poa_id": data.get("poa_id"),
+                    "code": Constants.RESULT_CODE_OK
+                }
+            }
+        except Exception as e:
+            self.get_logger().error(e)
+            self.get_logger().error(traceback.format_exc())
+
+            result = {Constants.PROPERTY_TARGET_NAME: Constants.TARGET_POA,
+                      Constants.PROPERTY_TARGET_RESULT_CODE: Constants.RESULT_CODE_EXCEPTION,
+                      Constants.PROPERTY_ACTION_SEQUENCE_NUMBER: 0,
+                      Constants.PROPERTY_EXCEPTION_MESSAGE: e,
+                      Constants.PROPERTY_POA_INFO: {
+                          "operation": data.get("operation"),
+                          "poa_id": data.get("poa_id"),
+                          "code": Constants.RESULT_CODE_EXCEPTION
+                      }
+                      }
+        finally:
+            self.get_logger().info(f"POA-cpuinfo completed")
+
+        return result
+
+    def __poa_cpupin(self, unit: ConfigToken, data: dict) -> dict:
+        result = {Constants.PROPERTY_TARGET_NAME: Constants.TARGET_POA,
+                  Constants.PROPERTY_TARGET_RESULT_CODE: Constants.RESULT_CODE_OK,
+                  Constants.PROPERTY_ACTION_SEQUENCE_NUMBER: 0}
+
+        try:
+            self.get_logger().info(f"POA-cpuinfo started")
+
+            sliver = unit.get_sliver()
+            if not isinstance(sliver, NodeSliver):
+                raise VmHandlerException(f"Invalid Sliver type {type(sliver)}")
+
+            if sliver is None:
+                raise VmHandlerException(f"Unit # {unit} has no assigned slivers")
+
+            worker_node = sliver.label_allocations.instance_parent
+            vcpu_cpu_map = data.get(AmConstants.VCPU_CPU_MAP)
+
+            playbook_path = self.get_config()[AmConstants.PLAYBOOK_SECTION][AmConstants.PB_LOCATION]
+            inventory_path = self.get_config()[AmConstants.PLAYBOOK_SECTION][AmConstants.PB_INVENTORY]
+
+            if inventory_path is None or playbook_path is None:
+                raise VmHandlerException(f"Missing config parameters "
+                                         f"playbook_path: {playbook_path} inventory_path: {inventory_path}")
+
+            # Pin vCPU to requested CPUs
+            self.__perform_virsh_server_action(playbook_path=playbook_path, inventory_path=inventory_path,
+                                               worker_node_name=worker_node, operation=AmConstants.OP_CPUPIN,
+                                               instance_name=sliver.label_allocations.instance,
+                                               vcpu_cpu_map=vcpu_cpu_map)
+            result[Constants.PROPERTY_POA_INFO] = {
+                AmConstants.OPERATION: data.get(AmConstants.OPERATION),
+                Constants.POA_ID: data.get(Constants.POA_ID),
+                Constants.PROPERTY_CODE: Constants.RESULT_CODE_OK,
+                Constants.PROPERTY_POA_INFO: {
+                    "operation": data.get("operation"),
+                    "poa_id": data.get("poa_id"),
+                    "code": Constants.RESULT_CODE_OK
+                }
+            }
+        except Exception as e:
+            self.get_logger().error(e)
+            self.get_logger().error(traceback.format_exc())
+
+            result = {Constants.PROPERTY_TARGET_NAME: Constants.TARGET_POA,
+                      Constants.PROPERTY_TARGET_RESULT_CODE: Constants.RESULT_CODE_EXCEPTION,
+                      Constants.PROPERTY_ACTION_SEQUENCE_NUMBER: 0,
+                      Constants.PROPERTY_EXCEPTION_MESSAGE: e}
+        finally:
+            self.get_logger().info(f"POA-cpuinfo completed")
+
+        return result
+
+    def __poa_numatune(self, unit: ConfigToken, data: dict) -> dict:
+        result = {Constants.PROPERTY_TARGET_NAME: Constants.TARGET_POA,
+                  Constants.PROPERTY_TARGET_RESULT_CODE: Constants.RESULT_CODE_OK,
+                  Constants.PROPERTY_ACTION_SEQUENCE_NUMBER: 0}
+
+        try:
+            self.get_logger().info(f"POA-numatune started")
+
+            sliver = unit.get_sliver()
+            if not isinstance(sliver, NodeSliver):
+                raise VmHandlerException(f"Invalid Sliver type {type(sliver)}")
+
+            if sliver is None:
+                raise VmHandlerException(f"Unit # {unit} has no assigned slivers")
+
+            worker_node = sliver.label_allocations.instance_parent
+            node_set = data.get(AmConstants.NODE_SET)
+
+            playbook_path = self.get_config()[AmConstants.PLAYBOOK_SECTION][AmConstants.PB_LOCATION]
+            inventory_path = self.get_config()[AmConstants.PLAYBOOK_SECTION][AmConstants.PB_INVENTORY]
+
+            if inventory_path is None or playbook_path is None:
+                raise VmHandlerException(f"Missing config parameters "
+                                         f"playbook_path: {playbook_path} inventory_path: {inventory_path}")
+
+            # Numa Tune VM Guest to the requested Numa Nodes
+            self.__perform_virsh_server_action(playbook_path=playbook_path, inventory_path=inventory_path,
+                                               worker_node_name=worker_node, operation=AmConstants.OP_NUMATUNE,
+                                               instance_name=sliver.label_allocations.instance,
+                                               node_set=node_set)
+            result[Constants.PROPERTY_POA_INFO] = {
+                AmConstants.OPERATION: data.get(AmConstants.OPERATION),
+                Constants.POA_ID: data.get(Constants.POA_ID),
+                Constants.PROPERTY_CODE: Constants.RESULT_CODE_OK,
+                Constants.PROPERTY_POA_INFO: {
+                    "operation": data.get("operation"),
+                    "poa_id": data.get("poa_id"),
+                    "code": Constants.RESULT_CODE_OK
+                }
+            }
+        except Exception as e:
+            self.get_logger().error(e)
+            self.get_logger().error(traceback.format_exc())
+
+            result = {Constants.PROPERTY_TARGET_NAME: Constants.TARGET_POA,
+                      Constants.PROPERTY_TARGET_RESULT_CODE: Constants.RESULT_CODE_EXCEPTION,
+                      Constants.PROPERTY_ACTION_SEQUENCE_NUMBER: 0,
+                      Constants.PROPERTY_EXCEPTION_MESSAGE: e,
+                      Constants.PROPERTY_POA_INFO: {
+                          "operation": data.get("operation"),
+                          "poa_id": data.get("poa_id"),
+                          "code": Constants.RESULT_CODE_EXCEPTION
+                      }
+                      }
+        finally:
+            self.get_logger().info(f"POA-numatune completed")
+
+        return result

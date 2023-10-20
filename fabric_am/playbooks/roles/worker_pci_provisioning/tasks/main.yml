@@ -1,42 +1,44 @@
---- 
+---
 # /tasks/main.yml
 #
+# ansible-galaxy collection install community.libvirt
 
 - name: Create file to add device
   template:
     src: device.j2
     dest: /tmp/{{ device }}.yml
     mode: 0600
-  when: mac is not defined
+  when: mac is not defined and (operation == 'attach' or operation == 'detach')
 
 - name: Create file to add device
   template:
     src: device_with_mac.j2
     dest: /tmp/{{ device }}.yml
     mode: 0600
-  when: mac is defined
+  when: mac is defined and (operation == 'attach' or operation == 'detach')
 
 - name: Add PCI Card to VM
-  ansible.builtin.shell: 
-    virsh attach-device {{ kvmguest_name }} /tmp/{{ device }}.yml --live --config
-  when: pci_prov_op == 'attach'
+  ansible.builtin.shell:
+    virsh attach-device {{ kvmguest_name }} /tmp/{{ device }}.yml --live --persistent
+  when: operation == 'attach'
 
 - name: Remove PCI Card to VM
-  ansible.builtin.shell: 
-    virsh detach-device {{ kvmguest_name }} /tmp/{{ device }}.yml --live --config
-  when: pci_prov_op == 'detach'
+  ansible.builtin.shell:
+    virsh detach-device {{ kvmguest_name }} /tmp/{{ device }}.yml --live --persistent
+  when: operation == 'detach'
 
 - name: Delete file
   file:
     path: /tmp/{{ device }}.yml
     state: absent
+  when: operation == 'attach' or operation == 'detach'
 
 - name: Get PCI Device Number from the Host
   ansible.builtin.shell:
     lspci -n | grep {{ bdf }} | awk '{print $3}'
-  when: pci_prov_op == 'attach'
+  when: operation == 'attach'
   register: pci_device_number
 
 - set_fact:
     pci_device_number: "{{ pci_device_number.stdout }}"
-  when: pci_prov_op == 'attach'
+  when: operation == 'attach'
