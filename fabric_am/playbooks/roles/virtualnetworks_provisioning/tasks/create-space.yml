@@ -36,8 +36,45 @@
     status_code: 200
     method: GET
     validate_certs: no
-  register: list_response
+  register: list_space_response
   
 - name: Print all spaces
   debug:
-    msg: "{{ list_response }}"
+    msg: "{{ list_space_response }}"
+
+- name: Construct request data
+  set_fact:
+    create_space_request: "{{ create_space }}"
+
+- name: Print create space request
+  debug:
+    msg: "{{ create_space_request | to_nice_json }}"
+
+- name: Create a virtual space endpoint
+  ansible.builtin.uri:
+    url: "{{ base_url }}/v1/virtualnetworks/spaces"
+    headers:
+      Accept: application/json
+      Authorization: "{{ bearer_token }}"
+      content-type: application/json
+    body: "{{ create_space_request | to_nice_json }}"
+    status_code: [200, 303]
+    method: POST
+    validate_certs: no
+  register: create_space_response
+  
+- name: Print create space response
+  debug:
+    msg: "{{ create_space_response }}"
+    
+- name: Parse create space response
+  set_fact:
+    location_list: "{{ create_space_response.location | split('/') }}"
+    
+- name: Save virtual space id
+  set_fact:
+    virtual_space_id: "{{ location_list[-1] }}"
+
+- name: Print virtual space id
+  debug:
+    msg: "{{ virtual_space_id }}"
