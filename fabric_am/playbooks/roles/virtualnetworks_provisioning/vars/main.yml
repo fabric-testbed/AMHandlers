@@ -1,0 +1,70 @@
+#oess_user: [default]
+#oess_passwd: [vault] 
+# l2_endpoints:
+#   {
+#       "node": "core2.sunn.net.internet2.edu",
+#       "interface": "HundredGigE0/0/0/24",
+#       "tag": "30",
+#       "bandwidth": "0"
+#   }
+# l3_endpoints:
+#   {
+#     "peers": [
+#       {
+#         "bfd": 0,
+#         "ip_version": "ipv4",
+#         "peer_ip": "192.168.1.1/24",
+#         "peer_asn": "1",
+#         "local_ip": "192.168.1.2/24",
+#         "md5_key": ""
+#        }],
+#      "node": "core2.sunn.net.internet2.edu",
+#      "cloud_account_id": "",
+#      "entity": "SENSE",
+#      "jumbo": 1,
+#      "interface": "HundredGigE0/0/0/24",
+#      "tag": "3020",
+#      "inner_tag": null,
+#      "bandwidth": "0"
+#    }
+create_space:
+  {
+    "title": "Liang-AWS",
+    "notes": "testing AWS connection",
+    "ownerPath": "i2/netres/fabric"
+  }
+  
+create_router:
+  {
+    "virtualSpaceId": "",
+    "notes": "testing router"
+  }
+  
+create_l3connection:
+  {
+  "virtualRouterId": "d3f1e7e1-f266-4af9-82f1-a358ac03bf05",
+  "interfaceId": "5079eacf-3de6-42ba-a342-832ad8117e6f",
+  "remoteName": "AWS",
+  "notes": "string",
+  "displayPosition": 1,
+  "encapsulationType": "DOT1Q",
+  "vlanOuterId": 10,
+  "vlanInnerId": 0,
+  "ipv6PrefixLength": 0,
+  "localIPv6": "2001:0db8:5b96:0000:0000:426f:8e17:642a",
+  "remoteIPv6": "2001:0db8:5b96:0000:0000:426f:8e17:642a",
+  "ipv4PrefixLength": 0,
+  "localIPv4": "198.51.100.42",
+  "remoteIPv4": "198.51.100.42",
+  "remoteASN": 64512,
+  "authnType": "MD5",
+  "authnConfig": {"md5": "0xzsEwC7xk6c1fK_h.xHyAdx"},
+  "mtu": 9000,
+  "bfdEnable": true,
+  "gtsmEnable": true,
+  "cloudConnectionType": "AWS",
+  "cloudConnectionConfig": {"ownerAccountId":"296256999979"},
+  "maxBandwidth": 0,
+  "authoringState": "LIVE"
+}
+
