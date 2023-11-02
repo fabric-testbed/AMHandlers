@@ -44,7 +44,7 @@
 #
 - name: Construct request data
   set_fact:
-    create_l3connection_request: "{{ create_l3connection }}"
+    create_l3connection_request: "{{ create_l3connection_data }}"
 
 - name: Print create space request
   debug:
@@ -70,8 +70,14 @@
     
 - name: Save virtual L3 connection id
   set_fact:
-    virtual_virtualL3Connection_id: "{{ create_l3connection_response.json.virtualL3ConnectionId }}"
+    virtualL3Connection_id: "{{ create_l3connection_response.json.virtualL3ConnectionId }}"
 
 - name: Print virtual L3 connection id
   debug:
-    msg: "{{ virtual_virtualL3Connection_id }}"
+    msg: "{{ virtualL3Connection_id }}"
+ 
+- name: Include retry-able set of tasks to check result of l3connection creation
+  ansible.builtin.include_tasks: check-l3connection.yml
+  vars:
+    max_attempts: 6
+    retry_delay: 10
