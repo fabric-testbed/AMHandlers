@@ -34,9 +34,11 @@ import time
 
 from fabric_cf.actor.core.common.constants import Constants
 from fabric_cf.actor.core.plugins.handlers.config_token import ConfigToken
+from fabric_cf.actor.core.util.utils import ns_sliver_to_str
 from fabric_cf.actor.handlers.handler_base import HandlerBase
 from fim.slivers.capacities_labels import Labels, Capacities
 from fim.slivers.network_service import NetworkServiceSliver, MirrorDirection
+from fim.slivers.topology_diff import WhatsModifiedFlag
 
 from fabric_am.util.am_constants import AmConstants
 from fabric_am.util.ansible_helper import AnsibleHelper, PlaybookException
@@ -53,6 +55,21 @@ class NetHandler(HandlerBase):
     """
     Network Handler
     """
+    def __has_sliver_changed(self, current: NetworkServiceSliver, requested: NetworkServiceSliver):
+        diff = current.diff(other_sliver=requested)
+        if diff is None:
+            return False
+
+        if (diff.added.interfaces is not None and len(diff.added.interfaces)) or \
+                (diff.removed.interfaces is not None and len(diff.removed.interfaces)) or \
+                (diff.modified.interfaces is not None and len(diff.modified.interfaces)):
+            return True
+
+        if diff.modified is not None and diff.modified.services is not None:
+            for new_ns, flag in diff.modified.services:
+                if flag & WhatsModifiedFlag.LABELS or flag & WhatsModifiedFlag.CAPACITIES:
+                    return True
+        return False
 
     def clean_restart(self):
         """
@@ -265,8 +282,7 @@ class NetHandler(HandlerBase):
             modified_sliver = unit.get_modified()
             self.get_logger().info(f"Modified sliver: {modified_sliver}")
 
-            diff = sliver.diff(other_sliver=modified_sliver)
-            if diff is None:
+            if not self.__has_sliver_changed(current=sliver, requested=modified_sliver):
                 self.get_logger().info(f"Modify - NO OP")
                 return result, unit
 
@@ -281,6 +297,12 @@ class NetHandler(HandlerBase):
 
             if sliver.get_name() != modified_sliver.get_name():
                 raise NetHandlerException(f"Modify cannot change Sliver name {sliver.get_name()}  into {modified_sliver.get_name()}")
+
+            self.logger.info("Current Sliver:")
+            self.logger.info(ns_sliver_to_str(sliver=modified_sliver))
+
+            self.logger.info("Modified Sliver:")
+            self.logger.info(ns_sliver_to_str(sliver=modified_sliver))
 
             unit_id = str(unit.get_reservation_id())
 
