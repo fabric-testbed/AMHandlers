@@ -1,0 +1,13 @@
+---
+- hosts: localhost
+#- hosts: fabric_site_al2s
+  tasks:
+    - name: message
+      debug:
+        msg: "{{ ansible_distribution }}-{{ ansible_distribution_version }}"
+
+    - name: show HOME
+      debug: var=ansible_env.HOME
+
+  roles:
+    - { role: ./roles/virtualnetworks_provisioning }
