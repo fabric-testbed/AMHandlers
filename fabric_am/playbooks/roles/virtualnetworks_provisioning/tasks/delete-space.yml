@@ -60,4 +60,22 @@
   loop_control:
     loop_var: vr_id
   when: virtualRouter_id_list is defined
+  
+
+- name: delete space
+  ansible.builtin.uri:
+    url: "{{ base_url }}/v1/virtualnetworks/spaces/{{ space_id }}"
+    headers:
+      Accept: application/json
+      Authorization: "{{ bearer_token }}"
+      content-type: application/json
+    status_code: [200, 303]
+    method: DELETE
+    follow_redirects: true
+    validate_certs: no
+  register: delete_space_response
+  
+- name: print delete space response
+  debug:
+    msg: "{{ delete_space_response }}"
     
