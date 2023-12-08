@@ -22,39 +22,11 @@
 #
 #
 # Author: Liang Zhang (lzhang9@es.net)
-# /tasks/delete-router.yml
-#
-    
-- name: Get virutal router info
+# /tasks/delete-l3connection.yml
+#  
+- name: delete l3 connection
   ansible.builtin.uri:
-    url: "{{ base_url }}/v1/virtualnetworks/routers/{{ virtual_router_id }}"
-    headers:
-      Accept: application/json
-      Authorization: "{{ bearer_token }}"
-      content-type: application/json
-    status_code: [200, 303]
-    method: GET
-    follow_redirects: true
-    validate_certs: no
-  register: get_router_response
-
-- name: Save virtual L3 connection ids
-  set_fact:
-    virtual_l3_list: "{{ get_router_response.json.virtualL3ConnectionIds }}"
-  
-- name: delete l3 connections
-  ansible.builtin.include_tasks: delete-l3connection.yml
-  vars:
-  - l3connection_id: "{{ vl3_id }}"
-  with_items: "{{ virtual_l3_list }}"
-  loop_control:
-    loop_var: vl3_id
-  when: virtual_l3_list is defined
-    
-
-- name: delete virtual router
-  ansible.builtin.uri:
-    url: "{{ base_url }}/v1/virtualnetworks/routers/{{ virtual_router_id }}"
+    url: "{{ base_url }}/v1/virtualnetworks/l3connections/{{ l3connection_id }}"
     headers:
       Accept: application/json
       Authorization: "{{ bearer_token }}"
@@ -63,9 +35,10 @@
     method: DELETE
     follow_redirects: true
     validate_certs: no
-  register: delete_router_response
+  register: delete_connection_response
  
-#- name: print delete virtual router result
-#  debug:
-#    msg: "{{ delete_router_response }}"
+- name: print delete l3 result
+  debug:
+    msg: "{{ delete_connection_response }}"
+
     

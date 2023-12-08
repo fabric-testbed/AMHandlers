@@ -38,9 +38,9 @@
     validate_certs: no
   register: get_space_response
   
-#- name: Print get_space_response
-#  debug:
-#    msg: "{{ get_space_response }}"
+- name: Print get_space_response
+  debug:
+    msg: "{{ get_space_response }}"
     
 - name: Save virtual router ids
   set_fact:
@@ -61,6 +61,12 @@
     loop_var: vr_id
   when: virtualRouter_id_list is defined
   
+- name: Check untill all routers are deleted in the space
+  ansible.builtin.include_tasks: check-space.yml
+  vars:
+  - virtual_space_id: "{{ space_id }}"
+  - max_attempts: 30
+  - retry_delay: 10
 
 - name: delete space
   ansible.builtin.uri:
