@@ -23,55 +23,20 @@
 #
 #
 # Author: Liang Zhang (lzhang9@es.net)
-# /tasks/create-l3connection.yml
+# /tasks/list-spaces.yml
 #
-
-- name: Parse l3 connection
-  set_fact:
-    arr: "{{ l3connection.interfaceId | split(':') }}"
-    
-- name: search for interfaceid
-  ansible.builtin.include_tasks: search-interface.yml
-  vars:
-    device: "{{ arr.0 }}"
-    interface: "{{ arr.1 }}"
-
-- name: Construct request data
-  set_fact:
-    create_l3connection_request: "{{ l3connection | combine({'virtualRouterId': virtual_router_id, 'interfaceId': interface_id }) }}"
-
-- name: Print create l3 connection request
-  debug:
-    msg: "{{ create_l3connection_request }}"
-
-- name: Create a l3 connection
+- name: List virtual networks space endpoints
   ansible.builtin.uri:
-    url: "{{ base_url }}/v1/virtualnetworks/l3connections"
+    url: "{{ base_url }}/v1/virtualnetworks/spaces"
     headers:
       Accept: application/json
       Authorization: "{{ bearer_token }}"
       content-type: application/json
-    body: "{{ create_l3connection_request | to_nice_json }}"
-    status_code: [200, 303]
-    method: POST
-    follow_redirects: true
+    status_code: 200
+    method: GET
     validate_certs: no
-  register: create_l3connection_response
+  register: list_space_response
   
-- name: Print create l3connection response
+- name: Print all spaces
   debug:
-    msg: "{{ create_l3connection_response }}"
-    
-- name: Save virtual L3 connection id
-  set_fact:
-    virtualL3Connection_id: "{{ create_l3connection_response.json.virtualL3ConnectionId }}"
-
-- name: Print virtual L3 connection id
-  debug:
-    msg: "{{ virtualL3Connection_id }}"
- 
-- name: Include retry-able set of tasks to check result of l3connection creation
-  ansible.builtin.include_tasks: check-l3connection.yml
-  vars:
-    max_attempts: 6
-    retry_delay: 10
+    msg: "{{ list_space_response }}"

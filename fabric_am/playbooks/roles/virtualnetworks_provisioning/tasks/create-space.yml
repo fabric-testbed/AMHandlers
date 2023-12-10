@@ -26,29 +26,13 @@
 # /tasks/create-space.yml
 #
 
-- name: List virtual networks space endpoints
-  ansible.builtin.uri:
-    url: "{{ base_url }}/v1/virtualnetworks/spaces"
-    headers:
-      Accept: application/json
-      Authorization: "{{ bearer_token }}"
-      content-type: application/json
-    status_code: 200
-    method: GET
-    validate_certs: no
-  register: list_space_response
-  
-- name: Print all spaces
-  debug:
-    msg: "{{ list_space_response }}"
-
 - name: Construct request data
   set_fact:
-    create_space_request: "{{ create_space }}"
+    create_space_request: '{"title": "{{ name }}", "notes": "", "ownerPath": "{{ ownerPath }}"}'
 
-- name: Print create space request
-  debug:
-    msg: "{{ create_space_request | to_nice_json }}"
+#- name: Print create space request
+#  debug:
+#    msg: "{{ create_space_request | to_nice_json }}"
 
 - name: Create a virtual space endpoint
   ansible.builtin.uri:
@@ -63,9 +47,9 @@
     validate_certs: no
   register: create_space_response
   
-- name: Print create space response
-  debug:
-    msg: "{{ create_space_response }}"
+#- name: Print create space response
+#  debug:
+#    msg: "{{ create_space_response }}"
     
 - name: Parse create space response
   set_fact:

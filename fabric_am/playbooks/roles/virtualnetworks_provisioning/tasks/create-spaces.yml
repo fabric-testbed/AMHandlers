@@ -23,39 +23,31 @@
 #
 #
 # Author: Liang Zhang (lzhang9@es.net)
-# /tasks/create-router.yml
+# /tasks/create-spaces.yml
 #
 
-- name: Construct request data
-  set_fact:
-    create_router_request: '{"virtualSpaceId": "{{ virtual_space_id }}", "notes": ""}'
+#
+# Create virtual space
+#
+- include_tasks: create-space.yml
 
-#- name: Print create router request
-#  debug:
-#    msg: "{{ create_router_request | to_nice_json }}"
+#- name: Save virtual space id
+#  set_fact:
+#    virtual_space_id: "bae32910-6c3b-4e49-bf7c-c992ea29eb78"
 
-- name: Create a virtual router
-  ansible.builtin.uri:
-    url: "{{ base_url }}/v1/virtualnetworks/routers"
-    headers:
-      Accept: application/json
-      Authorization: "{{ bearer_token }}"
-      content-type: application/json
-    body: "{{ create_router_request | to_nice_json }}"
-    status_code: [200, 303]
-    method: POST
-    follow_redirects: true
-    validate_certs: no
-  register: create_router_response
-  
-#- name: Print create router response
-#  debug:
-#    msg: "{{ create_router_response }}"
-    
-- name: Save virtual space id
-  set_fact:
-    virtual_router_id: "{{ create_router_response.json.virtualRouterId }}"
+#
+# Create virtual router
+#
+- include_tasks: create-router.yml
 
-- name: Print virtual router id
-  debug:
-    msg: "{{ virtual_router_id }}"
+#- name: Save virtual router id
+#  set_fact:
+#    virtual_router_id: "d3f1e7e1-f266-4af9-82f1-a358ac03bf05"
+
+#
+# Create L3 connection
+#
+- include_tasks: create-l3connection.yml
+  vars:
+    l3connection: "{{ item }}"
+  loop: "{{ opargs }}"
