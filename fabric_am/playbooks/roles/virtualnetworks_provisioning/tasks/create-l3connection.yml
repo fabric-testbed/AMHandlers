@@ -35,6 +35,7 @@
   vars:
     device: "{{ arr.0 }}"
     interface: "{{ arr.1 }}"
+    type: "{{ l3connection.cloudConnectionType }}"
 
 - name: Construct request data
   set_fact:
