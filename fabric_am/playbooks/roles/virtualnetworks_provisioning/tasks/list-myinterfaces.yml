@@ -23,34 +23,21 @@
 #
 #
 # Author: Liang Zhang (lzhang9@es.net)
-# /tasks/search-interface.yml
+# /tasks/list-myinterfaces.yml
 #
-- name: Initialize variable interface_id
-  set_fact:
-    interface_id: None
-
-- name: List Cloudconnect interfaces
-  ansible.builtin.include_tasks: list-cloudconnects.yml
-  when: type != 'NONCLOUD'
 
 - name: List Affiliation interfaces
-  ansible.builtin.include_tasks: list-myinterfaces.yml
-  when: type == 'NONCLOUD'
+  ansible.builtin.uri:
+    url: "{{ base_url }}/v1/footprint/myinterfaces"
+    headers:
+      Accept: application/json
+      Authorization: "{{ bearer_token }}"
+      content-type: application/json
+    status_code: 200
+    method: GET
+    validate_certs: no
+  register: list_interfaces_response
 
-- name: search against interfaces
+- name: Save list results
   set_fact:
-    interface_id: "{{ item.id }}"
-  when:
-    - item.name == interface
-    - item.device.name == device
-  loop: "{{ interface_list }}"
-  
-- name: print interface_id
-  debug:
-    msg: "{{ interface_id }}"
-  when: interface_id is defined
-  
-- name: report if error
-  fail:
-    msg: "{{ interface_id }} not defined"
-  when: interface_id is not defined
+    interface_list: "{{ list_interfaces_response.json }}"

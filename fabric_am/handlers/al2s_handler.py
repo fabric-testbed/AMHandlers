@@ -367,8 +367,13 @@ class Al2sHandler(HandlerBase):
             
             connection.authnConfig = {"md5": peerlabs.bgp_key}
             
-            connection.cloudConnectionType = 'AWS'
-            connection.cloudConnectionConfig = {"ownerAccountId":peerlabs.account_id}
+            if peerlabs.account_id:
+                connection.cloudConnectionType = 'AWS'
+                connection.cloudConnectionConfig = {"ownerAccountId":peerlabs.account_id}
+            else:
+                connection.cloudConnectionType = 'NONCLOUD'
+                connection.cloudConnectionConfig = {}
+                
             
             # connection.entity = str(sliver.get_name())
             
