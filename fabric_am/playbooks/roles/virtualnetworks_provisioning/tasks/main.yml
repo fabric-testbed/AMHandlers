@@ -34,37 +34,6 @@
 #
 - include_tasks: create-token.yml
 
-#
-# Create virtual space
-#
-#- include_tasks: create-space.yml
-
-- name: Save virtual space id
-  set_fact:
-    virtual_space_id: "bae32910-6c3b-4e49-bf7c-c992ea29eb78"
-
-#
-# Create virtual router
-#
-#- include_tasks: create-router.yml
-
-- name: Save virtual router id
-  set_fact:
-    virtual_router_id: "d3f1e7e1-f266-4af9-82f1-a358ac03bf05"
-
-#- include_tasks: search-interface.yml
-
-#
-# Create L3 connection
-#
-- include_tasks: create-l3connection.yml
-  vars:
-    l3connection: "{{ item }}"
-  loop: "{{ opargs }}"
-  when: 
-    - op == "create"
-    - level == "L3"
-
 
 #
 # include yml based on input vars
@@ -77,12 +46,12 @@
 #  when: 
 #    - op == "delete"
 #    - level == "L2"
-#- include_tasks: create-vrt.yml
-#  when: 
-#    - op == "create"
-#    - level == "L3"
-#- include_tasks: delete-vrt.yml
-#  when: 
-#    - op == "delete"
-#    - level == "L3"
+- include_tasks: create-spaces.yml
+  when: 
+    - op == "create"
+    - level == "L3"
+- include_tasks: delete-spaces.yml
+  when: 
+    - op == "delete"
+    - level == "L3"
     
