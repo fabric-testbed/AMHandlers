@@ -26,9 +26,6 @@
 # /tasks/main.yml
 #
 
-# Debug
-#- include_tasks: test.yml
-
 #
 # Create token keys
 #
@@ -38,11 +35,11 @@
 #
 # include yml based on input vars
 #
-#- include_tasks: create-circuit.yml
+#- include_tasks: create-switches.yml
 #  when: 
 #    - op == "create"
 #    - level == "L2"
-#- include_tasks: delete-circuit.yml
+#- include_tasks: delete-switches.yml
 #  when: 
 #    - op == "delete"
 #    - level == "L2"
