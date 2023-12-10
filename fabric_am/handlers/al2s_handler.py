@@ -360,8 +360,8 @@ class Al2sHandler(HandlerBase):
             connection.mtu = caps.mtu
             
             connection.ipv4PrefixLength = int(labs.ipv4_subnet.split('/')[-1])
-            connection.localIPv4 = labs.ipv4
-            connection.remoteIPv4 = peerlabs.ipv4
+            connection.localIPv4 = labs.ipv4_subnet.split('/')[0]
+            connection.remoteIPv4 = peerlabs.ipv4_subnet.split('/')[0]
             
             connection.remoteASN = peerlabs.asn
             
