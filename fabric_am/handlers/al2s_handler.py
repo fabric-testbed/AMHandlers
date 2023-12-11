@@ -368,8 +368,14 @@ class Al2sHandler(HandlerBase):
             connection.authnConfig = {"md5": peerlabs.bgp_key}
             
             if peerlabs.account_id:
-                connection.cloudConnectionType = 'AWS'
-                connection.cloudConnectionConfig = {"ownerAccountId":peerlabs.account_id}
+                if interface_name == 'AWS':
+                    connection.cloudConnectionType = 'AWS'
+                    connection.cloudConnectionConfig = {"ownerAccountId":peerlabs.account_id}
+                elif interface_name == 'Google Cloud Platform':
+                    connection.cloudConnectionType = 'GCP'
+                    connection.cloudConnectionConfig = {"pairingKey":peerlabs.account_id}
+                else:
+                    raise Exception(f"Unimplemented: {interface_name}")
             else:
                 connection.cloudConnectionType = 'NONCLOUD'
                 connection.cloudConnectionConfig = {}
