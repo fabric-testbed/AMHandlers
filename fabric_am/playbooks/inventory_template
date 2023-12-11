@@ -32,4 +32,5 @@ fabric_site_head
 [localhost]
 localhost base_url=https://api.ns.internet2.edu
 localhost api_access_key=xxxxxx-xxxx-xxxx-xxxx-xxxxxxxxx
+localhost ownerPath=i2/netres/fabric
 localhost ansible_connection=local
