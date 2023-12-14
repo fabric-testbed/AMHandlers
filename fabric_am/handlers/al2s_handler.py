@@ -355,7 +355,7 @@ class Al2sHandler(HandlerBase):
             connection.interfaceId = labs.device_name + ":" + labs.local_name
             # connection.interfaceId = "5079eacf-3de6-42ba-a342-832ad8117e6f"
             
-            connection.remoteName = peerlabs.remote_name
+            connection.remoteName = peerlabs.local_name
             connection.vlanOuterId = str(labs.vlan)
             connection.mtu = caps.mtu
             
@@ -368,14 +368,14 @@ class Al2sHandler(HandlerBase):
             connection.authnConfig = {"md5": peerlabs.bgp_key}
             
             if peerlabs.account_id:
-                if peerlabs.remote_name == 'AWS':
+                if peerlabs.local_name == 'AWS':
                     connection.cloudConnectionType = 'AWS'
                     connection.cloudConnectionConfig = {"ownerAccountId":peerlabs.account_id}
-                elif peerlabs.remote_name == 'Google Cloud Platform':
+                elif peerlabs.local_name == 'Google Cloud Platform':
                     connection.cloudConnectionType = 'GCP'
                     connection.cloudConnectionConfig = {"pairingKey":peerlabs.account_id}
                 else:
-                    raise Exception(f"Unimplemented cloud connect: {peerlabs.remote_name}")
+                    raise Exception(f"Unimplemented cloud connect: {peerlabs.local_name}")
             else:
                 connection.cloudConnectionType = 'NONCLOUD'
                 connection.cloudConnectionConfig = {}

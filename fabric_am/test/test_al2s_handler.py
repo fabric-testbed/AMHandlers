@@ -368,7 +368,7 @@ class TestAl2sHandler(unittest.TestCase):
         sliver_peer_labels = Labels(ipv4_subnet='192.168.100.2/30', asn='16550',
                                     bgp_key='0xzsEwC7xk6c1fK_h.xHyAdx',
                                     account_id='ae835d22-b10c-4d40-bd98-0dbc4259684d/us-east4/2',
-                                    remote_name='Google Cloud Platform')
+                                    local_name='Google Cloud Platform')
     
         # capacities (bw in Gbps, burst size is in Mbytes) source: (b)
         sliver_capacities = Capacities(bw=50, mtu=9001)
@@ -391,7 +391,7 @@ class TestAl2sHandler(unittest.TestCase):
                                device_name='core1.star')
         sliver_peer_labels = Labels(ipv4_subnet='192.168.100.1/30', asn='64512',
                                     bgp_key='0xzsEwC7xk6c1fK_h.xHyAdx',
-                                    remote_name='FABRIC')
+                                    local_name='FABRIC')
     
         # capacities (bw in Gbps, burst size is in Mbytes) source: (b)
         sliver_capacities = Capacities(bw=0, mtu=9000)
@@ -452,7 +452,7 @@ class TestAl2sHandler(unittest.TestCase):
         sliver.set_type(ServiceType.L3VPN)
         sliver.set_layer(NSLayer.L3)
         # the ASN of *this* service
-        sliver.set_labels(Labels(asn='55038', local_name='al2s_l3_aws_interconn_test'))
+        sliver.set_labels(Labels(asn='55038', local_name='al2s_l3_aws_interconn_test1'))
     
         # this is the gateway with the IP range picked for this sliver in this slice on this site
         # can also be specified with ipv6/ipv6_subnet and mac is optional for both.
@@ -481,7 +481,7 @@ class TestAl2sHandler(unittest.TestCase):
                                device_name='agg4.sanj')
         sliver_peer_labels = Labels(ipv4_subnet='192.168.5.1/30', asn='64512',
                                     bgp_key='0xzsEwC7xk6c1fK_h.xHyAdx', account_id='296256999979',
-                                    remote_name='AWS')
+                                    local_name='AWS')
     
         # capacities (bw in Mbps, burst size is in Mbytes) source: (b)
         sliver_capacities = Capacities(bw=50, mtu=9001)
@@ -504,7 +504,7 @@ class TestAl2sHandler(unittest.TestCase):
                                device_name='core1.star')
         sliver_peer_labels = Labels(ipv4_subnet='192.168.100.1/30', asn='64512',
                                     bgp_key='0xzsEwC7xk6c1fK_h.xHyAdx',
-                                    remote_name='FABRIC')
+                                    local_name='FABRIC')
     
         # capacities (bw in Gbps, burst size is in Mbytes) source: (b)
         sliver_capacities = Capacities(bw=0, mtu=9000)
