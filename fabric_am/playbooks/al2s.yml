@@ -1,6 +1,6 @@
 ---
-- hosts: fabric_site_al2s
-      
+- hosts: localhost
+#- hosts: fabric_site_al2s
   tasks:
     - name: message
       debug:
@@ -10,4 +10,4 @@
       debug: var=ansible_env.HOME
 
   roles:
-    - { role: ./roles/oess_provisioning }
+    - { role: ./roles/virtualnetworks_provisioning }

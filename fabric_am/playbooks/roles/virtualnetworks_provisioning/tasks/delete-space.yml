@@ -1,0 +1,87 @@
+# MIT License
+#
+# Copyright (c) 2022 FABRIC Testbed
+#
+# Permission is hereby granted, free of charge, to any person obtaining a copy
+# of this software and associated documentation files (the "Software"), to deal
+# in the Software without restriction, including without limitation the rights
+# to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+# copies of the Software, and to permit persons to whom the Software is
+# furnished to do so, subject to the following conditions:
+#
+# The above copyright notice and this permission notice shall be included in all
+# copies or substantial portions of the Software.
+#
+# THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+# IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+# FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+# AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+# LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+# OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+# SOFTWARE.
+#
+#
+# Author: Liang Zhang (lzhang9@es.net)
+# /tasks/delete-space.yml
+#
+
+- name: Get space info
+  ansible.builtin.uri:
+    url: "{{ base_url }}/v1/virtualnetworks/spaces/{{ space_id }}?consolidated=false"
+    headers:
+      Accept: application/json
+      Authorization: "{{ bearer_token }}"
+      content-type: application/json
+    status_code: [200, 303]
+    method: GET
+    follow_redirects: true
+    validate_certs: no
+  register: get_space_response
+  
+- name: Print get_space_response
+  debug:
+    msg: "{{ get_space_response }}"
+    
+- name: Save virtual router ids
+  set_fact:
+    virtualRouter_id_list: "{{ get_space_response.json.virtualRouterIds }}"
+
+- name: Print virtual router ids
+  debug:
+    msg: "{{ virtualRouter_id_list }}"
+  when: virtualRouter_id_list is defined
+  
+    
+- name: Delete routers
+  ansible.builtin.include_tasks: delete-router.yml
+  vars:
+    - virtual_router_id : "{{ vr_id }}"
+  with_items: "{{ virtualRouter_id_list }}"
+  loop_control:
+    loop_var: vr_id
+  when: virtualRouter_id_list is defined
+  
+- name: Check untill all routers are deleted in the space
+  ansible.builtin.include_tasks: check-space.yml
+  vars:
+  - virtual_space_id: "{{ space_id }}"
+  - max_attempts: 30
+  - retry_delay: 10
+
+- name: delete space
+  ansible.builtin.uri:
+    url: "{{ base_url }}/v1/virtualnetworks/spaces/{{ space_id }}"
+    headers:
+      Accept: application/json
+      Authorization: "{{ bearer_token }}"
+      content-type: application/json
+    status_code: [200, 303]
+    method: DELETE
+    follow_redirects: true
+    validate_certs: no
+  register: delete_space_response
+  
+- name: print delete space response
+  debug:
+    msg: "{{ delete_space_response }}"
+    

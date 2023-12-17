@@ -1,6 +1,7 @@
+---
 # MIT License
 #
-# Copyright (c) 2020 FABRIC Testbed
+# Copyright (c) 2022 FABRIC Testbed
 #
 # Permission is hereby granted, free of charge, to any person obtaining a copy
 # of this software and associated documentation files (the "Software"), to deal
@@ -22,16 +23,21 @@
 #
 #
 # Author: Liang Zhang (lzhang9@es.net)
+# /tasks/list-cloudconnects.yml
 #
-# NOTE: Set the python executable in your enviroment to {ansible_python_interpreter} 
-#
-ansible:
-  ansible_python_interpreter: /usr/bin/python
-playbooks:
-  location: ../playbooks
-  inventory_location: ../playbooks/inventory
-  hostname_suffix:
-  L2PTP: al2s_oess.yml
-  L2Cloud: al2s_oess.yml
-  L3VPN: al2s_oess.yml
-  L3Cloud: al2s_oess.yml
+
+- name: List Cloudconnect interfaces
+  ansible.builtin.uri:
+    url: "{{ base_url }}/v1/footprint/cloudconnect"
+    headers:
+      Accept: application/json
+      Authorization: "{{ bearer_token }}"
+      content-type: application/json
+    status_code: 200
+    method: GET
+    validate_certs: no
+  register: list_interfaces_response
+
+- name: Save list results
+  set_fact:
+    interface_list: "{{ list_interfaces_response.json }}"

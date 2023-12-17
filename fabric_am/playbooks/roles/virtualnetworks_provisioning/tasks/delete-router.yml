@@ -1,0 +1,71 @@
+# MIT License
+#
+# Copyright (c) 2022 FABRIC Testbed
+#
+# Permission is hereby granted, free of charge, to any person obtaining a copy
+# of this software and associated documentation files (the "Software"), to deal
+# in the Software without restriction, including without limitation the rights
+# to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+# copies of the Software, and to permit persons to whom the Software is
+# furnished to do so, subject to the following conditions:
+#
+# The above copyright notice and this permission notice shall be included in all
+# copies or substantial portions of the Software.
+#
+# THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+# IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+# FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+# AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+# LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+# OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+# SOFTWARE.
+#
+#
+# Author: Liang Zhang (lzhang9@es.net)
+# /tasks/delete-router.yml
+#
+    
+- name: Get virutal router info
+  ansible.builtin.uri:
+    url: "{{ base_url }}/v1/virtualnetworks/routers/{{ virtual_router_id }}"
+    headers:
+      Accept: application/json
+      Authorization: "{{ bearer_token }}"
+      content-type: application/json
+    status_code: [200, 303]
+    method: GET
+    follow_redirects: true
+    validate_certs: no
+  register: get_router_response
+
+- name: Save virtual L3 connection ids
+  set_fact:
+    virtual_l3_list: "{{ get_router_response.json.virtualL3ConnectionIds }}"
+  
+- name: delete l3 connections
+  ansible.builtin.include_tasks: delete-l3connection.yml
+  vars:
+  - l3connection_id: "{{ vl3_id }}"
+  with_items: "{{ virtual_l3_list }}"
+  loop_control:
+    loop_var: vl3_id
+  when: virtual_l3_list is defined
+    
+
+- name: delete virtual router
+  ansible.builtin.uri:
+    url: "{{ base_url }}/v1/virtualnetworks/routers/{{ virtual_router_id }}"
+    headers:
+      Accept: application/json
+      Authorization: "{{ bearer_token }}"
+      content-type: application/json
+    status_code: [200, 303]
+    method: DELETE
+    follow_redirects: true
+    validate_certs: no
+  register: delete_router_response
+ 
+#- name: print delete virtual router result
+#  debug:
+#    msg: "{{ delete_router_response }}"
+    
