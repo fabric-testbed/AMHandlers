@@ -35,6 +35,7 @@ from fabric_cf.actor.core.plugins.handlers.config_token import ConfigToken
 from fabric_cf.actor.handlers.handler_base import HandlerBase
 from fim.slivers.attached_components import ComponentSliver, ComponentType
 from fim.slivers.network_node import NodeSliver
+from jinja2 import Environment
 
 from fabric_am.util.am_constants import AmConstants
 from fabric_am.util.ansible_helper import AnsibleHelper
@@ -53,6 +54,15 @@ class VMHandler(HandlerBase):
     VM Handler
     """
     test_mode = False
+
+    @staticmethod
+    def convert_to_string(unsafe_text_variable):
+        # Create a Jinja2 environment
+        jinja_env = Environment()
+
+        # Use the |string filter to convert AnsibleUnsafeText to string
+        return jinja_env.from_string("{{ unsafe_text_variable | string }}").render(
+            unsafe_text_variable=unsafe_text_variable)
 
     def get_ansible_python_interpreter(self) -> str:
         return self.get_config()[AmConstants.ANSIBLE_SECTION][
@@ -401,16 +411,16 @@ class VMHandler(HandlerBase):
         server = ok.get(AmConstants.SERVER, None)
         # Added this code for enabling test suite
         if server is None:
-            server = ok[AmConstants.ANSIBLE_FACTS][AmConstants.SERVER]
+            server = str(ok[AmConstants.ANSIBLE_FACTS][AmConstants.SERVER])
             server = json.loads(server)
 
         result = {
-            AmConstants.SERVER_VM_STATE: str(server[AmConstants.SERVER_VM_STATE]),
-            AmConstants.SERVER_INSTANCE_NAME: str(server[AmConstants.SERVER_INSTANCE_NAME]),
-            AmConstants.SERVER_ACCESS_IPV4: str(server[AmConstants.SERVER_ACCESS_IPV4])
+            AmConstants.SERVER_VM_STATE: self.convert_to_string(server[AmConstants.SERVER_VM_STATE]),
+            AmConstants.SERVER_INSTANCE_NAME: self.convert_to_string(server[AmConstants.SERVER_INSTANCE_NAME]),
+            AmConstants.SERVER_ACCESS_IPV4: self.convert_to_string(server[AmConstants.SERVER_ACCESS_IPV4])
         }
         if server[AmConstants.SERVER_ACCESS_IPV6] is not None:
-            result[AmConstants.SERVER_ACCESS_IPV6] = str(server[AmConstants.SERVER_ACCESS_IPV6])
+            result[AmConstants.SERVER_ACCESS_IPV6] = self.convert_to_string(server[AmConstants.SERVER_ACCESS_IPV6])
         self.get_logger().debug(f"Returning properties {result}")
 
         return result
@@ -504,7 +514,7 @@ class VMHandler(HandlerBase):
             if self.test_mode:
                 floating_ip = ok[AmConstants.ANSIBLE_FACTS][AmConstants.FLOATING_IP]
                 floating_ip = json.loads(floating_ip)
-                return floating_ip[AmConstants.FLOATING_IP_ADDRESS]
+                return self.convert_to_string(floating_ip[AmConstants.FLOATING_IP_ADDRESS])
 
             floating_ip = ok[AmConstants.FLOATING_IP]
             result = None
@@ -586,7 +596,7 @@ class VMHandler(HandlerBase):
                 for a in attachments:
                     self.get_logger().info(f"Storage volume: {component.get_name()} for project: {project_id} attached "
                                            f"as device: {a.get(AmConstants.DEVICE)}")
-                    component.label_allocations.device_name = str(a.get(AmConstants.DEVICE))
+                    component.label_allocations.device_name = self.convert_to_string(a.get(AmConstants.DEVICE))
         finally:
             self.get_logger().debug("__attach_detach_storage OUT")
 
@@ -778,7 +788,7 @@ class VMHandler(HandlerBase):
                                             extra_vars=extra_vars, host=worker_node, host_vars=host_vars)
 
                 if attach:
-                    pci_device_number = ok.get(AmConstants.ANSIBLE_FACTS)[AmConstants.PCI_DEVICE_NUMBER]
+                    pci_device_number = self.convert_to_string(ok.get(AmConstants.ANSIBLE_FACTS)[AmConstants.PCI_DEVICE_NUMBER])
                     idx += 1
 
             # In case of Attach, determine the PCI device id from inside the VM
@@ -800,8 +810,8 @@ class VMHandler(HandlerBase):
                         combined_facts = ansible_facts.get(AmConstants.COMBINED_FACTS)
                         self.logger.info(f"Combined Facts: {combined_facts}")
                         if combined_facts is not None:
-                            bdf_facts = combined_facts.get(AmConstants.PCI_BDF)
-                            interface_name = combined_facts.get(AmConstants.INTERFACE_NAME)
+                            bdf_facts = self.convert_to_string(combined_facts.get(AmConstants.PCI_BDF))
+                            interface_name = self.convert_to_string(combined_facts.get(AmConstants.INTERFACE_NAME))
 
                     self.logger.info(f"BDF Facts: {bdf_facts} Interface Name: {interface_name}")
                     if bdf_facts is not None:
@@ -1226,7 +1236,7 @@ class VMHandler(HandlerBase):
                                                     worker_node_name=worker_node, operation=AmConstants.OP_CPUINFO,
                                                     instance_name=sliver.label_allocations.instance)
             ansible_facts = ok.get(AmConstants.ANSIBLE_FACTS)
-            cpu_info = json.loads(str(ansible_facts.get(f"{AmConstants.OP_CPUINFO}")[0]))
+            cpu_info = json.loads(self.convert_to_string(ansible_facts.get(f"{AmConstants.OP_CPUINFO}")[0]))
             self.logger.info(f"{AmConstants.OP_CPUINFO} for {vmname}: {cpu_info}")
 
             result[Constants.PROPERTY_POA_INFO] = {

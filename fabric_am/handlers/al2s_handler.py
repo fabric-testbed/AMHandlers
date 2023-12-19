@@ -129,6 +129,8 @@ class Al2sHandler(HandlerBase):
                   Constants.PROPERTY_ACTION_SEQUENCE_NUMBER: 0}
         sliver = None
         unit_id = None
+        service_type = None
+        service_data = None
         try:
             # self.get_logger().info(f"Create invoked for unit: {unit}")
             sliver = unit.get_sliver()
@@ -189,10 +191,12 @@ class Al2sHandler(HandlerBase):
             if sliver is not None and unit_id is not None:
                 self.__cleanup(sliver=sliver, unit_id=unit_id)
             
-            if service_type == 'l2ptp':
-                eps = [(ep['node'], ep['interface']) for ep in service_data['l2_endpoints']]
-            elif service_type == 'l3vpn':
-                eps = [(ep['node'], ep['interface']) for ep in service_data['l3_endpoints']]
+            eps = None
+            if service_type is not None and service_data is not None:
+                if service_type == 'l2ptp':
+                    eps = [(ep['node'], ep['interface']) for ep in service_data['l2_endpoints']]
+                elif service_type == 'l3vpn':
+                    eps = [(ep['node'], ep['interface']) for ep in service_data['l3_endpoints']]
             ext_e = Exception(e, eps)
                                 
             result = {Constants.PROPERTY_TARGET_NAME: Constants.TARGET_CREATE,
