@@ -187,13 +187,20 @@ class Al2sHandler(HandlerBase):
         except Exception as e:
             # Delete VM in case of failure
             if sliver is not None and unit_id is not None:
-                self.__cleanup(sliver=sliver, unit_id=unit_id)
+                try:
+                    self.__cleanup(sliver=sliver, raise_exception=True, unit_id=unit_id)
+                except Exception as ex:
+                    self.get_logger().error(ex)
+                finally:
+                    self.get_logger().info(f"Tried to delete VM duo to failure")
             
             if service_type == 'l2ptp':
-                eps = [(ep['node'], ep['interface']) for ep in service_data['l2_endpoints']]
+                ifs = [arg['interfaceId'] for arg in service_data['opargs'] if 'interfaceId' in arg ]
             elif service_type == 'l3vpn':
-                eps = [(ep['node'], ep['interface']) for ep in service_data['l3_endpoints']]
-            ext_e = Exception(e, eps)
+                ifs = [arg['interfaceId'] for arg in service_data['opargs'] if 'interfaceId' in arg ]
+            else:
+                ifs = []
+            ext_e = Exception(e, ifs)
                                 
             result = {Constants.PROPERTY_TARGET_NAME: Constants.TARGET_CREATE,
                       Constants.PROPERTY_TARGET_RESULT_CODE: Constants.RESULT_CODE_EXCEPTION,
