@@ -49,5 +49,7 @@
 #
 - include_tasks: create-l3connection.yml
   vars:
-    l3connection: "{{ item }}"
-  loop: "{{ opargs }}"
+    l3connection: "{{ oparg }}"
+  with_items: "{{ opargs }}"
+  loop_control:
+    loop_var: oparg

@@ -31,6 +31,8 @@
 - name: delete spaces
   ansible.builtin.include_tasks: delete-space.yml
   vars:
-    - space_id: "{{ item }}"
-  loop: "{{ space_id_list }}"
+    - space_id: "{{ space_id_item }}"
+  with_items: "{{ space_id_list }}"
+  loop_control:
+    loop_var: space_id_item
   when: space_id_list is defined
