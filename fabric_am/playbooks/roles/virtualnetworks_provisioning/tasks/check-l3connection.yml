@@ -65,7 +65,7 @@
     - name: "Fail if we reached the max of {{ max_attempts | d(3) }} attempts"
       # Default will be 3 attempts if max_attempts is not passed as a parameter
       ansible.builtin.fail:
-        msg: Maximum number of attempts reached
+        msg: "Maximum number of attempts reached when L3 connection {{ virtualL3Connection_id }} is in an error state: {{ get_l3connection_response.json.provisioningDetails }}"
       when: attempt_number | int == max_attempts | int | d(3)
 
     - name: Show number of attempts

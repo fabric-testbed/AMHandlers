@@ -39,11 +39,13 @@
 
 - name: search against interfaces
   set_fact:
-    interface_id: "{{ item.id }}"
+    interface_id: "{{ interface_item.id }}"
   when:
-    - item.name == interface
-    - item.device.name == device
-  loop: "{{ interface_list }}"
+    - interface_item.name == interface
+    - interface_item.device.name == device
+  with_items: "{{ interface_list }}"
+  loop_control:
+    loop_var: interface_item
   
 - name: print interface_id
   debug:

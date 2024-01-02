@@ -48,10 +48,12 @@
 
 - name: search virtual space
   set_fact:
-    space_id_list: "{{ space_id_list | default([]) + [item.virtualSpaceId] }}"
+    space_id_list: "{{ space_id_list | default([]) + [space_item.virtualSpaceId] }}"
   when:
-    - item.title == name
-  loop: "{{ list_space_response.json.spaces }}"
+    - space_item.title == name
+  with_items: "{{ list_space_response.json.spaces }}"
+  loop_control:
+    loop_var: space_item
   
 - name: print list of spaces having the title as name
   debug:
