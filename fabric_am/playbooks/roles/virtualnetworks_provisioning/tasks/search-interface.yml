@@ -1,0 +1,58 @@
+---
+# MIT License
+#
+# Copyright (c) 2022 FABRIC Testbed
+#
+# Permission is hereby granted, free of charge, to any person obtaining a copy
+# of this software and associated documentation files (the "Software"), to deal
+# in the Software without restriction, including without limitation the rights
+# to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+# copies of the Software, and to permit persons to whom the Software is
+# furnished to do so, subject to the following conditions:
+#
+# The above copyright notice and this permission notice shall be included in all
+# copies or substantial portions of the Software.
+#
+# THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+# IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+# FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+# AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+# LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+# OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+# SOFTWARE.
+#
+#
+# Author: Liang Zhang (lzhang9@es.net)
+# /tasks/search-interface.yml
+#
+- name: Initialize variable interface_id
+  set_fact:
+    interface_id: None
+
+- name: List Cloudconnect interfaces
+  ansible.builtin.include_tasks: list-cloudconnects.yml
+  when: type != 'NONCLOUD'
+
+- name: List Affiliation interfaces
+  ansible.builtin.include_tasks: list-myinterfaces.yml
+  when: type == 'NONCLOUD'
+
+- name: search against interfaces
+  set_fact:
+    interface_id: "{{ interface_item.id }}"
+  when:
+    - interface_item.name == interface
+    - interface_item.device.name == device
+  with_items: "{{ interface_list }}"
+  loop_control:
+    loop_var: interface_item
+  
+- name: print interface_id
+  debug:
+    msg: "{{ interface_id }}"
+  when: interface_id is defined
+  
+- name: report if error
+  fail:
+    msg: "{{ interface_id }} not defined"
+  when: interface_id is not defined

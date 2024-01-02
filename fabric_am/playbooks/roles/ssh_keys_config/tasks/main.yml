@@ -1,3 +1,4 @@
+---
 # MIT License
 #
 # Copyright (c) 2020 FABRIC Testbed
@@ -21,17 +22,23 @@
 # SOFTWARE.
 #
 #
-# Author: Liang Zhang (lzhang9@es.net)
+# Author: Komal Thareja (kthare10@renci.org)
+# /tasks/main.yml
 #
-# NOTE: Set the python executable in your enviroment to {ansible_python_interpreter} 
-#
-ansible:
-  ansible_python_interpreter: /usr/bin/python
-playbooks:
-  location: ../playbooks
-  inventory_location: ../playbooks/inventory
-  hostname_suffix:
-  L2PTP: al2s_oess.yml
-  L2Cloud: al2s_oess.yml
-  L3VPN: al2s_oess.yml
-  L3Cloud: al2s_oess.yml
+- name: Add authorized key for user
+  ansible.posix.authorized_key:
+    user: "{{ user }}"
+    state: present
+    key: "{{ item.key }}"
+    comment: "{{ item.comment }}"
+  loop: "{{ keys }}"
+  when: operation == 'addkey'
+
+- name: Remove authorized key for user
+  ansible.posix.authorized_key:
+    user: "{{ user }}"
+    state: absent
+    key: "{{ item.key }}"
+    comment: "{{ item.comment }}"
+  loop: "{{ keys }}"
+  when: operation == 'removekey'

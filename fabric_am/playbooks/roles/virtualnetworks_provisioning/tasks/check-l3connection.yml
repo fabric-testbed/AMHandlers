@@ -1,0 +1,84 @@
+---
+# MIT License
+#
+# Copyright (c) 2022 FABRIC Testbed
+#
+# Permission is hereby granted, free of charge, to any person obtaining a copy
+# of this software and associated documentation files (the "Software"), to deal
+# in the Software without restriction, including without limitation the rights
+# to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+# copies of the Software, and to permit persons to whom the Software is
+# furnished to do so, subject to the following conditions:
+#
+# The above copyright notice and this permission notice shall be included in all
+# copies or substantial portions of the Software.
+#
+# THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+# IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+# FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+# AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+# LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+# OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+# SOFTWARE.
+#
+#
+# Author: Liang Zhang (lzhang9@es.net)
+# /tasks/check-l3connection.yml
+#
+
+- name: Check l3 connection status with retries
+  block:
+    - name: Increment attempts counter
+      ansible.builtin.set_fact:
+        attempt_number: "{{ attempt_number | d(0) | int + 1 }}"
+        
+    - name: Get the status of the new l3 connection
+      ansible.builtin.uri:
+        url: "{{ base_url }}/v1/virtualnetworks/l3connections/{{ virtualL3Connection_id }}"
+        headers:
+          Accept: application/json
+          Authorization: "{{ bearer_token }}"
+          content-type: application/json
+        status_code: [200, 303]
+        method: GET
+        follow_redirects: true
+        validate_certs: no
+      register: get_l3connection_response
+      failed_when: get_l3connection_response.json.provisioningState == "ERROR"
+  
+    - name: Print get l3connection response
+      debug:
+        msg: "{{ get_l3connection_response }}"
+  
+    - name: Print get l3connection response
+      debug:
+        msg: "{{ get_l3connection_response.json.provisioningState }}"
+      
+  rescue:
+    - name: Fail/stop here if application started but did not run
+      ansible.builtin.fail:
+        msg: "Application started but did not run. Exiting"
+      when:
+        - result_run is defined
+        - result_run is failed
+
+    - name: "Fail if we reached the max of {{ max_attempts | d(3) }} attempts"
+      # Default will be 3 attempts if max_attempts is not passed as a parameter
+      ansible.builtin.fail:
+        msg: "Maximum number of attempts reached when L3 connection {{ virtualL3Connection_id }} is in an error state: {{ get_l3connection_response.json.provisioningDetails }}"
+      when: attempt_number | int == max_attempts | int | d(3)
+
+    - name: Show number of attempts
+      ansible.builtin.debug:
+        msg: "provisioningState is not PROVISIONED on attempt {{ attempt_number }}. Retrying"
+
+    - name: Add delay if configured
+      # no delay if retry_delay is not passed as parameter
+      ansible.builtin.wait_for:
+        timeout: "{{ retry_delay | int | d(omit) }}"
+      when: retry_delay is defined
+
+    - name: Include check-l3connection.yml to retry.
+      ansible.builtin.include_tasks: check-l3connection.yml
+ 
+ 

@@ -46,6 +46,7 @@ class AmConstants:
     PB_HOSTNAME_SUFFIX = "hostname_suffix"
     PB_CLEANUP = "cleanup"
     PB_CONFIG = "config"
+    PB_SSH_KEYS = "ssh_keys"
 
     CLEAN_ALL = "ALL"
 
@@ -54,6 +55,7 @@ class AmConstants:
     OP_DETACH = "detach"
     OP_CREATE = "create"
     OP_DELETE = "delete"
+    OP_IS_DELETED = "is_deleted"
     OP_LIST = "list"
     OP_DELETE_ALL = "delete_all"
     OP_ATTACH_FIP = "attach_fip"
@@ -66,6 +68,8 @@ class AmConstants:
     OP_CPUPIN = "cpupin"
     OP_NUMATUNE = "numatune"
     OP_MOUNT = "mount"
+    OP_ADDKEY = "addkey"
+    OP_REMOVEKEY = "removekey"
 
     PORT_NAME = "portname"
     NETWORK_NAME = "networkname"
@@ -112,6 +116,8 @@ class AmConstants:
     DEFAULT_USER = "default_user"
     INIT_SCRIPT = "init_script"
     USER_DATA = "user_data"
+    USER = "user"
+    KEYS = "keys"
 
     ROOT_USER = "root"
 
@@ -136,3 +142,5 @@ class AmConstants:
     HOST = "host"
     VCPU_CPU_MAP = "vcpu_cpu_map"
     NODE_SET = "node_set"
+
+    MAX_FLAVOR = "max_flavor"
