@@ -30,6 +30,8 @@ runtime:
   disable_fip: False
   ssh_retries: 10
   delete_retries: 5
+  # Uncomment for EDUKY to limit the maximum size of the VM
+  #max_flavor: fabric.c4.m8.d10
   images:
     default_centos8_stream: centos
     default_centos9_stream: cloud-user 

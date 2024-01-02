@@ -35,6 +35,7 @@ from fabric_cf.actor.core.plugins.handlers.config_token import ConfigToken
 from fabric_cf.actor.handlers.handler_base import HandlerBase
 from fim.slivers.attached_components import ComponentSliver, ComponentType
 from fim.slivers.network_node import NodeSliver
+from fim.user import InstanceCatalog, CapacityHints
 from jinja2 import Environment
 
 from fabric_am.util.am_constants import AmConstants
@@ -89,6 +90,30 @@ class VMHandler(HandlerBase):
                   Constants.PROPERTY_ACTION_SEQUENCE_NUMBER: 0}
         return result
 
+    def __adjust_flavor(self, sliver: NodeSliver):
+        runtime_section = self.get_config().get(AmConstants.RUNTIME_SECTION)
+        if runtime_section is None:
+            return sliver
+
+        max_flavor = runtime_section.get(AmConstants.MAX_FLAVOR)
+        if max_flavor is None:
+            return sliver
+
+        catalog = InstanceCatalog()
+        max_capacities = catalog.get_instance_capacities(instance_type=max_flavor)
+        allocated_capacities = sliver.get_capacity_allocations()
+
+        if allocated_capacities.core > max_capacities.core or \
+            allocated_capacities.ram > max_capacities.ram or \
+                allocated_capacities.disk > max_capacities.disk:
+            sliver.set_capacity_allocations(cap=max_capacities)
+            sliver.set_capacity_hints(caphint=CapacityHints(instance_type=max_flavor))
+            self.get_logger().info(f"Flavor for {sliver.get_name()} updated to {max_flavor} "
+                                   f"capacity_hints: {sliver.get_capacity_hints()} "
+                                   f"capacity_allocations: {sliver.get_capacity_allocations()}")
+
+        return sliver
+
     def create(self, unit: ConfigToken) -> Tuple[dict, ConfigToken]:
         """
         Create a VM
@@ -116,6 +141,7 @@ class VMHandler(HandlerBase):
             ssh_key = unit_properties.get(Constants.USER_SSH_KEY, None)
             project_id = unit_properties.get(Constants.PROJECT_ID, None)
 
+            self.__adjust_flavor(sliver=sliver)
             worker_node = sliver.label_allocations.instance_parent
             flavor = sliver.get_capacity_hints().instance_type
             vmname = sliver.get_name()

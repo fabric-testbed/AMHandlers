@@ -142,3 +142,5 @@ class AmConstants:
     HOST = "host"
     VCPU_CPU_MAP = "vcpu_cpu_map"
     NODE_SET = "node_set"
+
+    MAX_FLAVOR = "max_flavor"
