@@ -58,6 +58,9 @@ class VMHandler(HandlerBase):
 
     @staticmethod
     def convert_to_string(unsafe_text_variable):
+        if unsafe_text_variable is None:
+            return unsafe_text_variable
+
         # Create a Jinja2 environment
         jinja_env = Environment()
 
