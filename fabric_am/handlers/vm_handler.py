@@ -473,6 +473,7 @@ class VMHandler(HandlerBase):
         delete_retries = self.get_config().get(AmConstants.RUNTIME_SECTION).get(AmConstants.RT_DELETE_RETRIES, 3)
         for i in range(delete_retries):
             try:
+                self.get_logger().debug(f"Delete attempt # {i}")
                 self.__execute_ansible(inventory_path=inventory_path, playbook_path=playbook_path,
                                        extra_vars=extra_vars)
                 break
@@ -480,6 +481,7 @@ class VMHandler(HandlerBase):
                 if i < delete_retries:
                     continue
                 else:
+                    self.get_logger().warning(f'Delete Failed - cleanup attempts {delete_retries}')
                     raise e
 
         playbook_path = self.get_config()[AmConstants.PLAYBOOK_SECTION][AmConstants.PB_LOCATION]
@@ -493,7 +495,6 @@ class VMHandler(HandlerBase):
         }
 
         # Verify VM has been deleted via libvirt and check if needs to be destroyed by virsh
-        force_destroy = False
         for i in range(delete_retries):
             try:
                 self.__execute_ansible(inventory_path=inventory_path, playbook_path=full_playbook_path,
@@ -502,21 +503,21 @@ class VMHandler(HandlerBase):
                 if i < delete_retries:
                     continue
                 else:
-                    force_destroy = True
                     self.get_logger().error(e)
 
         # VM failed to delete and is leaked even after openstack delete was successful
-        if force_destroy:
-            extra_vars[AmConstants.OPERATION] = AmConstants.OP_DELETE
-            for i in range(delete_retries):
-                try:
-                    self.__execute_ansible(inventory_path=inventory_path, playbook_path=full_playbook_path,
-                                           extra_vars=extra_vars)
-                except Exception as e:
-                    if i < delete_retries:
-                        continue
-                    else:
-                        self.get_logger().error(e)
+        extra_vars[AmConstants.OPERATION] = AmConstants.OP_DELETE
+        for i in range(delete_retries):
+            try:
+                self.get_logger().debug(f"Delete attempt # {i}")
+                self.__execute_ansible(inventory_path=inventory_path, playbook_path=full_playbook_path,
+                                       extra_vars=extra_vars)
+            except Exception as e:
+                if i < delete_retries:
+                    continue
+                else:
+                    self.get_logger().warning(f'Delete Failed - cleanup attempts {delete_retries}')
+                    self.get_logger().error(e)
 
         return True
 
