@@ -491,7 +491,11 @@ class VMHandler(HandlerBase):
         full_playbook_path = f"{playbook_path}/{playbook}"
 
         # Verify VM has been deleted, if not attempt to do cleanup via libvirt
-        extra_vars[AmConstants.OPERATION] = AmConstants.OP_DELETE
+        extra_vars = {
+            AmConstants.WORKER_NODE_NAME: sliver.get_label_allocations().instance_parent,
+            AmConstants.OPERATION: AmConstants.OP_DELETE,
+            AmConstants.KVM_GUEST_NAME: sliver.get_label_allocations().instance
+        }
         for i in range(delete_retries):
             try:
                 self.get_logger().debug(f"Delete via libvirt attempt # {i}")
