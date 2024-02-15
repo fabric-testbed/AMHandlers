@@ -236,7 +236,12 @@ class Al2sHandler(HandlerBase):
         return result, unit
 
     def modify(self, unit: ConfigToken) -> Tuple[dict, ConfigToken]:
-        raise Al2sHandlerException(f"OessNetworkServiceSliver modify action is not supported yet...")
+        result = {Constants.PROPERTY_TARGET_NAME: Constants.TARGET_MODIFY,
+                  Constants.PROPERTY_TARGET_RESULT_CODE: Constants.RESULT_CODE_OK,
+                  Constants.PROPERTY_ACTION_SEQUENCE_NUMBER: 0}
+        
+        # Nothing to do at this time
+        return result, unit
 
     def __cleanup(self, *, sliver: NetworkServiceSliver, unit_id: str, raise_exception: bool = False):
         if sliver.get_labels() is None or sliver.get_labels().local_name is None:
