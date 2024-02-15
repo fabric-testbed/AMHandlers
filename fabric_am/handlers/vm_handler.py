@@ -211,6 +211,7 @@ class VMHandler(HandlerBase):
             self.get_logger().error(traceback.format_exc())
             # Delete VM in case of failure
             if sliver is not None and unit_id is not None:
+                time.sleep(5)
                 self.__cleanup(sliver=sliver, unit_id=unit_id, project_id=project_id)
                 unit.get_sliver().label_allocations.instance = None
 
@@ -476,6 +477,7 @@ class VMHandler(HandlerBase):
                 self.get_logger().debug(f"Delete attempt # {i}")
                 self.__execute_ansible(inventory_path=inventory_path, playbook_path=playbook_path,
                                        extra_vars=extra_vars)
+                time.sleep(5)
                 break
             except Exception as e:
                 if i < delete_retries:
@@ -488,30 +490,14 @@ class VMHandler(HandlerBase):
         playbook = self.get_config()[AmConstants.PLAYBOOK_SECTION][AmConstants.OPERATION][AmConstants.OP_DELETE]
         full_playbook_path = f"{playbook_path}/{playbook}"
 
-        extra_vars = {
-            AmConstants.WORKER_NODE_NAME: sliver.get_label_allocations().instance_parent,
-            AmConstants.OPERATION: AmConstants.OP_IS_DELETED,
-            AmConstants.KVM_GUEST_NAME: sliver.get_label_allocations().instance
-        }
-
-        # Verify VM has been deleted via libvirt and check if needs to be destroyed by virsh
-        for i in range(delete_retries):
-            try:
-                self.__execute_ansible(inventory_path=inventory_path, playbook_path=full_playbook_path,
-                                       extra_vars=extra_vars)
-            except Exception as e:
-                if i < delete_retries:
-                    continue
-                else:
-                    self.get_logger().error(e)
-
-        # VM failed to delete and is leaked even after openstack delete was successful
+        # Verify VM has been deleted, if not attempt to do cleanup via libvirt
         extra_vars[AmConstants.OPERATION] = AmConstants.OP_DELETE
         for i in range(delete_retries):
             try:
-                self.get_logger().debug(f"Delete attempt # {i}")
+                self.get_logger().debug(f"Delete via libvirt attempt # {i}")
                 self.__execute_ansible(inventory_path=inventory_path, playbook_path=full_playbook_path,
                                        extra_vars=extra_vars)
+                time.sleep(5)
             except Exception as e:
                 if i < delete_retries:
                     continue
