@@ -502,12 +502,25 @@ class VMHandler(HandlerBase):
                 self.__execute_ansible(inventory_path=inventory_path, playbook_path=full_playbook_path,
                                        extra_vars=extra_vars)
                 time.sleep(5)
+                break
             except Exception as e:
                 if i < delete_retries:
                     continue
                 else:
                     self.get_logger().warning(f'Delete Failed - cleanup attempts {delete_retries}')
                     self.get_logger().error(e)
+
+        extra_vars = {
+            AmConstants.WORKER_NODE_NAME: sliver.get_label_allocations().instance_parent,
+            AmConstants.OPERATION: AmConstants.OP_IS_DELETED,
+            AmConstants.KVM_GUEST_NAME: sliver.get_label_allocations().instance
+        }
+        try:
+            self.__execute_ansible(inventory_path=inventory_path, playbook_path=full_playbook_path,
+                                   extra_vars=extra_vars)
+        except Exception as e:
+            self.get_logger().warning(f'List VM post deletion failed')
+            self.get_logger().error(e)
 
         return True
 
@@ -713,6 +726,56 @@ class VMHandler(HandlerBase):
         finally:
             self.get_logger().debug("__attach_detach_multiple_function_pci OUT")
 
+    def __determine_pci_address_in_vm(self, *, component: ComponentSliver, mgmt_ip: str, user: str,
+                                      pci_device_number: str):
+        try:
+            if isinstance(component.labels.bdf, str):
+                pci_device_list = [component.labels.bdf]
+            else:
+                pci_device_list = component.labels.bdf
+
+            ns = None
+            interface_names = None
+            if component.get_type() in [ComponentType.SmartNIC, ComponentType.SharedNIC]:
+                ns_name = list(component.network_service_info.network_services.keys())[0]
+                ns = component.network_service_info.network_services[ns_name]
+                interface_names = list(ns.interface_info.interfaces.keys())
+
+            for idx in range(len(pci_device_list)):
+                mac = None
+                if ns and interface_names and len(interface_names) > 0:
+                    mac = ns.interface_info.interfaces[interface_names[idx]].label_allocations.mac.lower()
+                ok = self.__post_boot_config(mgmt_ip=mgmt_ip, user=user, pci_device_number=pci_device_number,
+                                             mac=mac)
+                interface_name = None
+                bdf_facts = None
+                ansible_facts = ok.get(AmConstants.ANSIBLE_FACTS)
+                self.logger.info(f"Ansible Facts: {ansible_facts}")
+                if ansible_facts is not None:
+                    combined_facts = ansible_facts.get(AmConstants.COMBINED_FACTS)
+                    self.logger.info(f"Combined Facts: {combined_facts}")
+                    if combined_facts is not None:
+                        bdf_facts = self.convert_to_string(combined_facts.get(AmConstants.PCI_BDF))
+                        interface_name = self.convert_to_string(combined_facts.get(AmConstants.INTERFACE_NAME))
+
+                self.logger.info(f"BDF Facts: {bdf_facts} Interface Name: {interface_name}")
+                if bdf_facts is not None:
+                    bdf_list = str(bdf_facts).split("\n")
+                    for bdf in bdf_list:
+                        if bdf.endswith(":"):
+                            bdf = bdf[:-1]
+                        if bdf not in component.label_allocations.bdf:
+                            component.label_allocations.bdf.append(bdf)
+                if interface_name is not None:
+                    ns.interface_info.interfaces[interface_names[idx]].label_allocations.local_name = str(
+                        interface_name)
+                self.logger.info(f"Label Allocations: {component.label_allocations} {ns}")
+                if ns is not None:
+                    self.logger.info(f"{ns.interface_info.interfaces.values()}")
+        except Exception as e:
+            self.get_logger().error(f"Error occurred get PCI information from the VM: {component}")
+            self.get_logger().error(traceback.format_exc())
+
     def __attach_detach_pci(self, *, playbook_path: str, inventory_path: str, host: str, instance_name: str,
                             device_name: str, component: ComponentSliver, vm_name: str, project_id: str,
                             attach: bool = True, raise_exception: bool = False, mgmt_ip: str = None, user: str = None):
@@ -799,7 +862,6 @@ class VMHandler(HandlerBase):
                     AmConstants.PCI_FUNCTION: device_char_arr[3],
                     AmConstants.PCI_BDF: device
                 }
-                mac = None
                 if len(interface_names) > 0:
                     mac = ns.interface_info.interfaces[interface_names[idx]].label_allocations.mac.lower()
                     host_vars[AmConstants.MAC] = mac
@@ -807,45 +869,21 @@ class VMHandler(HandlerBase):
                 ok = self.__execute_ansible(inventory_path=inventory_path, playbook_path=full_playbook_path,
                                             extra_vars=extra_vars, host=worker_node, host_vars=host_vars)
 
-                if attach:
-                    pci_device_number = self.convert_to_string(ok.get(AmConstants.ANSIBLE_FACTS)[AmConstants.PCI_DEVICE_NUMBER])
+                if attach and ok:
                     idx += 1
+                    ansible_facts = ok.get(AmConstants.ANSIBLE_FACTS)
+                    if ansible_facts:
+                        pci_device_number = self.convert_to_string(ansible_facts.get(AmConstants.PCI_DEVICE_NUMBER))
 
             # In case of Attach, determine the PCI device id from inside the VM
             # Also, determine the ethernet interface name in case of Shared/Smart NIC
             # This is done in a separate loop on purpose to give VM OS to identify PCI devices
             # and associate mac addresses with them
             if attach:
-                for idx in range(len(pci_device_list)):
-                    mac = None
-                    if len(interface_names) > 0:
-                        mac = ns.interface_info.interfaces[interface_names[idx]].label_allocations.mac.lower()
-                    ok = self.__post_boot_config(mgmt_ip=mgmt_ip, user=user, pci_device_number=pci_device_number,
-                                                 mac=mac)
-                    interface_name = None
-                    bdf_facts = None
-                    ansible_facts = ok.get(AmConstants.ANSIBLE_FACTS)
-                    self.logger.info(f"Ansible Facts: {ansible_facts}")
-                    if ansible_facts is not None:
-                        combined_facts = ansible_facts.get(AmConstants.COMBINED_FACTS)
-                        self.logger.info(f"Combined Facts: {combined_facts}")
-                        if combined_facts is not None:
-                            bdf_facts = self.convert_to_string(combined_facts.get(AmConstants.PCI_BDF))
-                            interface_name = self.convert_to_string(combined_facts.get(AmConstants.INTERFACE_NAME))
-
-                    self.logger.info(f"BDF Facts: {bdf_facts} Interface Name: {interface_name}")
-                    if bdf_facts is not None:
-                        bdf_list = str(bdf_facts).split("\n")
-                        for bdf in bdf_list:
-                            if bdf.endswith(":"):
-                                bdf = bdf[:-1]
-                            if bdf not in component.label_allocations.bdf:
-                                component.label_allocations.bdf.append(bdf)
-                    if interface_name is not None:
-                        ns.interface_info.interfaces[interface_names[idx]].label_allocations.local_name = str(interface_name)
-                    self.logger.info(f"Label Allocations: {component.label_allocations} {ns}")
-                    if ns is not None:
-                        self.logger.info(f"{ns.interface_info.interfaces.values()}")
+                self.__determine_pci_address_in_vm(component=component,
+                                                   pci_device_number=pci_device_number,
+                                                   mgmt_ip=mgmt_ip,
+                                                   user=user)
         except Exception as e:
             self.get_logger().error(f"Error occurred attach:{attach}/detach: {not attach} device: {component}")
             self.get_logger().error(traceback.format_exc())
