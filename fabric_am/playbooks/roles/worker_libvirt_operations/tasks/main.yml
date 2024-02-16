@@ -23,7 +23,7 @@
 - name: Verify VM has been deleted
   fail:
     msg: "VM {{ kvmguest_name }} has not been deleted yet."
-  when: operation == 'is_deleted' or operation == 'delete' and kvmguest_name in vm_list.list_vms
+  when: operation == 'is_deleted' and kvmguest_name in vm_list.list_vms
 
 - name: Retrieve Tap Devices
   shell: "virsh domiflist {{ kvmguest_name }} | grep '^ tap' | awk '{print $1}'"
@@ -44,6 +44,12 @@
   community.libvirt.virt:
     name: "{{ kvmguest_name }}"
     state: destroyed
+  when: operation == 'delete' and kvmguest_name in vm_list.list_vms
+
+- name: Undefine a VM
+  community.libvirt.virt:
+    name: "{{ kvmguest_name }}"
+    command: undefine
   when: operation == 'delete' and kvmguest_name in vm_list.list_vms
 
 - name: Check if OVS interfaces exist
