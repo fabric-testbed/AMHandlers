@@ -65,10 +65,8 @@
   ansible.builtin.include_tasks: check-space.yml
   vars:
   - virtual_space_id: "{{ space_id }}"
-  - max_attempts: 30
-  - retry_delay: 10
 
-- name: delete space
+- name: Delete space
   ansible.builtin.uri:
     url: "{{ base_url }}/v1/virtualnetworks/spaces/{{ space_id }}"
     headers:
@@ -81,7 +79,7 @@
     validate_certs: no
   register: delete_space_response
   
-- name: print delete space response
+- name: Print delete space response
   debug:
     msg: "{{ delete_space_response }}"
     
