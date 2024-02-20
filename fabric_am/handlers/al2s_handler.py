@@ -164,7 +164,6 @@ class Al2sHandler(HandlerBase):
                 raise Al2sHandlerException(f'unrecognized network service type "{service_type}"')
 
             extra_vars = service_data
-            print(json.dumps(extra_vars))
             
             ansible_helper = AnsibleHelper(inventory_path=inventory_path, logger=self.get_logger(),
                                            ansible_python_interpreter=self.get_ansible_python_interpreter())
