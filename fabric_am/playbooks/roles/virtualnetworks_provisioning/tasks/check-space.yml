@@ -28,10 +28,6 @@
 
 - name: Check space status with retries
   block:
-    - name: Increment attempts counter
-      ansible.builtin.set_fact:
-        attempt_number: "{{ attempt_number | d(0) | int + 1 }}"
-        
     - name: Get the status of the space
       ansible.builtin.uri:
         url: "{{ base_url }}/v1/virtualnetworks/spaces/{{ virtual_space_id }}?consolidated=false"
@@ -44,30 +40,15 @@
         follow_redirects: true
         validate_certs: no
       register: get_space_response
-      failed_when: get_space_response.json.virtualRouterIds | length > 0
+      until: get_space_response.json.virtualRouterIds | length == 0
+      retries: 60
+      delay: 10     
   
     - name: Print get_space_response
       debug:
         msg: "{{ get_space_response }}"
-      
+ 
   rescue:
-    - name: "Fail if we reached the max of {{ max_attempts | d(3) }} attempts"
-      # Default will be 3 attempts if max_attempts is not passed as a parameter
-      ansible.builtin.fail:
+    - ansible.builtin.fail:
         msg: "Maximum number of attempts reached when deleting space {{ virtual_space_id }}"
-      when: attempt_number | int == max_attempts | int | d(3)
-
-    - name: Show number of attempts
-      ansible.builtin.debug:
-        msg: "provisioningState is not PROVISIONED on attempt {{ attempt_number }}. Retrying"
-
-    - name: Add delay if configured
-      # no delay if retry_delay is not passed as parameter
-      ansible.builtin.wait_for:
-        timeout: "{{ retry_delay | int | d(omit) }}"
-      when: retry_delay is defined
-
-    - name: Include check-space.yml to retry.
-      ansible.builtin.include_tasks: check-space.yml
- 
- 
+      when: get_space_response.json.virtualRouterIds | length > 0
