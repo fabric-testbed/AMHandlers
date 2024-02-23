@@ -686,7 +686,6 @@ class VMHandler(HandlerBase):
 
             # Grab the Mac addresses
             interface_names = []
-            ns = None
             mac = []
             if component.get_type() in [ComponentType.SmartNIC, ComponentType.SharedNIC]:
                 ns_name = list(component.network_service_info.network_services.keys())[0]

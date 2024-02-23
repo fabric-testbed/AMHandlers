@@ -65,7 +65,7 @@
               <address domain='{{ domain }}' bus='{{ bus }}' slot='{{ slot }}' function='0x0'/>
             </source>
             <address type='pci' domain='{{ dest_domain }}' bus='{{ dest_bus }}' slot='{{ slot }}' function='0x0' multifunction='on'/>
-            {% if mac is defined %}
+            {% if mac is defined and mac | length %}
             <mac address="{{ mac[0] }}"/>
             {% endif %}
           </hostdev>

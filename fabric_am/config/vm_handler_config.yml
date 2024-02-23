@@ -57,7 +57,7 @@ playbooks:
   admin_ssh_key: /root/.ssh/id_rsa_nova
   VM: head_vm_provisioning.yml
   GPU: worker_pci_provisioning.yml
-  SmartNIC: worker_pci_provisioning.yml
+  SmartNIC: multi_function_pci_devices.yml
   SharedNIC: worker_pci_provisioning.yml
   FPGA: fpga_provisioning.yml
   NVME: worker_pci_provisioning.yml
