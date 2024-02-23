@@ -702,7 +702,8 @@ class VMHandler(HandlerBase):
             worker_node = host
             extra_vars = {AmConstants.WORKER_NODE_NAME: worker_node,
                           AmConstants.NUM_PCI: len(pci_device_list),
-                          AmConstants.MAC: mac}
+                          AmConstants.MAC: mac,
+                          AmConstants.PCI_BDF: pci_device_list[0]}
             if attach:
                 extra_vars[AmConstants.OPERATION] = AmConstants.OP_ATTACH
             else:
@@ -824,7 +825,7 @@ class VMHandler(HandlerBase):
             else:
                 pci_device_list = component.labels.bdf
 
-            if component.get_type() == ComponentType.FPGA or len(pci_device_list) > 1:
+            if component.get_type() == ComponentType.FPGA or len(pci_device_list) > 1 and "multi" in playbook_path:
                 self.__attach_detach_multiple_function_pci(playbook_path=playbook_path, inventory_path=inventory_path,
                                                            host=host, instance_name=instance_name,
                                                            device_name=device_name, component=component,
