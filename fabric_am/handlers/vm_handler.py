@@ -690,29 +690,31 @@ class VMHandler(HandlerBase):
             if component.get_type() in [ComponentType.SmartNIC, ComponentType.SharedNIC]:
                 ns_name = list(component.network_service_info.network_services.keys())[0]
                 ns = component.network_service_info.network_services[ns_name]
+                interface_names = list(ns.interface_info.interfaces.keys())
                 if len(interface_names) > 0:
-                    for ifc in ns.interface_info.interfaces.values():
-                        mac.append(ifc.label_allocations.mac.lower())
+                    for ifc in interface_names:
+                        mac.append(ns.interface_info.interfaces[ifc].label_allocations.mac.lower())
 
             if isinstance(component.labels.bdf, str):
                 pci_device_list = [component.labels.bdf]
             else:
                 pci_device_list = component.labels.bdf
 
-            worker_node = host
-            extra_vars = {AmConstants.WORKER_NODE_NAME: worker_node,
-                          AmConstants.NUM_PCI: len(pci_device_list),
-                          AmConstants.MAC: mac,
-                          AmConstants.PCI_BDF: pci_device_list[0]}
-            if attach:
-                extra_vars[AmConstants.OPERATION] = AmConstants.OP_ATTACH
-            else:
-                extra_vars[AmConstants.OPERATION] = AmConstants.OP_DETACH
-
             self.get_logger().info(f"Device List Size: {len(pci_device_list)} List: {pci_device_list}")
             bdf = str(pci_device_list[0])
             pattern = r'(\d+):(\d+):(\d+)\.(\d)'
             matches = re.match(pattern, bdf)
+
+            self.get_logger().info(f"Matches: {matches}")
+
+            extra_vars = {AmConstants.WORKER_NODE_NAME: host,
+                          AmConstants.NUM_PCI: len(pci_device_list),
+                          AmConstants.MAC: mac,
+                          AmConstants.PCI_BDF: bdf}
+            if attach:
+                extra_vars[AmConstants.OPERATION] = AmConstants.OP_ATTACH
+            else:
+                extra_vars[AmConstants.OPERATION] = AmConstants.OP_DETACH
 
             host_vars = {
                 AmConstants.KVM_GUEST_NAME: instance_name,
@@ -721,7 +723,7 @@ class VMHandler(HandlerBase):
                 AmConstants.PCI_SLOT: f"0x{matches[3]}"
             }
             ok = self.__execute_ansible(inventory_path=inventory_path, playbook_path=full_playbook_path,
-                                        extra_vars=extra_vars, host=worker_node, host_vars=host_vars)
+                                        extra_vars=extra_vars, host=host, host_vars=host_vars)
 
             # In case of Attach, determine the PCI device id from inside the VM
             # Also, determine the ethernet interface name in case of Shared/Smart NIC
