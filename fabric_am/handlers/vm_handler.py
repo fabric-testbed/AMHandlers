@@ -685,7 +685,6 @@ class VMHandler(HandlerBase):
             full_playbook_path = f"{playbook_path}/{playbook}"
 
             # Grab the Mac addresses
-            interface_names = []
             mac = []
             if component.get_type() in [ComponentType.SmartNIC, ComponentType.SharedNIC]:
                 ns_name = list(component.network_service_info.network_services.keys())[0]
@@ -707,10 +706,12 @@ class VMHandler(HandlerBase):
 
             self.get_logger().info(f"Matches: {matches}")
 
-            extra_vars = {AmConstants.WORKER_NODE_NAME: host,
-                          AmConstants.NUM_PCI: len(pci_device_list),
-                          AmConstants.MAC: mac,
-                          AmConstants.PCI_BDF: bdf}
+            extra_vars = {
+                AmConstants.WORKER_NODE_NAME: host,
+                AmConstants.NUM_PCI: len(pci_device_list),
+                AmConstants.MAC: mac,
+                AmConstants.PCI_BDF: bdf
+            }
             if attach:
                 extra_vars[AmConstants.OPERATION] = AmConstants.OP_ATTACH
             else:
@@ -783,7 +784,7 @@ class VMHandler(HandlerBase):
                     for bdf in bdf_list:
                         if bdf.endswith(":"):
                             bdf = bdf[:-1]
-                        if bdf not in component.label_allocations.bdf:
+                        if bdf not in component.label_allocations.bdf and len(bdf):
                             component.label_allocations.bdf.append(bdf)
                 if interface_name is not None:
                     ns.interface_info.interfaces[interface_names[idx]].label_allocations.local_name = str(
@@ -827,7 +828,7 @@ class VMHandler(HandlerBase):
             else:
                 pci_device_list = component.labels.bdf
 
-            if component.get_type() == ComponentType.FPGA or len(pci_device_list) > 1 and "multi" in playbook_path:
+            if component.get_type() == ComponentType.FPGA or (len(pci_device_list) > 1 and "multi" in playbook):
                 self.__attach_detach_multiple_function_pci(playbook_path=playbook_path, inventory_path=inventory_path,
                                                            host=host, instance_name=instance_name,
                                                            device_name=device_name, component=component,
