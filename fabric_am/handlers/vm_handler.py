@@ -701,7 +701,7 @@ class VMHandler(HandlerBase):
 
             self.get_logger().info(f"Device List Size: {len(pci_device_list)} List: {pci_device_list}")
             bdf = str(pci_device_list[0])
-            pattern = r'(\d+):(\d+):(\d+)\.(\d)'
+            pattern = r'\([a-zA-Z0-9]+):([a-zA-Z0-9]+):\([a-zA-Z0-9]+)\.\d'
             matches = re.match(pattern, bdf)
 
             self.get_logger().info(f"Matches: {matches}")
