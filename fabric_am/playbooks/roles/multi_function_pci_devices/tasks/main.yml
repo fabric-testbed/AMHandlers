@@ -16,6 +16,16 @@
   register: device_xml_matches
   when: operation == 'attach'
 
+- name: Get PCI Device Number from the Host
+  ansible.builtin.shell:
+    lspci -n | grep {{ bdf }} | awk '{print $3}'
+  when: operation == 'attach'
+  register: pci_device_number
+
+- set_fact:
+    pci_device_number: "{{ pci_device_number.stdout }}"
+  when: operation == 'attach'
+
 - name: Extract all PCI Addresses already in use by VM
   ansible.builtin.xml:
     path: "/tmp/{{ kvmguest_name }}.xml"
@@ -107,13 +117,3 @@
   file:
     path: /tmp/{{ kvmguest_name }}.xml
     state: absent
-
-- name: Get PCI Device Number from the Host
-  ansible.builtin.shell:
-    lspci -n | grep {{ bdf }} | awk '{print $3}'
-  when: operation == 'attach'
-  register: pci_device_number
-
-- set_fact:
-    pci_device_number: "{{ pci_device_number.stdout }}"
-  when: operation == 'attach'

@@ -701,8 +701,9 @@ class VMHandler(HandlerBase):
 
             self.get_logger().info(f"Device List Size: {len(pci_device_list)} List: {pci_device_list}")
             bdf = str(pci_device_list[0])
-            pattern = r'\([a-zA-Z0-9]+):([a-zA-Z0-9]+):\([a-zA-Z0-9]+)\.\d'
-            matches = re.match(pattern, bdf)
+            #pattern = r'\d+:([\da-fA-F]+):\d+\.\d'
+            #matches = re.match(pattern, bdf)
+            matches = re.split("(.*):(.*):(.*)\\.(.*)", bdf)
 
             self.get_logger().info(f"Matches: {matches}")
 
@@ -748,6 +749,8 @@ class VMHandler(HandlerBase):
 
     def __determine_pci_address_in_vm(self, *, component: ComponentSliver, mgmt_ip: str, user: str,
                                       pci_device_number: str):
+        if not pci_device_number or not len(pci_device_number):
+            return
         try:
             if isinstance(component.labels.bdf, str):
                 pci_device_list = [component.labels.bdf]
