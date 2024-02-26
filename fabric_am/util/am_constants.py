@@ -102,6 +102,7 @@ class AmConstants:
     PCI_DEVICE_NUMBER = "pci_device_number"
     PCI_FUNCTION = "function"
     DEVICE = "device"
+    NUM_PCI = "num_pci"
     WORKER_NODE_NAME = "worker_node_name"
     INTERFACE_NAME = "if_name"
 

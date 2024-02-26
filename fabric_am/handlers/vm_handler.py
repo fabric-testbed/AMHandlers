@@ -685,30 +685,38 @@ class VMHandler(HandlerBase):
             full_playbook_path = f"{playbook_path}/{playbook}"
 
             # Grab the Mac addresses
-            interface_names = []
-            ns = None
+            mac = []
             if component.get_type() in [ComponentType.SmartNIC, ComponentType.SharedNIC]:
                 ns_name = list(component.network_service_info.network_services.keys())[0]
                 ns = component.network_service_info.network_services[ns_name]
                 interface_names = list(ns.interface_info.interfaces.keys())
+                if len(interface_names) > 0:
+                    for ifc in interface_names:
+                        mac.append(ns.interface_info.interfaces[ifc].label_allocations.mac.lower())
 
             if isinstance(component.labels.bdf, str):
                 pci_device_list = [component.labels.bdf]
             else:
                 pci_device_list = component.labels.bdf
 
-            worker_node = host
-            extra_vars = {AmConstants.WORKER_NODE_NAME: worker_node,
-                          AmConstants.DEVICE: device_name}
+            self.get_logger().info(f"Device List Size: {len(pci_device_list)} List: {pci_device_list}")
+            bdf = str(pci_device_list[0])
+            #pattern = r'\d+:([\da-fA-F]+):\d+\.\d'
+            #matches = re.match(pattern, bdf)
+            matches = re.split("(.*):(.*):(.*)\\.(.*)", bdf)
+
+            self.get_logger().info(f"Matches: {matches}")
+
+            extra_vars = {
+                AmConstants.WORKER_NODE_NAME: host,
+                AmConstants.NUM_PCI: len(pci_device_list),
+                AmConstants.MAC: mac,
+                AmConstants.PCI_BDF: bdf
+            }
             if attach:
                 extra_vars[AmConstants.OPERATION] = AmConstants.OP_ATTACH
             else:
                 extra_vars[AmConstants.OPERATION] = AmConstants.OP_DETACH
-
-            self.get_logger().info(f"Device List Size: {len(pci_device_list)} List: {pci_device_list}")
-            bdf = str(pci_device_list[0])
-            pattern = r'(\d+):(\d+):(\d+)\.(\d)'
-            matches = re.match(pattern, bdf)
 
             host_vars = {
                 AmConstants.KVM_GUEST_NAME: instance_name,
@@ -716,8 +724,21 @@ class VMHandler(HandlerBase):
                 AmConstants.PCI_BUS: f"0x{matches[2]}",
                 AmConstants.PCI_SLOT: f"0x{matches[3]}"
             }
-            self.__execute_ansible(inventory_path=inventory_path, playbook_path=full_playbook_path,
-                                   extra_vars=extra_vars, host=worker_node, host_vars=host_vars)
+            ok = self.__execute_ansible(inventory_path=inventory_path, playbook_path=full_playbook_path,
+                                        extra_vars=extra_vars, host=host, host_vars=host_vars)
+
+            # In case of Attach, determine the PCI device id from inside the VM
+            # Also, determine the ethernet interface name in case of Shared/Smart NIC
+            # This is done in a separate loop on purpose to give VM OS to identify PCI devices
+            # and associate mac addresses with them
+            if attach:
+                ansible_facts = ok.get(AmConstants.ANSIBLE_FACTS)
+                if ansible_facts:
+                    pci_device_number = self.convert_to_string(ansible_facts.get(AmConstants.PCI_DEVICE_NUMBER))
+                    self.__determine_pci_address_in_vm(component=component,
+                                                       pci_device_number=pci_device_number,
+                                                       mgmt_ip=mgmt_ip,
+                                                       user=user)
         except Exception as e:
             self.get_logger().error(f"Error occurred attach:{attach}/detach: {not attach} device: {component}")
             self.get_logger().error(traceback.format_exc())
@@ -728,6 +749,8 @@ class VMHandler(HandlerBase):
 
     def __determine_pci_address_in_vm(self, *, component: ComponentSliver, mgmt_ip: str, user: str,
                                       pci_device_number: str):
+        if not pci_device_number or not len(pci_device_number):
+            return
         try:
             if isinstance(component.labels.bdf, str):
                 pci_device_list = [component.labels.bdf]
@@ -764,7 +787,7 @@ class VMHandler(HandlerBase):
                     for bdf in bdf_list:
                         if bdf.endswith(":"):
                             bdf = bdf[:-1]
-                        if bdf not in component.label_allocations.bdf:
+                        if bdf not in component.label_allocations.bdf and len(bdf):
                             component.label_allocations.bdf.append(bdf)
                 if interface_name is not None:
                     ns.interface_info.interfaces[interface_names[idx]].label_allocations.local_name = str(
@@ -803,7 +826,12 @@ class VMHandler(HandlerBase):
                                          f"playbook_path: {playbook_path} inventory_path: {inventory_path}")
             full_playbook_path = f"{playbook_path}/{playbook}"
 
-            if component.get_type() == ComponentType.FPGA:
+            if isinstance(component.labels.bdf, str):
+                pci_device_list = [component.labels.bdf]
+            else:
+                pci_device_list = component.labels.bdf
+
+            if component.get_type() == ComponentType.FPGA or (len(pci_device_list) > 1 and "multi" in playbook):
                 self.__attach_detach_multiple_function_pci(playbook_path=playbook_path, inventory_path=inventory_path,
                                                            host=host, instance_name=instance_name,
                                                            device_name=device_name, component=component,
@@ -831,11 +859,6 @@ class VMHandler(HandlerBase):
                 ns_name = list(component.network_service_info.network_services.keys())[0]
                 ns = component.network_service_info.network_services[ns_name]
                 interface_names = list(ns.interface_info.interfaces.keys())
-
-            if isinstance(component.labels.bdf, str):
-                pci_device_list = [component.labels.bdf]
-            else:
-                pci_device_list = component.labels.bdf
 
             worker_node = host
 

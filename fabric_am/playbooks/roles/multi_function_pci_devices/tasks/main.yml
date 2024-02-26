@@ -1,0 +1,119 @@
+---
+- name: Dump domain XML to file
+  command: virsh dumpxml --inactive --security-info {{ kvmguest_name }}
+  register: dumpxml_output
+
+- name: Save XML to file
+  copy:
+    content: "{{ dumpxml_output.stdout }}"
+    dest: /tmp/{{ kvmguest_name }}.xml
+
+- name: Check that on attach the device isn't already attached
+  xml:
+    path: /tmp/{{ kvmguest_name }}.xml
+    xpath: /domain/devices/hostdev[source[address[@bus='{{ bus }}' and @slot='{{ slot }}']]]
+    count: yes
+  register: device_xml_matches
+  when: operation == 'attach'
+
+- name: Get PCI Device Number from the Host
+  ansible.builtin.shell:
+    lspci -n | grep {{ bdf }} | awk '{print $3}'
+  when: operation == 'attach'
+  register: pci_device_number
+
+- set_fact:
+    pci_device_number: "{{ pci_device_number.stdout }}"
+  when: operation == 'attach'
+
+- name: Extract all PCI Addresses already in use by VM
+  ansible.builtin.xml:
+    path: "/tmp/{{ kvmguest_name }}.xml"
+    xpath: "//address[@type='pci' and not(parent::controller[@type='usb'])]"
+    content: attribute
+  register: addresses
+  when: operation == 'attach' and device_xml_matches.count == 0
+
+- name: Exclude entry with bus value "0x1f"
+  set_fact:
+    filtered_data: "{{ addresses.matches | rejectattr('address.bus', 'eq', '0x1f') | list }}"
+  when: operation == 'attach' and device_xml_matches.count == 0 and addresses.matches | length > 0
+
+- name: Initialize bus values list
+  set_fact:
+    bus_values: []
+  when: operation == 'attach' and device_xml_matches.count == 0
+
+- name: Loop to extract bus values
+  set_fact:
+    bus_values: "{{ bus_values + [item.address.bus | regex_replace('^0x', '') | int(base=16)] }}"
+  loop: "{{ filtered_data }}"
+  when: operation == 'attach' and device_xml_matches.count == 0 and filtered_data | length > 0
+
+- name: Find the maximum bus value
+  set_fact:
+    max_bus: "{{ bus_values | max }}"
+  when: operation == 'attach' and device_xml_matches.count == 0
+
+- name: Calculate the next bus value
+  set_fact:
+    dest_bus: "{{ '%#04x' | format((max_bus | int) + 1) }}"
+  when: operation == 'attach' and device_xml_matches.count == 0
+
+- name: Display Next Bus value
+  debug:
+    msg: "Largest bus value: {{ max_bus }}, Destination bus value: {{ dest_bus }}"
+  when: operation == 'attach' and device_xml_matches.count == 0
+
+- name: Generate new PCI devices XML sections
+  # adds primary device (function 0x00) and a specified
+  # number of other functions.
+  set_fact:
+    pci_devices_xml: |
+          <hostdev mode='subsystem' type='pci' managed='yes'>
+            <source>
+              <address domain='{{ domain }}' bus='{{ bus }}' slot='{{ slot }}' function='0x0'/>
+            </source>
+            <address type='pci' domain='{{ dest_domain }}' bus='{{ dest_bus }}' slot='{{ slot }}' function='0x0' multifunction='on'/>
+            {% if mac is defined and mac | length %}
+            <mac address="{{ mac[0] }}"/>
+            {% endif %}
+          </hostdev>
+          {% for pci_func in range(1, (num_pci | int)) %}
+          <hostdev mode='subsystem' type='pci' managed='yes'>
+            <source>
+              <address domain='{{ domain }}' bus='{{ bus }}' slot='{{ slot }}' function='0x0{{ pci_func }}'/>
+            </source>
+            <address type='pci' domain='{{ dest_domain }}' bus='{{ dest_bus }}' slot='{{ slot }}' function='0x0{{ pci_func }}'/>
+            {% if mac is defined and pci_func < mac | length %}
+            <mac address="{{ mac[pci_func] }}"/>
+            {% endif %}
+          </hostdev>
+          {% endfor %}
+  when: operation == 'attach' and device_xml_matches.count == 0
+
+- name: Update the domain XML
+  blockinfile:
+    path: "/tmp/{{ kvmguest_name }}.xml"
+    insertafter: "^  <devices>"
+    marker: "<!-- {mark} ANSIBLE MANAGED BLOCK -->"
+    block: "{{ pci_devices_xml }}"
+  when: operation == 'attach' and device_xml_matches.count == 0
+
+- name: Remove FPGA configuration from domain XML file
+  # notice this removes all PCI functions because they all
+  # have the same bus and slot
+  xml:
+    path: "/tmp/{{ kvmguest_name }}.xml"
+    xpath: /domain/devices/hostdev[source[address[@bus='{{ bus }}' and @slot='{{ slot }}']]]
+    state: absent
+  when: operation == 'detach'
+
+- name: Define edited domain
+  shell: virsh define /tmp/{{ kvmguest_name }}.xml
+  register: define_output
+
+- name: Delete XML file
+  file:
+    path: /tmp/{{ kvmguest_name }}.xml
+    state: absent
