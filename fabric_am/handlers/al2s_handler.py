@@ -349,7 +349,7 @@ class Al2sHandler(HandlerBase):
             connection = L3Connection(
                 displayPosition = i,
                 encapsulationType = "DOT1Q",
-                authnType = "MD5",
+                # authnType = "MD5",
                 authoringState = "LIVE")
             
             interface_sliver = sliver.interface_info.interfaces[interface_name]
@@ -380,7 +380,9 @@ class Al2sHandler(HandlerBase):
             
             connection.remoteASN = peerlabs.asn
             
-            connection.authnConfig = {"md5": peerlabs.bgp_key}
+            if peerlabs.bgp_key:
+                connection.authnType = "MD5"
+                connection.authnConfig = {"md5": peerlabs.bgp_key}
             
             if peerlabs.account_id:
                 if peerlabs.local_name == 'AWS':
