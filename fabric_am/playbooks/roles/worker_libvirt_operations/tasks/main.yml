@@ -14,6 +14,11 @@
     state: shutdown
   when: operation == 'stop'
 
+- name: List VMs in all states
+  shell: "virsh list --all --name"
+  register: vm_list
+  when: operation == 'listall'
+
 - name: List all VMs
   community.libvirt.virt:
     command: list_vms
