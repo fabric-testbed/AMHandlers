@@ -31,6 +31,8 @@
   gather_facts: no
 
   vars:
+    switch_username: rare
+    switch_password: rare
 
   roles:
     - head_switch_provisioning
