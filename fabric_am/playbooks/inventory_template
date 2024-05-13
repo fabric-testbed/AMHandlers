@@ -1,7 +1,11 @@
 # file: fabric
 
 [fabric_p4_switch]
-renc-p4.fabric-testbed.net ansible_host=192.168.11.7 ansible_ssh_pass=XXXX ansible_python_interpreter=/nix/var/nix/profiles/RARE/bin/python3.10
+renc-p4.fabric-testbed.net ansible_host=192.168.11.7
+renc-p4.fabric-testbed.net ansible_python_interpreter=/nix/var/nix/profiles/RARE/bin/python3.10
+renc-p4.fabric-testbed.net ansible_ssh_user=rare
+renc-p4.fabric-testbed.net ansible_ssh_pass=XXXX
+
 
 [fabric_site_worker]
 renc-w1.fabric-testbed.net ansible_host=192.168.11.11

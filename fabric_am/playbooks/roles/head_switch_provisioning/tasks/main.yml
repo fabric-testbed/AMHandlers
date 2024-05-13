@@ -28,7 +28,7 @@
 
 - name: Set bootnext with efibootmgr
   shell: |
-    echo {{ switch_password }} | sudo -S efibootmgr --bootnext 0004
+    echo {{ ansible_ssh_pass }} | sudo -S efibootmgr --bootnext 0004
   args:
     executable: /bin/bash
   register: efibootmgr_output
