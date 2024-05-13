@@ -32,13 +32,21 @@
   args:
     executable: /bin/bash
   register: efibootmgr_output
+  when: operation == 'create' or operation == 'delete'
+
+- name: Reboot the switch
+  reboot:
+  async: 0
+  poll: 0
+  when: operation == 'create' or operation == 'delete'
 
 - name: Add public key to authorized_keys
   lineinfile:
     path: ~/.ssh/authorized_keys
-    line: "{{ public_key_string }}"
+    line: "{{ sshkey }}"
     state: present
     create: yes
-    owner: "{{ switch_username }}"
+    owner: "{{ ansible_ssh_user }}"
     group: "{{ ansible_ssh_pass }}"
     mode: "0600"
+    when: operation == 'create'

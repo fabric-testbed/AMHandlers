@@ -100,7 +100,6 @@ class SwitchHandler(HandlerBase):
 
         unit_id = None
         sliver = None
-        project_id = None
         try:
             self.get_logger().info(f"Create invoked for unit: {unit}")
             sliver = unit.get_sliver()
@@ -114,26 +113,30 @@ class SwitchHandler(HandlerBase):
 
             unit_properties = unit.get_properties()
             ssh_key = unit_properties.get(Constants.USER_SSH_KEY, None)
-            project_id = unit_properties.get(Constants.PROJECT_ID, None)
 
-            resource_type = str(sliver.get_type())
             playbook_path = self.get_config()[AmConstants.PLAYBOOK_SECTION][AmConstants.PB_LOCATION]
             inventory_path = self.get_config()[AmConstants.PLAYBOOK_SECTION][AmConstants.PB_INVENTORY]
 
+            resource_type = str(sliver.get_type())
             playbook = self.get_config()[AmConstants.PLAYBOOK_SECTION][resource_type]
             if playbook is None or inventory_path is None or playbook_path is None:
                 raise SwitchHandlerException(f"Missing config parameters playbook: {playbook} "
                                              f"playbook_path: {playbook_path} inventory_path: {inventory_path}")
 
             # create switch
-
+            extra_vars = {
+                AmConstants.OPERATION: AmConstants.OP_CREATE,
+                AmConstants.SSH_KEY: ssh_key
+            }
+            self.__execute_ansible(inventory_path=inventory_path, playbook_path=f"{playbook_path}/{playbook}",
+                                   extra_vars=extra_vars)
         except Exception as e:
             self.get_logger().error(e)
             self.get_logger().error(traceback.format_exc())
             # Delete VM in case of failure
             if sliver is not None and unit_id is not None:
                 time.sleep(5)
-                self.__cleanup(sliver=sliver, unit_id=unit_id, project_id=project_id)
+                self.__cleanup(sliver=sliver, unit_id=unit_id)
                 unit.get_sliver().label_allocations.instance = None
 
             result = {Constants.PROPERTY_TARGET_NAME: Constants.TARGET_CREATE,
@@ -229,7 +232,7 @@ class SwitchHandler(HandlerBase):
             self.get_logger().info(f"POA completed")
         return result, unit
 
-    def __cleanup(self, *, sliver: NodeSliver, unit_id: str, project_id: str, raise_exception: bool = False):
+    def __cleanup(self, *, sliver: NodeSliver, unit_id: str, raise_exception: bool = False):
         """
         Cleanup VM and detach PCI devices
         :param sliver: Sliver
@@ -241,6 +244,15 @@ class SwitchHandler(HandlerBase):
         try:
             playbook_path = self.get_config()[AmConstants.PLAYBOOK_SECTION][AmConstants.PB_LOCATION]
             inventory_path = self.get_config()[AmConstants.PLAYBOOK_SECTION][AmConstants.PB_INVENTORY]
+            resource_type = str(sliver.get_type())
+            playbook = self.get_config()[AmConstants.PLAYBOOK_SECTION][resource_type]
+
+            # reset switch
+            extra_vars = {
+                AmConstants.OPERATION: AmConstants.OP_DELETE
+            }
+            self.__execute_ansible(inventory_path=inventory_path, playbook_path=f"{playbook_path}/{playbook}",
+                                   extra_vars=extra_vars)
 
         except Exception as e:
             self.get_logger().error(f"Exception occurred in cleanup {unit_id} error: {e}")

@@ -30,8 +30,5 @@
 
   gather_facts: no
 
-  vars:
-    switch_username: rare
-
   roles:
     - head_switch_provisioning
