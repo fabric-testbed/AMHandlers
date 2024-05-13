@@ -32,17 +32,6 @@
   args:
     executable: /bin/bash
   register: efibootmgr_output
-  become: true
-  become_user: "{{ switch_username }}"
-
-- name: Generate SSH key pair
-  shell: |
-    echo -e "\n\n\n" | ssh-keygen -t rsa -N '' -f ~/.ssh/id_rsa
-  args:
-    executable: /bin/bash
-  register: ssh_keygen_output
-  become: true
-  become_user: "{{ switch_username }}"
 
 - name: Add public key to authorized_keys
   lineinfile:
@@ -51,7 +40,5 @@
     state: present
     create: yes
     owner: "{{ switch_username }}"
-    group: "{{ switch_username }}"
+    group: "{{ ansible_ssh_pass }}"
     mode: "0600"
-  become: true
-  become_user: "{{ switch_username }}"

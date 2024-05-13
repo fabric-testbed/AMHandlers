@@ -26,13 +26,12 @@
 # file: head_switch_provisioning.yml
 
 - hosts:
-    - fabric_head
+    - fabric_p4_switch
 
   gather_facts: no
 
   vars:
     switch_username: rare
-    switch_password: rare
 
   roles:
     - head_switch_provisioning
