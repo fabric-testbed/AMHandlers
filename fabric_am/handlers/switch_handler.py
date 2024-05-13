@@ -137,7 +137,6 @@ class SwitchHandler(HandlerBase):
             if sliver is not None and unit_id is not None:
                 time.sleep(5)
                 self.__cleanup(sliver=sliver, unit_id=unit_id)
-                unit.get_sliver().label_allocations.instance = None
 
             result = {Constants.PROPERTY_TARGET_NAME: Constants.TARGET_CREATE,
                       Constants.PROPERTY_TARGET_RESULT_CODE: Constants.RESULT_CODE_EXCEPTION,

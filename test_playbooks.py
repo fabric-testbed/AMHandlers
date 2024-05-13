@@ -210,8 +210,9 @@ class TestPlaybooks:
         u.properties = {Constants.USER_SSH_KEY:
                             "ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAABAQDIxGyj1Bma9BJEHPhocIIcPl komalthareja@dhcp152-54-6-178.wireless.europa.renci.org"}
         sliver = NodeSliver()
-        cap = Capacities(unt=1)
+        cap = Capacities(unit=1)
         sliver.set_properties(type=NodeType.Switch, site="RENC", capacity_allocations=cap, name="p4-sw")
+        u.sliver = sliver
         r, u = self.sw_handler.create(unit=u)
 
 
@@ -299,4 +300,5 @@ if __name__ == "__main__":
     #tpb.test_fpga_prov()
 
     #test_audit()
+    tpb.test_switch()
 
