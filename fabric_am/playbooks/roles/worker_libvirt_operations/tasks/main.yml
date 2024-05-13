@@ -14,6 +14,11 @@
     state: shutdown
   when: operation == 'stop'
 
+- name: List VMs in all states
+  shell: "virsh list --all --name"
+  register: vm_list
+  when: operation == 'listall'
+
 - name: List all VMs
   community.libvirt.virt:
     command: list_vms
@@ -40,6 +45,15 @@
     var: qvo_devices
   when: operation == 'delete' and qvo_devices is defined
 
+- name: Get disk location using virsh domblklist
+  shell: "virsh domblklist {{ kvmguest_name }} | grep '^ vda' | awk '{print $2}'"
+  register: disk_info
+  when: operation == 'delete' and kvmguest_name in vm_list.list_vms
+
+- debug:
+    var: disk_info.stdout_lines
+  when: operation == 'delete' and kvmguest_name in vm_list.list_vms
+
 - name: Destory a VM
   community.libvirt.virt:
     name: "{{ kvmguest_name }}"
@@ -47,10 +61,20 @@
   when: operation == 'delete' and kvmguest_name in vm_list.list_vms
 
 - name: Undefine a VM
-  community.libvirt.virt:
-    name: "{{ kvmguest_name }}"
-    command: undefine
+  command: "virsh undefine --remove-all-storage --nvram {{ kvmguest_name }}"
   when: operation == 'delete' and kvmguest_name in vm_list.list_vms
+
+- name: Delete disk location
+  file:
+    path: "{{ disk_info.stdout }}"
+    state: absent
+  when: disk_info is defined and disk_info.stdout is defined
+
+#- name: Undefine a VM
+#  community.libvirt.virt:
+#    name: "{{ kvmguest_name }}"
+#    command: undefine
+#  when: operation == 'delete' and kvmguest_name in vm_list.list_vms
 
 - name: Check if OVS interfaces exist
   stat:

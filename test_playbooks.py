@@ -36,6 +36,7 @@ from fim.slivers.network_node import NodeSliver, NodeType
 
 from fabric_am.handlers.vm_handler import VMHandler
 from fabric_am.util.am_constants import AmConstants
+from fabric_am.util.ansible_helper import AnsibleHelper
 
 
 class TestPlaybooks:
@@ -202,6 +203,24 @@ class TestPlaybooks:
         r, u = self.handler.create(unit=u)
 
 
+def execute_ansible(*, logger, inventory_path: str, playbook_path: str, extra_vars: dict,
+                    ansible_python_interpreter: str, sources: str = None, private_key_file: str = None,
+                    host_vars: dict = None, host: str = None, user: str = None):
+    ansible_helper = AnsibleHelper(inventory_path=inventory_path, logger=logger,
+                                   ansible_python_interpreter=ansible_python_interpreter,
+                                   sources=sources)
+
+    ansible_helper.set_extra_vars(extra_vars=extra_vars)
+
+    if host is not None and host_vars is not None and len(host_vars) > 0:
+        for key, value in host_vars.items():
+            ansible_helper.add_vars(host=host, var_name=key, value=value)
+
+    logger.info(f"Executing playbook {playbook_path} extra_vars: {extra_vars} host_vars: {host_vars}")
+    ansible_helper.run_playbook(playbook_path=playbook_path, private_key_file=private_key_file, user=user)
+    return ansible_helper.get_result_callback()
+
+
 if __name__ == "__main__":
     import time
     tpb = TestPlaybooks()
@@ -225,3 +244,90 @@ if __name__ == "__main__":
     #tpb.test_poa_reboot()
 
     tpb.test_fpga_prov()
+
+    '''
+    ansible_helper = AnsibleHelper(inventory_path="/etc/fabric/actor/playbooks//inventory", ansible_python_interpreter='/usr/bin/python3.6',
+                                   logger=logging.getLogger())
+    ansible_helper.set_extra_vars({"operation": "listall"})
+    ansible_helper.run_playbook(playbook_path="/etc/fabric/actor/playbooks//worker_libvirt_operations.yml")
+    ansible_helper.get_result_callback()
+
+    for host, ok_result in ansible_helper.get_result_callback().host_ok.items():
+        # Get VMs via Virsh
+        print(f"host: {host}")
+        virsh_vms = []
+        if ok_result and ok_result._result:
+            virsh_vms = ok_result._result.get('stdout_lines', [])
+            print(f"List of VMs: {virsh_vms}")
+
+        ansible_helper2 = AnsibleHelper(inventory_path="/etc/fabric/actor/playbooks//inventory",
+                                       ansible_python_interpreter='/usr/bin/python3.6',
+                                       logger=logging.getLogger())
+        ansible_helper2.set_extra_vars({"operation": "list",
+                                       "host": str(host)})
+
+        # Get VMs via Openstack
+        os_vms = {}
+        ansible_helper2.run_playbook(playbook_path="/etc/fabric/actor/playbooks/head_vm_provisioning.yml")
+        result = ansible_helper2.get_result_callback().get_json_result_ok()
+        if result and result.get('openstack_servers'):
+            servers = result.get('openstack_servers')
+            for s in servers:
+                os_vms[s.get('OS-EXT-SRV-ATTR:instance_name')] = s.get('name')
+
+        # Find extra VMs on Virsh and delete them
+        for v in virsh_vms:
+            if v not in os_vms:
+                ansible_helper3 = AnsibleHelper(inventory_path="/etc/fabric/actor/playbooks//inventory",
+                                                ansible_python_interpreter='/usr/bin/python3.6',
+                                                logger=logging.getLogger())
+                ansible_helper3.set_extra_vars({"operation": "delete",
+                                                "host": str(host)})
+                ansible_helper3.run_playbook(playbook_path="/etc/fabric/actor/playbooks/worker_libvirt_operations.yml")
+                result = ansible_helper3.get_result_callback().get_json_result_ok()
+
+
+    '''
+    logger = logging.getLogger("Audit")
+    results_1 = execute_ansible(inventory_path="/etc/fabric/actor/playbooks//inventory",
+                               logger=logger,
+                               playbook_path="/etc/fabric/actor/playbooks//worker_libvirt_operations.yml",
+                               extra_vars={"operation": "listall"},
+                               ansible_python_interpreter='/usr/bin/python3.6')
+
+    # Dictionary to store OpenStack VMs
+    os_vms = {}
+
+    for host, ok_result in results_1.host_ok.items():
+        # Get VMs via Virsh
+        print(f"host: {host}")
+        virsh_vms = []
+        if ok_result and ok_result._result:
+            virsh_vms = ok_result._result.get('stdout_lines', [])
+            print(f"List of VMs: {virsh_vms}")
+
+        results_2 = execute_ansible(inventory_path="/etc/fabric/actor/playbooks//inventory",
+                                    logger=logger,
+                                    playbook_path="/etc/fabric/actor/playbooks//head_vm_provisioning.yml",
+                                    extra_vars={"operation": "list", "host": str(host)},
+                                    ansible_python_interpreter='/usr/bin/python3.6')
+
+        if results_2 and results_2.get('openstack_servers'):
+            servers = results_2.get('openstack_servers')
+            for s in servers:
+                os_vms[s.get('OS-EXT-SRV-ATTR:instance_name')] = s.get('name')
+
+        # Find extra VMs on Virsh and delete them
+        for v in virsh_vms:
+            if v not in os_vms:
+                results_3 = execute_ansible(inventory_path="/etc/fabric/actor/playbooks//inventory",
+                                            logger=logger,
+                                            playbook_path="/etc/fabric/actor/playbooks//head_vm_provisioning.yml",
+                                            extra_vars={"operation": "delete", "host": str(host)},
+                                            ansible_python_interpreter='/usr/bin/python3.6')
+                logger.info(f"Deleting for instance: {v} result: {results_3}")
+
+
+
+
+
