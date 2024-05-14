@@ -132,14 +132,12 @@ class SwitchHandler(HandlerBase):
             inventory = InventoryManager(loader=data_loader,
                                          sources=[inventory_path])
             host = inventory.get_host(hostname=f"{sliver.get_site().lower()}-p4.fabric-testbed.net")
-            ansible_host = host.get_vars().get('ansible_host')
-            ansible_ssh_user = host.get_vars().get('ansible_ssh_user')
-            ansible_ssh_pwd = host.get_vars().get('ansible_ssh_pwd')
+            host_vars = host.get_vars()
+            ansible_host = host_vars.get('ansible_host')
+            ansible_ssh_user = host_vars.get('ansible_ssh_user')
+            ansible_ssh_pass = host_vars.get('ansible_ssh_pass')
 
-            print(f"KOMAL ---- {host.get_vars()}")
-            print(f"KOMAL --- {ansible_ssh_pwd}")
-
-            Utils.verify_ssh(mgmt_ip=ansible_host, user=ansible_ssh_user, pwd=ansible_ssh_pwd,
+            Utils.verify_ssh(mgmt_ip=ansible_host, user=ansible_ssh_user, pwd=ansible_ssh_pass,
                              logger=self.get_logger(), retry=10)
             extra_vars = {
                 AmConstants.OPERATION: AmConstants.OP_CONFIG,
