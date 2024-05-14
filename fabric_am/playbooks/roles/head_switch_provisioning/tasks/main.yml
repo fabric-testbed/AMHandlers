@@ -50,9 +50,8 @@
   when: operation == 'config'
 
 - name: Remove SSH key from authorized_keys
-  become: yes
   lineinfile:
     path: ~/.ssh/authorized_keys
     state: absent
-    regexp: "{{ sshkey }}"
+    line: "{{ sshkey }}"
   when: operation == 'delete'
