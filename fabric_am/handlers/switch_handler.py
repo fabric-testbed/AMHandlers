@@ -27,7 +27,6 @@ import time
 import traceback
 from typing import Tuple
 
-import paramiko
 from fabric_cf.actor.core.common.constants import Constants
 from fabric_cf.actor.core.plugins.handlers.config_token import ConfigToken
 from fabric_cf.actor.handlers.handler_base import HandlerBase
@@ -35,7 +34,6 @@ from fim.slivers.network_node import NodeSliver, NodeType
 from jinja2 import Environment
 
 from fabric_am.util.am_constants import AmConstants
-from fabric_am.util.ansible_helper import AnsibleHelper
 from fabric_am.util.utils import Utils
 
 

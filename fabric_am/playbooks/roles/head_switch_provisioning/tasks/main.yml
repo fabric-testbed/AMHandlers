@@ -47,4 +47,4 @@
     owner: "{{ ansible_ssh_user }}"
     group: "{{ ansible_ssh_pass }}"
     mode: "0600"
-    when: operation == 'config'
+  when: operation == 'config'
