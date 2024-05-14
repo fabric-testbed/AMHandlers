@@ -131,7 +131,7 @@ class SwitchHandler(HandlerBase):
             data_loader = DataLoader()
             inventory = InventoryManager(loader=data_loader,
                                          sources=[inventory_path])
-            host = inventory.get_host(hostname=f"{sliver.get_site()}-p4.fabric-testbed.net")
+            host = inventory.get_host(hostname=f"{sliver.get_site().lower()}-p4.fabric-testbed.net")
             ansible_host = host.get_vars().get('ansible_host')
             ansible_ssh_user = host.get_vars().get('ansible_ssh_user')
             ansible_ssh_pwd = host.get_vars().get('ansible_ssh_pwd')
@@ -148,11 +148,6 @@ class SwitchHandler(HandlerBase):
         except Exception as e:
             self.get_logger().error(e)
             self.get_logger().error(traceback.format_exc())
-            # Delete VM in case of failure
-            if sliver is not None and unit_id is not None:
-                time.sleep(5)
-                self.__cleanup(sliver=sliver, unit_id=unit_id)
-
             result = {Constants.PROPERTY_TARGET_NAME: Constants.TARGET_CREATE,
                       Constants.PROPERTY_TARGET_RESULT_CODE: Constants.RESULT_CODE_EXCEPTION,
                       Constants.PROPERTY_ACTION_SEQUENCE_NUMBER: 0,
