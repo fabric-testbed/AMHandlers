@@ -32,11 +32,11 @@
   args:
     executable: /bin/bash
   register: efibootmgr_output
-  when: operation == 'create' or operation == 'delete'
+  when: operation == 'create'
 
 - name: Reboot the switch
   shell: echo {{ ansible_ssh_pass }} | sudo -S reboot
-  when: operation == 'create' or operation == 'delete'
+  when: operation == 'create'
 
 - name: Add public key to authorized_keys
   lineinfile:
@@ -48,3 +48,11 @@
     group: "{{ ansible_ssh_pass }}"
     mode: "0600"
   when: operation == 'config'
+
+- name: Remove SSH key from authorized_keys
+  become: yes
+  lineinfile:
+    path: ~/.ssh/authorized_keys
+    state: absent
+    regexp: "{{ sshkey }}"
+  when: operation == 'delete'
