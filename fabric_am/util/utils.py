@@ -257,7 +257,7 @@ class Utils:
                 # Construct the SSH client
                 ssh = paramiko.SSHClient()
                 ssh.set_missing_host_key_policy(paramiko.AutoAddPolicy())
-                if pwd:
+                if pwd is not None:
                     # Use password for authentication
                     ssh.connect(mgmt_ip, username=user, password=pwd, timeout=timeout)
                 else:
@@ -298,7 +298,7 @@ class Utils:
 
         try:
             output = Utils.execute_command(mgmt_ip=mgmt_ip, user=user, command=command, logger=logger,
-                                            timeout=timeout, retry=retry, pwd=pwd, ssh_key_file=ssh_key_file)
+                                           timeout=timeout, retry=retry, pwd=pwd, ssh_key_file=ssh_key_file)
             logger.info(f"Output: {output}")
         except Exception as e:
             pass

@@ -136,6 +136,9 @@ class SwitchHandler(HandlerBase):
             ansible_ssh_user = host.get_vars().get('ansible_ssh_user')
             ansible_ssh_pwd = host.get_vars().get('ansible_ssh_pwd')
 
+            print(f"KOMAL ---- {host.get_vars()}")
+            print(f"KOMAL --- {ansible_ssh_pwd}")
+
             Utils.verify_ssh(mgmt_ip=ansible_host, user=ansible_ssh_user, pwd=ansible_ssh_pwd,
                              logger=self.get_logger(), retry=10)
             extra_vars = {
