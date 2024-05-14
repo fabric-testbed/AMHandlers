@@ -93,8 +93,8 @@ class SwitchHandler(HandlerBase):
                   Constants.PROPERTY_TARGET_RESULT_CODE: Constants.RESULT_CODE_OK,
                   Constants.PROPERTY_ACTION_SEQUENCE_NUMBER: 0}
 
-        unit_id = None
         sliver = None
+        ssh_key = None
         try:
             self.get_logger().info(f"Create invoked for unit: {unit}")
             sliver = unit.get_sliver()
@@ -149,6 +149,7 @@ class SwitchHandler(HandlerBase):
         except Exception as e:
             self.get_logger().error(e)
             self.get_logger().error(traceback.format_exc())
+            self.__cleanup(sliver=sliver, ssh_key=ssh_key)
             result = {Constants.PROPERTY_TARGET_NAME: Constants.TARGET_CREATE,
                       Constants.PROPERTY_TARGET_RESULT_CODE: Constants.RESULT_CODE_EXCEPTION,
                       Constants.PROPERTY_ACTION_SEQUENCE_NUMBER: 0,
@@ -177,8 +178,10 @@ class SwitchHandler(HandlerBase):
                 raise SwitchHandlerException(f"Invalid Sliver instance type {type(sliver)}: "
                                              f"resource_type: {sliver.get_type()}")
 
-            unit_id = str(unit.get_reservation_id())
-            self.__cleanup(sliver=sliver, unit_id=unit_id)
+            unit_properties = unit.get_properties()
+            ssh_key = unit_properties.get(Constants.USER_SSH_KEY, None)
+
+            self.__cleanup(sliver=sliver, ssh_key=ssh_key)
         except Exception as e:
             result = {Constants.PROPERTY_TARGET_NAME: Constants.TARGET_DELETE,
                       Constants.PROPERTY_TARGET_RESULT_CODE: Constants.RESULT_CODE_EXCEPTION,
@@ -240,11 +243,11 @@ class SwitchHandler(HandlerBase):
             self.get_logger().info(f"POA completed")
         return result, unit
 
-    def __cleanup(self, *, sliver: NodeSliver, unit_id: str, raise_exception: bool = False):
+    def __cleanup(self, *, sliver: NodeSliver, ssh_key: str, raise_exception: bool = False):
         """
         Cleanup VM and detach PCI devices
         :param sliver: Sliver
-        :param unit_id: Unit Id
+        :param ssh_key: ssh_key
         :param raise_exception: Raise exception if raise_exception flag is True
         :return:
         """
@@ -256,13 +259,14 @@ class SwitchHandler(HandlerBase):
 
             # reset switch
             extra_vars = {
-                AmConstants.OPERATION: AmConstants.OP_DELETE
+                AmConstants.OPERATION: AmConstants.OP_DELETE,
+                AmConstants.SSH_KEY: ssh_key
             }
             Utils.execute_ansible(inventory_path=inventory_path, playbook_path=f"{playbook_path}/{playbook}",
                                   extra_vars=extra_vars, logger=self.get_logger())
 
         except Exception as e:
-            self.get_logger().error(f"Exception occurred in cleanup {unit_id} error: {e}")
+            self.get_logger().error(f"Exception occurred in cleanup error: {e}")
             self.get_logger().error(traceback.format_exc())
             if raise_exception:
                 raise e
