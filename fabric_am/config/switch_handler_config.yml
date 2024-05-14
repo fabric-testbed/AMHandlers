@@ -22,9 +22,6 @@
 #
 #
 # Author: Komal Thareja (kthare10@renci.org)
-ansible:
-  ansible_python_interpreter: /usr/bin/python3.6
-runtime:
 playbooks:
   location: /etc/fabric/actor/playbooks
   inventory_location: /etc/fabric/actor/playbooks/inventory

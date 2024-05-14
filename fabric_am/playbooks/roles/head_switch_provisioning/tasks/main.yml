@@ -35,9 +35,7 @@
   when: operation == 'create' or operation == 'delete'
 
 - name: Reboot the switch
-  reboot:
-  async: 0
-  poll: 0
+  shell: echo {{ ansible_ssh_pass }} | sudo -S reboot
   when: operation == 'create' or operation == 'delete'
 
 - name: Add public key to authorized_keys
@@ -49,4 +47,4 @@
     owner: "{{ ansible_ssh_user }}"
     group: "{{ ansible_ssh_pass }}"
     mode: "0600"
-    when: operation == 'create'
+    when: operation == 'config'

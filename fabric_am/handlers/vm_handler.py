@@ -29,7 +29,6 @@ import time
 import traceback
 from typing import Tuple, List, Dict
 
-import paramiko
 from fabric_cf.actor.core.common.constants import Constants
 from fabric_cf.actor.core.plugins.handlers.config_token import ConfigToken
 from fabric_cf.actor.handlers.handler_base import HandlerBase
@@ -39,7 +38,6 @@ from fim.user import InstanceCatalog, CapacityHints
 from jinja2 import Environment
 
 from fabric_am.util.am_constants import AmConstants
-from fabric_am.util.ansible_helper import AnsibleHelper
 from fabric_am.util.utils import Utils
 
 
@@ -80,8 +78,8 @@ class VMHandler(HandlerBase):
             cleanup_playbook = f"{playbook_path}/{cleanup_section[AmConstants.CLEAN_ALL]}"
             inventory_path = self.get_config()[AmConstants.PLAYBOOK_SECTION][AmConstants.PB_INVENTORY]
             extra_vars = {AmConstants.OPERATION: AmConstants.OP_DELETE_ALL}
-            self.__execute_ansible(inventory_path=inventory_path, playbook_path=cleanup_playbook,
-                                   extra_vars=extra_vars)
+            Utils.execute_ansible(inventory_path=inventory_path, playbook_path=cleanup_playbook,
+                                  extra_vars=extra_vars, logger=self.get_logger())
         except Exception as e:
             self.get_logger().error(f"Failure to clean up existing VMs: {e}")
             self.get_logger().error(traceback.format_exc())
@@ -184,7 +182,9 @@ class VMHandler(HandlerBase):
 
             # Verify SSH connectivity
             ssh_retries = self.get_config()[AmConstants.RUNTIME_SECTION][AmConstants.RT_SSH_RETRIES]
-            self.__verify_ssh(mgmt_ip=fip, user=user, retry=ssh_retries)
+            admin_ssh_key = self.get_config()[AmConstants.PLAYBOOK_SECTION][AmConstants.ADMIN_SSH_KEY]
+            Utils.verify_ssh(mgmt_ip=fip, user=user, retry=ssh_retries, ssh_key_file=admin_ssh_key,
+                             logger=self.get_logger())
 
             sliver.label_allocations.instance = instance_props.get(AmConstants.SERVER_INSTANCE_NAME, None)
 
@@ -200,7 +200,8 @@ class VMHandler(HandlerBase):
             self.__perform_os_server_action(playbook_path=playbook_path_full, inventory_path=inventory_path,
                                             vm_name=vmname, unit_id=unit_id, action=AmConstants.OP_REBOOT)
 
-            self.__verify_ssh(mgmt_ip=fip, user=user, retry=ssh_retries)
+            Utils.verify_ssh(mgmt_ip=fip, user=user, retry=ssh_retries, ssh_key_file=admin_ssh_key,
+                             logger=self.get_logger())
 
             sliver.management_ip = fip
             # Configure Components - only gets triggered via Portal for now
@@ -387,7 +388,8 @@ class VMHandler(HandlerBase):
             self.get_logger().info(f"Modify completed")
         return result, unit
 
-    def __build_user_data(self, *, default_user: str, ssh_key: str, init_script: str = None):
+    @staticmethod
+    def __build_user_data(*, default_user: str, ssh_key: str, init_script: str = None):
         user_data = "#!/bin/bash\n"
         ssh_keys = ssh_key.split(",")
         for key in ssh_keys:
@@ -436,7 +438,8 @@ class VMHandler(HandlerBase):
             AmConstants.INIT_SCRIPT: init_script,
             AmConstants.USER_DATA: user_data
         }
-        ok = self.__execute_ansible(inventory_path=inventory_path, playbook_path=playbook_path, extra_vars=extra_vars)
+        ok = Utils.execute_ansible(inventory_path=inventory_path, playbook_path=playbook_path, extra_vars=extra_vars,
+                                   logger=self.get_logger())
 
         server = ok.get(AmConstants.SERVER, None)
         # Added this code for enabling test suite
@@ -475,8 +478,8 @@ class VMHandler(HandlerBase):
         for i in range(delete_retries):
             try:
                 self.get_logger().debug(f"Delete attempt # {i}")
-                self.__execute_ansible(inventory_path=inventory_path, playbook_path=playbook_path,
-                                       extra_vars=extra_vars)
+                Utils.execute_ansible(inventory_path=inventory_path, playbook_path=playbook_path,
+                                      extra_vars=extra_vars, logger=self.get_logger())
                 time.sleep(5)
                 break
             except Exception as e:
@@ -499,8 +502,8 @@ class VMHandler(HandlerBase):
         for i in range(delete_retries):
             try:
                 self.get_logger().debug(f"Delete via libvirt attempt # {i}")
-                self.__execute_ansible(inventory_path=inventory_path, playbook_path=full_playbook_path,
-                                       extra_vars=extra_vars)
+                Utils.execute_ansible(inventory_path=inventory_path, playbook_path=full_playbook_path,
+                                      extra_vars=extra_vars, logger=self.get_logger())
                 time.sleep(5)
                 break
             except Exception as e:
@@ -516,8 +519,8 @@ class VMHandler(HandlerBase):
             AmConstants.KVM_GUEST_NAME: sliver.get_label_allocations().instance
         }
         try:
-            self.__execute_ansible(inventory_path=inventory_path, playbook_path=full_playbook_path,
-                                   extra_vars=extra_vars)
+            Utils.execute_ansible(inventory_path=inventory_path, playbook_path=full_playbook_path,
+                                  extra_vars=extra_vars, logger=self.get_logger())
         except Exception as e:
             self.get_logger().warning(f'List VM post deletion failed')
             self.get_logger().error(e)
@@ -529,7 +532,6 @@ class VMHandler(HandlerBase):
         Invoke ansible playbook to attach a floating IP to a provisioned VM
         :param playbook_path: playbook location
         :param inventory_path: inventory location
-        :param host: host
         :param vm_name: VM Name
         :param unit_id: Unit Id
         :return: floating ip assigned to the VM
@@ -541,8 +543,8 @@ class VMHandler(HandlerBase):
             extra_vars = {AmConstants.OPERATION: AmConstants.OP_ATTACH_FIP,
                           AmConstants.VM_NAME: vmname}
 
-            ok = self.__execute_ansible(inventory_path=inventory_path, playbook_path=playbook_path,
-                                        extra_vars=extra_vars)
+            ok = Utils.execute_ansible(inventory_path=inventory_path, playbook_path=playbook_path,
+                                       extra_vars=extra_vars, logger=self.get_logger())
 
             if self.test_mode:
                 floating_ip = ok[AmConstants.ANSIBLE_FACTS][AmConstants.FLOATING_IP]
@@ -602,8 +604,8 @@ class VMHandler(HandlerBase):
             self.get_logger().info(f"Executing playbook {playbook_path} to mount volume: "
                                    f"{component.label_allocations.device_name} "
                                    f"on: {mgmt_ip}")
-            self.__execute_ansible(inventory_path=None, playbook_path=playbook_path, extra_vars=extra_vars,
-                                   sources=f"{mgmt_ip},", private_key_file=admin_ssh_key)
+            Utils.execute_ansible(inventory_path=None, playbook_path=playbook_path, extra_vars=extra_vars,
+                                  sources=f"{mgmt_ip},", private_key_file=admin_ssh_key, logger=self.get_logger())
 
         except Exception as e:
             self.get_logger().error(f"Failed to mount the volume, we ignore the failure: {e}")
@@ -623,7 +625,8 @@ class VMHandler(HandlerBase):
             if attach:
                 extra_vars[AmConstants.OPERATION] = AmConstants.OP_ATTACH
 
-            ok = self.__execute_ansible(inventory_path=inventory_path, playbook_path=playbook_path, extra_vars=extra_vars)
+            ok = Utils.execute_ansible(inventory_path=inventory_path, playbook_path=playbook_path,
+                                       extra_vars=extra_vars, logger=self.get_logger())
             attachments = ok.get(AmConstants.ATTACHMENTS, None)
             if attachments is not None:
                 for a in attachments:
@@ -654,7 +657,8 @@ class VMHandler(HandlerBase):
                       AmConstants.VM_NAME: f'{device_name}-{vm_name}',
                       AmConstants.PORT_NAME: f'{device_name}-{vm_name}-{vm_name}-{ifs_name}'}
 
-        return self.__execute_ansible(inventory_path=inventory_path, playbook_path=playbook_path, extra_vars=extra_vars)
+        return Utils.execute_ansible(inventory_path=inventory_path, playbook_path=playbook_path, extra_vars=extra_vars,
+                                     logger=self.get_logger())
 
     def __attach_detach_multiple_function_pci(self, *, playbook_path: str, inventory_path: str, host: str,
                                               instance_name: str, device_name: str, component: ComponentSliver,
@@ -724,8 +728,8 @@ class VMHandler(HandlerBase):
                 AmConstants.PCI_BUS: f"0x{matches[2]}",
                 AmConstants.PCI_SLOT: f"0x{matches[3]}"
             }
-            ok = self.__execute_ansible(inventory_path=inventory_path, playbook_path=full_playbook_path,
-                                        extra_vars=extra_vars, host=host, host_vars=host_vars)
+            ok = Utils.execute_ansible(inventory_path=inventory_path, playbook_path=full_playbook_path,
+                                       extra_vars=extra_vars, host=host, host_vars=host_vars, logger=self.get_logger())
 
             # In case of Attach, determine the PCI device id from inside the VM
             # Also, determine the ethernet interface name in case of Shared/Smart NIC
@@ -889,8 +893,9 @@ class VMHandler(HandlerBase):
                     mac = ns.interface_info.interfaces[interface_names[idx]].label_allocations.mac.lower()
                     host_vars[AmConstants.MAC] = mac
 
-                ok = self.__execute_ansible(inventory_path=inventory_path, playbook_path=full_playbook_path,
-                                            extra_vars=extra_vars, host=worker_node, host_vars=host_vars)
+                ok = Utils.execute_ansible(inventory_path=inventory_path, playbook_path=full_playbook_path,
+                                           extra_vars=extra_vars, host=worker_node, host_vars=host_vars,
+                                           logger=self.get_logger())
 
                 if attach and ok:
                     idx += 1
@@ -950,8 +955,8 @@ class VMHandler(HandlerBase):
             self.get_logger().info(f"Device List Size: {len(pci_device_list)} List: {pci_device_list}")
             for device in pci_device_list:
                 extra_vars[AmConstants.DEVICE] = device
-                self.__execute_ansible(inventory_path=inventory_path, playbook_path=full_playbook_path,
-                                       extra_vars=extra_vars)
+                Utils.execute_ansible(inventory_path=inventory_path, playbook_path=full_playbook_path,
+                                      extra_vars=extra_vars, logger=self.get_logger())
         except Exception as e:
             self.get_logger().error(f"Error occurred cleaning device: {component}")
             if raise_exception:
@@ -1029,7 +1034,7 @@ class VMHandler(HandlerBase):
         return result
 
     def __perform_virsh_server_action(self, *, playbook_path: str, inventory_path: str, worker_node_name: str,
-                                      instance_name: str, operation: str, vcpu_cpu_map:List[Dict[str, str]] = None,
+                                      instance_name: str, operation: str, vcpu_cpu_map: List[Dict[str, str]] = None,
                                       node_set: List[str] = None):
         """
         Invoke ansible playbook to perform a server action via openstack commands
@@ -1052,8 +1057,8 @@ class VMHandler(HandlerBase):
         if node_set is not None:
             extra_vars[AmConstants.NODE_SET] = node_set
 
-        return self.__execute_ansible(inventory_path=inventory_path, playbook_path=playbook_path_full,
-                                      extra_vars=extra_vars)
+        return Utils.execute_ansible(inventory_path=inventory_path, playbook_path=playbook_path_full,
+                                     extra_vars=extra_vars, logger=self.get_logger())
 
     def __perform_os_server_action(self, *, playbook_path: str, inventory_path: str, vm_name: str, unit_id: str,
                                    action: str):
@@ -1070,7 +1075,8 @@ class VMHandler(HandlerBase):
 
         extra_vars = {AmConstants.OPERATION: action,
                       AmConstants.VM_NAME: vm_name}
-        return self.__execute_ansible(inventory_path=inventory_path, playbook_path=playbook_path, extra_vars=extra_vars)
+        return Utils.execute_ansible(inventory_path=inventory_path, playbook_path=playbook_path, extra_vars=extra_vars,
+                                     logger=self.get_logger())
 
     def __get_default_user(self, *, image: str) -> str:
         """
@@ -1168,8 +1174,9 @@ class VMHandler(HandlerBase):
             # Grab the SSH Key
             admin_ssh_key = self.get_config()[AmConstants.PLAYBOOK_SECTION][AmConstants.ADMIN_SSH_KEY]
 
-            self.__execute_ansible(inventory_path=None, playbook_path=playbook_path, extra_vars=extra_vars,
-                                   sources=f"{mgmt_ip},", private_key_file=admin_ssh_key, user=user)
+            Utils.execute_ansible(inventory_path=None, playbook_path=playbook_path, extra_vars=extra_vars,
+                                  sources=f"{mgmt_ip},", private_key_file=admin_ssh_key, user=user,
+                                  logger=self.get_logger())
         except Exception as e:
             self.get_logger().error(f"Exception : {e}")
             self.get_logger().error(traceback.format_exc())
@@ -1208,84 +1215,12 @@ class VMHandler(HandlerBase):
             # Grab the SSH Key
             admin_ssh_key = self.get_config()[AmConstants.PLAYBOOK_SECTION][AmConstants.ADMIN_SSH_KEY]
 
-            return self.__execute_ansible(inventory_path=None, playbook_path=playbook_path, extra_vars=extra_vars,
-                                          sources=f"{mgmt_ip},", private_key_file=admin_ssh_key, user=user)
+            return Utils.execute_ansible(inventory_path=None, playbook_path=playbook_path, extra_vars=extra_vars,
+                                         sources=f"{mgmt_ip},", private_key_file=admin_ssh_key, user=user,
+                                         logger=self.get_logger())
         except Exception as e:
             self.get_logger().error(f"Exception : {e}")
             self.get_logger().error(traceback.format_exc())
-
-    def __execute_command(self, *, mgmt_ip: str, user: str, command: str, timeout: int = 60, retry: int = 3):
-        """
-        Execute a command on the VM
-        :param mgmt_ip Management IP to access the VM
-        :param user Default Linux user to use for SSH/Ansible
-        :param command Command to execute
-        :param timeout Timeout in seconds
-        :param retry Number of retries
-        :return:
-        """
-        for i in range(retry):
-            try:
-                # Construct the SSH client
-                ssh = paramiko.SSHClient()
-                ssh.set_missing_host_key_policy(paramiko.AutoAddPolicy())
-                key_file = self.get_config()[AmConstants.PLAYBOOK_SECTION][AmConstants.ADMIN_SSH_KEY]
-                pkey = paramiko.RSAKey.from_private_key_file(key_file)
-                ssh.connect(mgmt_ip, username=user, timeout=timeout, pkey=pkey)
-
-                # Execute the command
-                stdin, stdout, stderr = ssh.exec_command(command)
-                output = stdout.readlines()
-                ssh.close()
-                return output
-            except Exception as e:
-                self.get_logger().error(f"Exception : {e}")
-                self.get_logger().error(traceback.format_exc())
-                if i < retry - 1:
-                    time.sleep(timeout)
-                    self.get_logger().info(f"Retrying command {command} on VM {mgmt_ip}")
-                else:
-                    self.get_logger().error(f"Failed to execute command {command} on VM {mgmt_ip}")
-                    raise e
-
-    def __verify_ssh(self, *, mgmt_ip: str, user: str, timeout: int = 60, retry: int = 10):
-        """
-        Verify that the VM is accessible via SSH
-        :param mgmt_ip Management IP to access the VM
-        :param user Default Linux user to use for SSH/Ansible
-        :param retry Number of retries
-        :param retry_interval Timeout in seconds
-
-        """
-        command = f"echo test ssh from {mgmt_ip} > /tmp/fabric_execute_script.sh; " \
-                  f"chmod +x /tmp/fabric_execute_script.sh; /tmp/fabric_execute_script.sh"
-
-        try:
-            output = self.__execute_command(mgmt_ip=mgmt_ip, user=user, command=command,
-                                            timeout=timeout, retry=retry)
-            self.get_logger().info(f"Output: {output}")
-        except Exception as e:
-            pass
-
-    def __execute_ansible(self, *, inventory_path: str, playbook_path: str, extra_vars: dict, sources: str = None,
-                          private_key_file: str = None, host_vars: dict = None, host: str = None, user: str = None):
-        ansible_python_interpreter = None
-        # Head node or Worker
-        if inventory_path is not None:
-            ansible_python_interpreter = self.get_ansible_python_interpreter()
-        ansible_helper = AnsibleHelper(inventory_path=inventory_path, logger=self.get_logger(),
-                                       ansible_python_interpreter=ansible_python_interpreter,
-                                       sources=sources)
-
-        ansible_helper.set_extra_vars(extra_vars=extra_vars)
-
-        if host is not None and host_vars is not None and len(host_vars) > 0:
-            for key, value in host_vars.items():
-                ansible_helper.add_vars(host=host, var_name=key, value=value)
-
-        self.get_logger().info(f"Executing playbook {playbook_path} extra_vars: {extra_vars} host_vars: {host_vars}")
-        ansible_helper.run_playbook(playbook_path=playbook_path, private_key_file=private_key_file, user=user)
-        return ansible_helper.get_result_callback().get_json_result_ok()
 
     def __poa_cpuinfo(self, unit: ConfigToken, data: dict) -> dict:
         result = {Constants.PROPERTY_TARGET_NAME: Constants.TARGET_POA,
@@ -1626,8 +1561,9 @@ class VMHandler(HandlerBase):
             # Grab the SSH Key
             admin_ssh_key = self.get_config()[AmConstants.PLAYBOOK_SECTION][AmConstants.ADMIN_SSH_KEY]
 
-            self.__execute_ansible(inventory_path=None, playbook_path=playbook_path, extra_vars=extra_vars,
-                                   sources=f"{sliver.management_ip},", private_key_file=admin_ssh_key, user=user)
+            Utils.execute_ansible(inventory_path=None, playbook_path=playbook_path, extra_vars=extra_vars,
+                                  sources=f"{sliver.management_ip},", private_key_file=admin_ssh_key, user=user,
+                                  logger=self.get_logger())
 
             result[Constants.PROPERTY_POA_INFO] = {
                 AmConstants.OPERATION: data.get(AmConstants.OPERATION),

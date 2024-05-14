@@ -70,6 +70,7 @@ class AmConstants:
     OP_MOUNT = "mount"
     OP_ADDKEY = "addkey"
     OP_REMOVEKEY = "removekey"
+    OP_CONFIG = "config"
 
     PORT_NAME = "portname"
     NETWORK_NAME = "networkname"
