@@ -49,6 +49,19 @@
     mode: "0600"
   when: operation == 'config'
 
+- name: Copy SDE tarball to the Switch
+  copy:
+    src: "{{ sde_file_name }}"
+    dest: "/home/rare/{{ sde_file_name | basename }}"
+  when: operation == 'config'
+
+- name: Extract SDE tarball on the Switch
+  unarchive:
+    src: "/home/rare/{{ sde_file_name | basename }}"
+    dest: /home/rare/
+    remote_src: yes
+  when: operation == 'config'
+
 - name: Remove SSH key from authorized_keys
   lineinfile:
     path: ~/.ssh/authorized_keys

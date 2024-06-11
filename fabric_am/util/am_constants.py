@@ -115,11 +115,13 @@ class AmConstants:
     IMAGE = "image"
     HOSTNAME = "hostname"
     SSH_KEY = "sshkey"
+    SDE_FILE_NAME = "sde_file_name"
     DEFAULT_USER = "default_user"
     INIT_SCRIPT = "init_script"
     USER_DATA = "user_data"
     USER = "user"
     KEYS = "keys"
+    P4 = "P4"
 
     ROOT_USER = "root"
 

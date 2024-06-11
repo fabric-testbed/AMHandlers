@@ -22,6 +22,8 @@
 #
 #
 # Author: Komal Thareja (kthare10@renci.org)
+runtime:
+  P4: /etc/fabric/actor/playbooks/p4/bf-sde-9.7.1.tgz
 playbooks:
   location: /etc/fabric/actor/playbooks
   inventory_location: /etc/fabric/actor/playbooks/inventory
