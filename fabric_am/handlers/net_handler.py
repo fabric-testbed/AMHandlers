@@ -849,7 +849,7 @@ class NetHandler(HandlerBase):
                     bgp_data['local-ipv4'] = {'address': ipv4_addr_mask[0], 'netmask': ipv4_addr_mask[1]}
                 elif labs.ipv6_subnet:
                     ipv6_addr_mask = labs.ipv6_subnet.split('/')
-                    bgp_data['local-ipv4'] = {'address': ipv6_addr_mask[0], 'netmask': ipv6_addr_mask[1]}
+                    bgp_data['local-ipv6'] = {'address': ipv6_addr_mask[0], 'netmask': ipv6_addr_mask[1]}
                 else:
                     raise NetHandlerException(f'l3vpn - missing ipv4_subnet or ipv6_subnet label for site {site_data["device"]} on BGP interface {str(interface)}')
                 # add bgp peering remote
@@ -858,7 +858,7 @@ class NetHandler(HandlerBase):
                     bgp_data['remote-ipv4'] = {'address': ipv4_addr_mask[0], 'netmask': ipv4_addr_mask[1]}
                 elif labs.ipv6_subnet:
                     ipv6_addr_mask = peer_labs.ipv6_subnet.split('/')
-                    bgp_data['remote-ipv4'] = {'address': ipv6_addr_mask[0], 'netmask': ipv6_addr_mask[1]}
+                    bgp_data['remote-ipv6'] = {'address': ipv6_addr_mask[0], 'netmask': ipv6_addr_mask[1]}
                 else:
                     raise NetHandlerException(f'l3vpn - missing peering label ipv4_subnet or ipv6_subnet for site {site_data["device"]} on BGP interface {str(interface)}')
                 if peer_labs.asn:
@@ -889,7 +889,7 @@ class NetHandler(HandlerBase):
                             f'l3vpn - conflicting ipv4_subnet and ipv6_subnet labels for direct gateway config on site {site_data["device"]}')
                     else:
                         ipv6_addr_mask = labs.ipv6_subnet.split('/')
-                        site_data['direct']['gateway-ipv4'] = {'address': ipv6_addr_mask[0], 'netmask': ipv6_addr_mask[1]}
+                        site_data['direct']['gateway-ipv6'] = {'address': ipv6_addr_mask[0], 'netmask': ipv6_addr_mask[1]}
                 else:
                     raise NetHandlerException(
                         f'l3vpn - require either ipv4_subnet or ipv6_subnet label for interface via direct gateway on site {site_data["device"]}')
