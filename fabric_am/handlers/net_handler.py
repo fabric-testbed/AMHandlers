@@ -242,19 +242,20 @@ class NetHandler(HandlerBase):
             sliver = unit.get_sliver()
             if sliver is None:
                 raise NetHandlerException(f"Unit # {unit} has no assigned slivers")
+            time_start = datetime.datetime.now()
             unit_id = str(unit.get_reservation_id())
-            delete_retries = 3
-            for i in range(delete_retries):
+            while True:
                 try:
-                    self.get_logger().debug(f"Delete attempt # {i}")
                     self.__cleanup(sliver=sliver, raise_exception=True, unit_id=unit_id)
                     break
                 except (PlaybookException, NetHandlerException) as pne:
-                    if i < delete_retries:
-                        continue
-                    else:
-                        self.get_logger().warning(f'Delete Failed - cleanup attempts {delete_retries}')
+                    retry_secs = (datetime.datetime.now() - time_start).total_seconds()
+                    if retry_secs > 25*60:  # still about 5 minutes for another retry
+                        self.get_logger().warning(f'Give up retrying _cleanup() at {retry_secs} seconds ')
                         raise pne
+                    time.sleep(3*60)  # sleep 2 minutes before next retry
+                    retry_secs += 3*60
+                    self.get_logger().warning(f'Retry failed _cleanup() at {retry_secs} seconds ')
         except Exception as e:
             result = {Constants.PROPERTY_TARGET_NAME: Constants.TARGET_DELETE,
                       Constants.PROPERTY_TARGET_RESULT_CODE: Constants.RESULT_CODE_EXCEPTION,
@@ -849,7 +850,7 @@ class NetHandler(HandlerBase):
                     bgp_data['local-ipv4'] = {'address': ipv4_addr_mask[0], 'netmask': ipv4_addr_mask[1]}
                 elif labs.ipv6_subnet:
                     ipv6_addr_mask = labs.ipv6_subnet.split('/')
-                    bgp_data['local-ipv6'] = {'address': ipv6_addr_mask[0], 'netmask': ipv6_addr_mask[1]}
+                    bgp_data['local-ipv4'] = {'address': ipv6_addr_mask[0], 'netmask': ipv6_addr_mask[1]}
                 else:
                     raise NetHandlerException(f'l3vpn - missing ipv4_subnet or ipv6_subnet label for site {site_data["device"]} on BGP interface {str(interface)}')
                 # add bgp peering remote
@@ -858,7 +859,7 @@ class NetHandler(HandlerBase):
                     bgp_data['remote-ipv4'] = {'address': ipv4_addr_mask[0], 'netmask': ipv4_addr_mask[1]}
                 elif labs.ipv6_subnet:
                     ipv6_addr_mask = peer_labs.ipv6_subnet.split('/')
-                    bgp_data['remote-ipv6'] = {'address': ipv6_addr_mask[0], 'netmask': ipv6_addr_mask[1]}
+                    bgp_data['remote-ipv4'] = {'address': ipv6_addr_mask[0], 'netmask': ipv6_addr_mask[1]}
                 else:
                     raise NetHandlerException(f'l3vpn - missing peering label ipv4_subnet or ipv6_subnet for site {site_data["device"]} on BGP interface {str(interface)}')
                 if peer_labs.asn:
@@ -889,7 +890,7 @@ class NetHandler(HandlerBase):
                             f'l3vpn - conflicting ipv4_subnet and ipv6_subnet labels for direct gateway config on site {site_data["device"]}')
                     else:
                         ipv6_addr_mask = labs.ipv6_subnet.split('/')
-                        site_data['direct']['gateway-ipv6'] = {'address': ipv6_addr_mask[0], 'netmask': ipv6_addr_mask[1]}
+                        site_data['direct']['gateway-ipv4'] = {'address': ipv6_addr_mask[0], 'netmask': ipv6_addr_mask[1]}
                 else:
                     raise NetHandlerException(
                         f'l3vpn - require either ipv4_subnet or ipv6_subnet label for interface via direct gateway on site {site_data["device"]}')
@@ -904,8 +905,16 @@ class NetHandler(HandlerBase):
         if sliver.mirror_direction:
             direction = str(sliver.mirror_direction).lower()
         data = {"name": service_name,
-                "from-interface": self.parse_interface_name(sliver.mirror_port),
                 "direction": direction}
+        interface = self.parse_interface_name(sliver.mirror_port)
+        if "outervlan" in interface or "innervlan" in interface:
+            if 'from-interface-vlan' not in data:
+                data['from-interface-vlan'] = []
+            data['from-interface-vlan'].append(self.parse_interface_name(sliver.mirror_port))
+        else:
+            if 'from-interface' not in data:
+                data['from-interface'] = []
+            data['from-interface'].append(self.parse_interface_name(sliver.mirror_port))
         if len(sliver.interface_info.interfaces) != 1:
             raise NetHandlerException(
                 f'port_mirror - requires 1 destination interface but was given {len(sliver.interface_info.interfaces)}')
@@ -925,7 +934,11 @@ class NetHandler(HandlerBase):
         interface_type_id = re.findall(r'(\w+)(\d.+)', interface_name)
         if not interface_type_id or len(interface_type_id[0]) != 2:
             raise NetHandlerException(f'interface name "{interface_name}" is malformed')
-        interface = {'type': interface_type_id[0][0], 'id': interface_type_id[0][1]}
+        if "." in interface_type_id[0][1]:
+            id_tags = interface_type_id[0][1].split(".")
+            interface = {'type': interface_type_id[0][0], 'id': id_tags[0], 'outervlan': id_tags[1]}
+        else:
+            interface = {'type': interface_type_id[0][0], 'id': interface_type_id[0][1]}
         return interface
 
     def poa(self, unit: ConfigToken, data: dict) -> Tuple[dict, ConfigToken]:
