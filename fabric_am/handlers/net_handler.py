@@ -904,8 +904,16 @@ class NetHandler(HandlerBase):
         if sliver.mirror_direction:
             direction = str(sliver.mirror_direction).lower()
         data = {"name": service_name,
-                "from-interface": self.parse_interface_name(sliver.mirror_port),
                 "direction": direction}
+        interface = self.parse_interface_name(sliver.mirror_port)
+        if "outervlan" in interface or "innervlan" in interface:
+            if 'from-interface-vlan' not in data:
+                data['from-interface-vlan'] = []
+            data['from-interface-vlan'].append(self.parse_interface_name(sliver.mirror_port))
+        else:
+            if 'from-interface' not in data:
+                data['from-interface'] = []
+            data['from-interface'].append(self.parse_interface_name(sliver.mirror_port))
         if len(sliver.interface_info.interfaces) != 1:
             raise NetHandlerException(
                 f'port_mirror - requires 1 destination interface but was given {len(sliver.interface_info.interfaces)}')
@@ -925,7 +933,11 @@ class NetHandler(HandlerBase):
         interface_type_id = re.findall(r'(\w+)(\d.+)', interface_name)
         if not interface_type_id or len(interface_type_id[0]) != 2:
             raise NetHandlerException(f'interface name "{interface_name}" is malformed')
-        interface = {'type': interface_type_id[0][0], 'id': interface_type_id[0][1]}
+        if "." in interface_type_id[0][1]:
+            id_tags = interface_type_id[0][1].split(".")
+            interface = {'type': interface_type_id[0][0], 'id': id_tags[0], 'outervlan': id_tags[1]}
+        else:
+            interface = {'type': interface_type_id[0][0], 'id': interface_type_id[0][1]}
         return interface
 
     def poa(self, unit: ConfigToken, data: dict) -> Tuple[dict, ConfigToken]:
