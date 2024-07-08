@@ -906,14 +906,15 @@ class NetHandler(HandlerBase):
         data = {"name": service_name,
                 "direction": direction}
         interface = self.parse_interface_name(sliver.mirror_port)
-        if "outervlan" in interface or "innervlan" in interface:
+        if sliver.mirror_vlan:
             if 'from-interface-vlan' not in data:
                 data['from-interface-vlan'] = []
-            data['from-interface-vlan'].append(self.parse_interface_name(sliver.mirror_port))
+            interface['outervlan'] = sliver.mirror_vlan
+            data['from-interface-vlan'].append(interface)
         else:
             if 'from-interface' not in data:
                 data['from-interface'] = []
-            data['from-interface'].append(self.parse_interface_name(sliver.mirror_port))
+            data['from-interface'].append(interface)
         if len(sliver.interface_info.interfaces) != 1:
             raise NetHandlerException(
                 f'port_mirror - requires 1 destination interface but was given {len(sliver.interface_info.interfaces)}')
@@ -926,18 +927,17 @@ class NetHandler(HandlerBase):
             data['device'] = labs.device_name
             if labs.local_name is None:
                 raise NetHandlerException(f'port_mirror - interface "{interface_name}" has no "local_name" label')
-            data['to-interface'] = self.parse_interface_name(labs.local_name)
+            interface = self.parse_interface_name(labs.local_name)
+            if labs.vlan:
+                interface['outervlan'] = labs.vlan
+            data['to-interface'] = interface
         return data
 
     def parse_interface_name(self, interface_name: str) -> dict:
         interface_type_id = re.findall(r'(\w+)(\d.+)', interface_name)
         if not interface_type_id or len(interface_type_id[0]) != 2:
             raise NetHandlerException(f'interface name "{interface_name}" is malformed')
-        if "." in interface_type_id[0][1]:
-            id_tags = interface_type_id[0][1].split(".")
-            interface = {'type': interface_type_id[0][0], 'id': id_tags[0], 'outervlan': id_tags[1]}
-        else:
-            interface = {'type': interface_type_id[0][0], 'id': interface_type_id[0][1]}
+        interface = {'type': interface_type_id[0][0], 'id': interface_type_id[0][1]}
         return interface
 
     def poa(self, unit: ConfigToken, data: dict) -> Tuple[dict, ConfigToken]:
