@@ -34,23 +34,26 @@ runtime:
   #max_flavor: fabric.c4.m8.d10
   images:
     default_centos8_stream: centos
-    default_centos9_stream: cloud-user 
-    default_centos_7: centos
-    default_centos_8: centos
-    default_debian_10: debian
+    default_centos9_stream: cloud-user
     default_debian_11: debian
-    default_fedora_35: fedora
-    default_fedora_36: fedora
-    default_fedora_37: fedora
+    default_debian_12: debian
+    default_fedora_39: fedora
+    default_fedora_40: fedora
+    default_freebsd_13_zfs: freebsd
+    default_freebsd_14_zfs: freebsd
+    default_kali: kali
+    default_openbsd_7: openbsd
     default_rocky_8: rocky
     default_rocky_9: rocky
-    default_ubuntu_18: ubuntu
     default_ubuntu_20: ubuntu
-    default_ubuntu_21: ubuntu
     default_ubuntu_22: ubuntu
+    default_ubuntu_24: ubuntu
     docker_rocky_8: rocky
+    docker_rocky_9: rocky
     docker_ubuntu_20: ubuntu
     docker_ubuntu_22: ubuntu
+    attestable_bmv2_v1_ubuntu_20: ubuntu
+    attestable_bmv2_v2_ubuntu_20: ubuntu
 playbooks:
   location: fabric_am/playbooks
   inventory_location: fabric_am/playbooks/inventory
