@@ -203,7 +203,8 @@ class VMHandler(HandlerBase):
             Utils.verify_ssh(mgmt_ip=fip, user=user, retry=ssh_retries, ssh_key_file=admin_ssh_key,
                              logger=self.get_logger())
 
-            sliver.management_ip = fip
+            if fip:
+                sliver.management_ip = str(fip)
             # Configure Components - only gets triggered via Portal for now
             self.__configure_components(sliver=sliver)
 
