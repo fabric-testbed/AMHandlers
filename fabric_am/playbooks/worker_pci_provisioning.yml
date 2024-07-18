@@ -6,5 +6,7 @@
 
   vars:
 
+  gather_facts: no
+
   roles:
     - worker_pci_provisioning

@@ -23,8 +23,16 @@
 #
 #
 # Author: Komal Thareja (kthare10@renci.org)
+import logging
 import re
+import time
+import traceback
 from typing import List, Dict, Any
+
+import paramiko
+
+from fabric_am.util.am_constants import AmConstants
+from fabric_am.util.ansible_helper import AnsibleHelper
 
 
 class Utils:
@@ -228,3 +236,100 @@ class Utils:
                 else:
                     result[key] = value
         return result
+
+    @staticmethod
+    def execute_command(*, mgmt_ip: str, user: str, command: str, logger: logging.Logger,
+                        timeout: int = 60, retry: int = 3, pwd: str = None, ssh_key_file: str = None):
+        """
+        Execute a command on the VM
+        :param mgmt_ip Management IP to access the VM
+        :param user Default Linux user to use for SSH/Ansible
+        :param command Command to execute
+        :param logger logger
+        :param timeout Timeout in seconds
+        :param retry Number of retries
+        :param pwd password
+        :param ssh_key_file ssh_key file
+        :return:
+        """
+        for i in range(retry):
+            try:
+                # Construct the SSH client
+                ssh = paramiko.SSHClient()
+                ssh.set_missing_host_key_policy(paramiko.AutoAddPolicy())
+                if pwd is not None:
+                    # Use password for authentication
+                    ssh.connect(mgmt_ip, username=user, password=pwd, timeout=timeout)
+                else:
+                    pkey = paramiko.RSAKey.from_private_key_file(ssh_key_file)
+                    ssh.connect(mgmt_ip, username=user, timeout=timeout, pkey=pkey)
+
+                # Execute the command
+                stdin, stdout, stderr = ssh.exec_command(command)
+                output = stdout.readlines()
+                ssh.close()
+                return output
+            except Exception as e:
+                logger.error(f"Exception : {e}")
+                logger.error(traceback.format_exc())
+                if i < retry - 1:
+                    time.sleep(timeout)
+                    logger.info(f"Retrying command {command} on VM {mgmt_ip}")
+                else:
+                    logger.error(f"Failed to execute command {command} on VM {mgmt_ip}")
+                    raise e
+
+    @staticmethod
+    def verify_ssh(*, mgmt_ip: str, user: str, logger: logging.Logger, timeout: int = 60, retry: int = 10,
+                   pwd: str = None, ssh_key_file: str = None):
+        """
+        Verify that the VM is accessible via SSH
+        :param mgmt_ip Management IP to access the VM
+        :param user Default Linux user to use for SSH/Ansible
+        :param logger Logger
+        :param timeout timeout
+        :param retry Number of retries
+        :param pwd password
+        :param ssh_key_file ssh_key_file
+
+        """
+        command = f"echo test ssh from {mgmt_ip} > /tmp/fabric_execute_script.sh; " \
+                  f"chmod +x /tmp/fabric_execute_script.sh; /tmp/fabric_execute_script.sh"
+
+        try:
+            output = Utils.execute_command(mgmt_ip=mgmt_ip, user=user, command=command, logger=logger,
+                                           timeout=timeout, retry=retry, pwd=pwd, ssh_key_file=ssh_key_file)
+            logger.info(f"Output: {output}")
+        except Exception as e:
+            pass
+
+    @staticmethod
+    def execute_ansible(*, inventory_path: str, playbook_path: str, extra_vars: dict, logger: logging.Logger,
+                        sources: str = None, private_key_file: str = None, host_vars: dict = None,
+                        host: str = None, user: str = None):
+        """
+        Execute ansible
+        :param inventory_path: inventory location
+        :param playbook_path: playbook
+        :param extra_vars: extra vars
+        :param logger: logger
+        :param sources: sources
+        :param private_key_file: private key file
+        :param host_vars: host vars
+        :param host: host
+        :param user: user
+
+        :return OK results
+        :raises Exception in case of failure
+        """
+        ansible_helper = AnsibleHelper(inventory_path=inventory_path, logger=logger, sources=sources)
+
+        ansible_helper.set_extra_vars(extra_vars=extra_vars)
+
+        if host is not None and host_vars is not None and len(host_vars) > 0:
+            for key, value in host_vars.items():
+                ansible_helper.add_vars(host=host, var_name=key, value=value)
+
+        logger.info(f"Executing playbook {playbook_path} extra_vars: {extra_vars} host_vars: {host_vars}")
+        ansible_helper.run_playbook(playbook_path=playbook_path, private_key_file=private_key_file, user=user)
+        return ansible_helper.get_result_callback().get_json_result_ok()
