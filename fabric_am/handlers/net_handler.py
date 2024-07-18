@@ -904,8 +904,17 @@ class NetHandler(HandlerBase):
         if sliver.mirror_direction:
             direction = str(sliver.mirror_direction).lower()
         data = {"name": service_name,
-                "from-interface": self.parse_interface_name(sliver.mirror_port),
                 "direction": direction}
+        interface = self.parse_interface_name(sliver.mirror_port)
+        if sliver.mirror_vlan:
+            if 'from-interface-vlan' not in data:
+                data['from-interface-vlan'] = []
+            interface['outervlan'] = sliver.mirror_vlan
+            data['from-interface-vlan'].append(interface)
+        else:
+            if 'from-interface' not in data:
+                data['from-interface'] = []
+            data['from-interface'].append(interface)
         if len(sliver.interface_info.interfaces) != 1:
             raise NetHandlerException(
                 f'port_mirror - requires 1 destination interface but was given {len(sliver.interface_info.interfaces)}')
@@ -918,7 +927,10 @@ class NetHandler(HandlerBase):
             data['device'] = labs.device_name
             if labs.local_name is None:
                 raise NetHandlerException(f'port_mirror - interface "{interface_name}" has no "local_name" label')
-            data['to-interface'] = self.parse_interface_name(labs.local_name)
+            interface = self.parse_interface_name(labs.local_name)
+            if labs.vlan:
+                interface['outervlan'] = labs.vlan
+            data['to-interface'] = interface
         return data
 
     def parse_interface_name(self, interface_name: str) -> dict:
