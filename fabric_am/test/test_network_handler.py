@@ -1060,14 +1060,16 @@ class TestNetHandler(unittest.TestCase):
         #
         sliver = NetworkServiceSliver()
         # service name (set by user) - only guaranteed unique within a slice
-        sliver.set_name('PortMirror-UKY')
+        sliver.set_name('PortMirror-RENC')
         sliver.set_type(ServiceType.PortMirror)
         sliver.set_layer(NSLayer.L2)
 
         # mirror_port is the name of the port being mirrored - actual name the way
         # service definition needs it. It comes directly from ASM network service sliver
         # whatever the right name is - user must to know it when creating a slice
-        sliver.mirror_port = "TwentyFiveGigE0/0/0/24"
+        sliver.mirror_port = "HundredGigE0/0/0/17"
+        # Optional: set the vlan tag
+        sliver.mirror_vlan = "100"
         # direction also comes from ASM network service sliver
         sliver.mirror_direction = MirrorDirection.Both
 
@@ -1078,7 +1080,11 @@ class TestNetHandler(unittest.TestCase):
         stp_to = InterfaceSliver()
         stp_to.set_name('Interface_To_Which_We_Send_Mirrored_Traffic')
         stp_to.set_type(InterfaceType.ServicePort)
-        sliver_labels = Labels(local_name='TwentyFiveGigE0/0/0/23/1', device_name='lbnl-data-sw')
+        sliver_labels = Labels(local_name='HundredGigE0/0/0/19',
+                               device_name='renc-data-sw',
+                               # Optional: set VLAN tag
+                                vlan="100"
+                               )
         sliver_capacities = Capacities(bw=2000)
         stp_to.set_labels(sliver_labels)
         stp_to.set_capacities(sliver_capacities)
