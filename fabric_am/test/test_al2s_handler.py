@@ -139,8 +139,8 @@ class TestAl2sHandler(unittest.TestCase):
     #     self.assertEqual(r[Constants.PROPERTY_TARGET_NAME], Constants.TARGET_DELETE)
     #     self.assertEqual(r[Constants.PROPERTY_ACTION_SEQUENCE_NUMBER], 0)
     #     self.assertEqual(r[Constants.PROPERTY_TARGET_RESULT_CODE], Constants.RESULT_CODE_OK)
-    #
-    #
+    
+    
     # def test_L3Cloud(self):
     #     # create a NetworkService sliver for FABNetv4
     #     prop = {AmConstants.CONFIG_PROPERTIES_FILE: '../config/oess_handler_config.yml'}
@@ -361,17 +361,20 @@ class TestAl2sHandler(unittest.TestCase):
         # name and peer interface sliver name.
         isl1.set_type(InterfaceType.ServicePort)
     
-        sliver_labels = Labels(ipv4_subnet='192.168.100.1/30',
+        #
+        # NOTE: use prefix with suffient size to assure local and peer on the same subnet
+        #
+        sliver_labels = Labels(ipv4_subnet='192.168.100.10/16',
                                vlan='100', 
                                local_name='Bundle-Ether5',
                                device_name='agg3.ashb')
-        sliver_peer_labels = Labels(ipv4_subnet='192.168.100.2/30', asn='16550',
-                                    bgp_key='0xzsEwC7xk6c1fK_h.xHyAdx',
-                                    account_id='ae835d22-b10c-4d40-bd98-0dbc4259684d/us-east4/2',
+        sliver_peer_labels = Labels(ipv4_subnet='192.168.100.20/16', asn='16550',
+                                    # bgp_key='0xzsEwC7xk6c1fK_h.xHyAdx',
+                                    account_id='18af373b-9f08-4cd1-a45a-5e2f570ece92/us-east4/2',
                                     local_name='Google Cloud Platform')
     
         # capacities (bw in Gbps, burst size is in Mbytes) source: (b)
-        sliver_capacities = Capacities(bw=50, mtu=9001)
+        sliver_capacities = Capacities(bw=50, mtu=1460)
     
         # assign labels and capacities
         isl1.set_labels(sliver_labels)
@@ -452,7 +455,7 @@ class TestAl2sHandler(unittest.TestCase):
         sliver.set_type(ServiceType.L3VPN)
         sliver.set_layer(NSLayer.L3)
         # the ASN of *this* service
-        sliver.set_labels(Labels(asn='55038', local_name='al2s_l3_aws_interconn_test1'))
+        sliver.set_labels(Labels(asn='55038', local_name='al2s_l3_aws_interconn_test'))
     
         # this is the gateway with the IP range picked for this sliver in this slice on this site
         # can also be specified with ipv6/ipv6_subnet and mac is optional for both.
@@ -475,11 +478,11 @@ class TestAl2sHandler(unittest.TestCase):
         # name and peer interface sliver name.
         isl1.set_type(InterfaceType.ServicePort)
     
-        sliver_labels = Labels(ipv4_subnet='192.168.5.2/30',
-                               vlan='501', 
-                               local_name='TenGigE0/0/0/12/2',
-                               device_name='agg4.sanj')
-        sliver_peer_labels = Labels(ipv4_subnet='192.168.5.1/30', asn='64512',
+        sliver_labels = Labels(ipv4_subnet='192.168.5.2/24',
+                               vlan='31', 
+                               local_name='TenGigE0/0/0/13/3',
+                               device_name='agg3.dall3')
+        sliver_peer_labels = Labels(ipv4_subnet='192.168.5.1/24', asn='64512',
                                     bgp_key='0xzsEwC7xk6c1fK_h.xHyAdx', account_id='296256999979',
                                     local_name='AWS')
     
@@ -498,11 +501,11 @@ class TestAl2sHandler(unittest.TestCase):
         isl2.set_name('FABRIC')
         isl2.set_type(InterfaceType.ServicePort)
     
-        sliver_labels = Labels(ipv4_subnet='192.168.100.2/30',
-                               vlan='100', 
-                               local_name='HundredGigE0/0/0/27',
-                               device_name='core1.star')
-        sliver_peer_labels = Labels(ipv4_subnet='192.168.100.1/30', asn='64512',
+        sliver_labels = Labels(ipv4_subnet='192.168.100.2/24',
+                               vlan='854', 
+                               local_name='HundredGigE0/0/0/24',
+                               device_name='core1.loui')
+        sliver_peer_labels = Labels(ipv4_subnet='192.168.100.1/24', asn='64512',
                                     bgp_key='0xzsEwC7xk6c1fK_h.xHyAdx',
                                     local_name='FABRIC')
     
@@ -534,8 +537,81 @@ class TestAl2sHandler(unittest.TestCase):
         self.assertEqual(r[Constants.PROPERTY_TARGET_NAME], Constants.TARGET_CREATE)
         self.assertEqual(r[Constants.PROPERTY_ACTION_SEQUENCE_NUMBER], 0)
         self.assertEqual(r[Constants.PROPERTY_TARGET_RESULT_CODE], Constants.RESULT_CODE_OK)
-    
-        time.sleep(60)
+        
+        time.sleep(30)
+        
+        #
+        # modify -
+        #
+
+        modified_sliver = NetworkServiceSliver()
+        # service name (set by user) - only guaranteed unique within a slice
+        modified_sliver.set_name('L3VPN-Cloud')  # must be the same name
+        modified_sliver.set_type(ServiceType.L3VPN)
+        modified_sliver.set_layer(NSLayer.L3)
+
+        ifi = InterfaceInfo()  # started over
+        
+        # remove interface 1
+        # ifi.add_interface(isl1)  # Add Interface1 (reused)
+
+        # modify Interface 2
+        isl2 = InterfaceSliver()
+        isl2.set_name('FABRIC')
+        isl2.set_type(InterfaceType.ServicePort)
+        
+        sliver_labels = Labels(ipv4_subnet='192.168.100.20/24',
+                               vlan='854', 
+                               local_name='HundredGigE0/0/0/24',
+                               device_name='core1.loui')
+        sliver_peer_labels = Labels(ipv4_subnet='192.168.100.10/24', asn='64512',
+                                    bgp_key='0xzsEwC7xk6c1fK_h.xHyAdx',
+                                    local_name='FABRIC')
+        
+        # capacities (bw in Gbps, burst size is in Mbytes) source: (b)
+        sliver_capacities = Capacities(bw=0, mtu=9000)
+        
+        isl2.set_labels(sliver_labels)
+        isl2.set_peer_labels(sliver_peer_labels)
+        isl2.set_capacities(sliver_capacities)
+        
+        ifi.add_interface(isl2)
+        
+        
+        
+        # add Interface 3
+        isl3 = InterfaceSliver()
+        isl3.set_name('FABRIC1')
+        isl3.set_type(InterfaceType.ServicePort)
+        
+        sliver_labels = Labels(ipv4_subnet='192.168.100.25/24',
+                               vlan='855', 
+                               local_name='HundredGigE0/0/0/24',
+                               device_name='core1.loui')
+        sliver_peer_labels = Labels(ipv4_subnet='192.168.100.15/24', asn='64512',
+                                    bgp_key='0xzsEwC7xk6c1fK_h.xHyAdx',
+                                    local_name='FABRIC')
+        
+        # capacities (bw in Gbps, burst size is in Mbytes) source: (b)
+        sliver_capacities = Capacities(bw=0, mtu=9000)
+        
+        isl3.set_labels(sliver_labels)
+        isl3.set_peer_labels(sliver_peer_labels)
+        isl3.set_capacities(sliver_capacities)
+        
+        ifi.add_interface(isl3)
+        
+        modified_sliver.interface_info = ifi
+
+        updated_unit.set_modified(modified=modified_sliver)
+        
+        r, updated_unit = handler.modify(updated_unit)
+        self.assertEqual(r[Constants.PROPERTY_TARGET_NAME], Constants.TARGET_MODIFY)
+        self.assertEqual(r[Constants.PROPERTY_ACTION_SEQUENCE_NUMBER], 0)
+        self.assertEqual(r[Constants.PROPERTY_TARGET_RESULT_CODE], Constants.RESULT_CODE_OK)
+
+        time.sleep(30)
+        
     
         #
         # delete - need to make sure the updated unit has the right info to delete the service

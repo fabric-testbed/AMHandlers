@@ -31,6 +31,9 @@ from typing import Tuple
 from fabric_cf.actor.core.common.constants import Constants
 from fabric_cf.actor.core.plugins.handlers.config_token import ConfigToken
 from fabric_cf.actor.handlers.handler_base import HandlerBase
+from fabric_cf.actor.core.util.utils import ns_sliver_to_str
+from fabric_cf.actor.core.util.utils import ns_sliver_to_str
+
 from fim.slivers.capacities_labels import Labels, Capacities
 from fim.slivers.network_service import NetworkServiceSliver, MirrorDirection, NSLayer
 
@@ -113,7 +116,22 @@ class Al2sHandler(HandlerBase):
     """
     AL2S Handler
     """
+    def __has_sliver_changed(self, current: NetworkServiceSliver, requested: NetworkServiceSliver):
+        diff = current.diff(other_sliver=requested)
+        if diff is None:
+            return False
 
+        if (diff.added.interfaces is not None and len(diff.added.interfaces)) or \
+                (diff.removed.interfaces is not None and len(diff.removed.interfaces)) or \
+                (diff.modified.interfaces is not None and len(diff.modified.interfaces)):
+            return True
+
+        if diff.modified is not None and diff.modified.services is not None:
+            for new_ns, flag in diff.modified.services:
+                if flag & WhatsModifiedFlag.LABELS or flag & WhatsModifiedFlag.CAPACITIES:
+                    return True
+        return False
+    
     def get_ansible_python_interpreter(self) -> str:
         return self.get_config()[AmConstants.ANSIBLE_SECTION][
             AmConstants.ANSIBLE_PYTHON_INTERPRETER]
@@ -238,6 +256,106 @@ class Al2sHandler(HandlerBase):
         result = {Constants.PROPERTY_TARGET_NAME: Constants.TARGET_MODIFY,
                   Constants.PROPERTY_TARGET_RESULT_CODE: Constants.RESULT_CODE_OK,
                   Constants.PROPERTY_ACTION_SEQUENCE_NUMBER: 0}
+        
+        try:
+            self.get_logger().info(f"Modify invoked for unit: {unit}")
+            sliver = unit.get_sliver()
+            modified_sliver = unit.get_modified()
+            self.get_logger().info(f"Modified sliver: {modified_sliver}")
+
+            if not self.__has_sliver_changed(current=sliver, requested=modified_sliver):
+                self.get_logger().info(f"Modify - NO OP")
+                return result, unit
+
+            if sliver is None or modified_sliver is None:
+                raise NetHandlerException(f"Unit # {unit} has no assigned slivers for modify")
+
+            if not isinstance(sliver, NetworkServiceSliver) or not isinstance(modified_sliver, NetworkServiceSliver):
+                raise NetHandlerException(f"Invalid Sliver type {type(sliver)}  {type(modified_sliver)}")
+
+            if sliver.get_type() != modified_sliver.get_type():
+                raise NetHandlerException(f"Modify cannot change Sliver type {sliver.get_type()}  into {modified_sliver.get_type()}")
+
+            if sliver.get_name() != modified_sliver.get_name():
+                raise NetHandlerException(f"Modify cannot change Sliver name {sliver.get_name()}  into {modified_sliver.get_name()}")
+
+            self.logger.info("Current Sliver:")
+            self.logger.info(ns_sliver_to_str(sliver=sliver))
+
+            self.logger.info("Modified Sliver:")
+            self.logger.info(ns_sliver_to_str(sliver=modified_sliver))
+
+            unit_id = str(unit.get_reservation_id())
+
+            resource_type = str(modified_sliver.get_type())
+
+            playbook_path = self.get_config()[AmConstants.PLAYBOOK_SECTION][AmConstants.PB_LOCATION]
+            inventory_path = self.get_config()[AmConstants.PLAYBOOK_SECTION][AmConstants.PB_INVENTORY]
+
+            playbook = self.get_config()[AmConstants.PLAYBOOK_SECTION][resource_type]
+            if playbook is None or inventory_path is None or playbook_path is None:
+                raise NetHandlerException(f"Missing config parameters playbook: {playbook} "
+                                          f"playbook_path: {playbook_path} inventory_path: {inventory_path}")
+            playbook_path_full = f"{playbook_path}/{playbook}"
+
+            # same name for sliver and modified_sliver
+            if sliver.get_labels() is None or sliver.get_labels().local_name is None:
+                # truncate service_name length to no greater than 53 (36+1+16)
+                sliver_name = sliver.get_name()[:16] if len(sliver.get_name()) > 16 else sliver.get_name()
+                service_name = f'{sliver_name}-{unit_id}'
+            else:
+                service_name = sliver.get_labels().local_name
+            service_type = resource_type.lower()
+            if service_type == 'l2bridge':
+                service_data = self.__l2bridge_create_data(modified_sliver, service_name)
+            elif service_type == 'l2ptp':
+                service_data = self.__l2ptp_create_data(modified_sliver, service_name)
+            elif service_type == 'l2sts':
+                service_data = self.__l2sts_create_data(modified_sliver, service_name)
+            elif service_type == 'fabnetv4' or service_type == 'fabnetv4ext':
+                service_data = self.__fabnetv4_create_data(modified_sliver, service_name)
+                service_type = 'l3rt'
+            elif service_type == 'fabnetv6' or service_type == 'fabnetv6ext':
+                service_data = self.__fabnetv6_create_data(modified_sliver, service_name)
+                service_type = 'l3rt'
+            elif service_type == 'l3vpn':
+                service_data = self.__l3vpn_modify_data(sliver=sliver, modified_sliver=modified_sliver, service_name=service_name)
+                service_type = 'l3vpn'
+            elif service_type == 'portmirror':
+                service_data = self.__portmirror_create_data(modified_sliver, service_name)
+                service_type = 'port-mirror'
+            else:
+                raise NetHandlerException(f'unrecognized network service type "{service_type}"')
+
+            extra_vars = service_data
+            
+            print(json.dumps(extra_vars))
+            ansible_helper = AnsibleHelper(inventory_path=inventory_path, logger=self.get_logger())
+            ansible_helper.set_extra_vars(extra_vars=extra_vars)
+            self.get_logger().debug(f"Executing playbook {playbook_path_full} to create Network Service")
+            ansible_helper.run_playbook(playbook_path=playbook_path_full)
+            ansible_callback = ansible_helper.get_result_callback()
+            unreachable = ansible_callback.get_json_result_unreachable()
+            if unreachable:
+                raise NetHandlerException(f'network service {service_name} was not committed due to connection error')
+            failed = ansible_callback.get_json_result_failed()
+            if failed:
+                ansible_callback.dump_all_failed(logger=self.get_logger())
+                raise NetHandlerException(f'network service {service_name} was not committed due to config error')
+            ok = ansible_callback.get_json_result_ok()
+            if ok:
+                if not ok['changed']:
+                    self.get_logger().info(f'network service {service_name} was committed ok but without change')
+
+        except Exception as e:
+            self.get_logger().error(e)
+            result = {Constants.PROPERTY_TARGET_NAME: Constants.TARGET_MODIFY,
+                      Constants.PROPERTY_TARGET_RESULT_CODE: Constants.RESULT_CODE_EXCEPTION,
+                      Constants.PROPERTY_ACTION_SEQUENCE_NUMBER: 0,
+                      Constants.PROPERTY_EXCEPTION_MESSAGE: e}
+            self.get_logger().error(traceback.format_exc())
+        finally:
+            self.get_logger().info(f"Modify completed")
         
         # Nothing to do at this time
         return result, unit
@@ -403,6 +521,106 @@ class Al2sHandler(HandlerBase):
                 "op": "create",
                 "level": "L3",
                 "opargs": l3Connections}
+        
+        return data
+    
+    def _create_connections(self, interfaces:dict):
+        """ create a list of connections from the interfaces
+        """
+        l3Connections = []
+        for i, interface_name in enumerate(interfaces, start = 1):
+            connection = L3Connection(
+                displayPosition = i,
+                encapsulationType = "DOT1Q",
+                # authnType = "MD5",
+                authoringState = "LIVE")
+            
+            interface_sliver = interfaces[interface_name]
+            labs: Labels = interface_sliver.get_labels()
+            peerlabs: Labels = interface_sliver.get_peer_labels()
+            caps: Capacities = interface_sliver.get_capacities()
+            
+            if labs.device_name is None:
+                raise Al2sHandlerException(f'l3vpn - interface "{interface_name}" has no "device_name" label')
+            if labs.local_name is None:
+                raise Al2sHandlerException(f'l3vpn - interface "{interface_name}" has no "local_name" label')
+            
+            if caps is not None and caps.bw is not None:
+                connection.maxBandwidth = caps.bw      # specified in Mbps
+                
+            # connection.device = labs.device_name
+            # connection.interface = labs.local_name
+            connection.interfaceId = labs.device_name + ":" + labs.local_name
+            # connection.interfaceId = "5079eacf-3de6-42ba-a342-832ad8117e6f"
+            
+            connection.remoteName = peerlabs.local_name
+            connection.vlanOuterId = str(labs.vlan)
+            connection.mtu = caps.mtu
+            
+            connection.ipv4PrefixLength = int(labs.ipv4_subnet.split('/')[-1])
+            connection.localIPv4 = labs.ipv4_subnet.split('/')[0]
+            connection.remoteIPv4 = peerlabs.ipv4_subnet.split('/')[0]
+            
+            connection.remoteASN = peerlabs.asn
+            
+            if peerlabs.bgp_key:
+                connection.authnType = "MD5"
+                connection.authnConfig = {"md5": peerlabs.bgp_key}
+            
+            if peerlabs.account_id:
+                if peerlabs.local_name == 'AWS':
+                    connection.cloudConnectionType = 'AWS'
+                    connection.cloudConnectionConfig = {"ownerAccountId":peerlabs.account_id}
+                elif peerlabs.local_name == 'Google Cloud Platform':
+                    connection.cloudConnectionType = 'GCP'
+                    connection.cloudConnectionConfig = {"pairingKey":peerlabs.account_id}
+                else:
+                    raise Exception(f"Unimplemented cloud connect: {peerlabs.local_name}")
+            else:
+                connection.cloudConnectionType = 'NONCLOUD'
+                connection.cloudConnectionConfig = {}
+                
+            
+            # connection.entity = str(sliver.get_name())
+            
+            l3Connections.append(vars(connection))
+        
+        return l3Connections
+        
+
+    def __l3vpn_modify_data(self, sliver: NetworkServiceSliver,  modified_sliver: NetworkServiceSliver, service_name: str) -> dict:
+        
+        diff = sliver.diff(modified_sliver)
+        
+        added_interfaces = {}
+        for inf in diff.added.interfaces:
+            key = inf.get_name()    # inf -> interfacesliver
+            if key in modified_sliver.interface_info.interfaces:
+                added_interfaces.update({key:modified_sliver.interface_info.interfaces[key]})
+        added_connections = self._create_connections(added_interfaces)
+        
+        removed_interfaces = {}
+        for inf in diff.removed.interfaces:
+            key = inf.get_name()    # inf -> interfacesliver
+            if key in sliver.interface_info.interfaces:
+                removed_interfaces.update({key:sliver.interface_info.interfaces[key]})
+        removed_connections = self._create_connections(removed_interfaces)
+        
+        modified_interfaces = {}
+        for inf in diff.modified.interfaces:
+            key = inf[0].get_name()     # inf -> tuple
+            if key in modified_sliver.interface_info.interfaces:
+                modified_interfaces.update({key:modified_sliver.interface_info.interfaces[key]})
+        modified_connections = self._create_connections(modified_interfaces)
+        
+        data = {"name": service_name,
+                "description": service_name,
+                "op": "modify",
+                "level": "L3",
+                "opargs_a": added_connections,
+                "opargs_m": modified_connections,
+                "opargs_r": removed_connections
+                }
         
         return data
 

@@ -1,3 +1,4 @@
+---
 # MIT License
 #
 # Copyright (c) 2022 FABRIC Testbed
@@ -22,8 +23,27 @@
 #
 #
 # Author: Liang Zhang (lzhang9@es.net)
-# /tasks/delete-l3connection.yml
+# /tasks/create-l3connection.yml
 #
+
+- name: Parse l3 connection
+  set_fact:
+    arr: "{{ l3connection.interfaceId | split(':') }}"
+    
+- name: search for interfaceid
+  ansible.builtin.include_tasks: search-interface.yml
+  vars:
+    device: "{{ arr.0 }}"
+    interface: "{{ arr.1 }}"
+    type: "{{ l3connection.cloudConnectionType }}"
+
+- name: Construct request data
+  set_fact:
+    modify_l3connection_request: "{{ l3connection | combine({'virtualRouterId': virtual_router_id, 'interfaceId': interface_id }) }}"
+
+- name: Print modify l3 connection request
+  debug:
+    msg: "{{ modify_l3connection_request }}"
 
 - name: search for l3connection_id
   ansible.builtin.include_tasks: search-l3connection.yml
@@ -31,23 +51,36 @@
   
 - name: print l3connection_id
   debug:
-    msg: "{{ l3connection_id}}"
-  
-- name: delete l3 connection
+    msg: "{{ l3connection_id }}"
+
+- name: Modify a l3 connection
   ansible.builtin.uri:
     url: "{{ base_url }}/v1/virtualnetworks/l3connections/{{ l3connection_id }}"
     headers:
       Accept: application/json
       Authorization: "{{ bearer_token }}"
       content-type: application/json
+    body: "{{ modify_l3connection_request | to_nice_json }}"
     status_code: [200, 303]
-    method: DELETE
+    method: PUT
     follow_redirects: true
     validate_certs: no
-  register: delete_connection_response
- 
-- name: print delete l3 result
+  register: modify_l3connection_response
+  
+- name: Print modify l3connection response
   debug:
-    msg: "{{ delete_connection_response }}"
-
+    msg: "{{ modify_l3connection_response }}"
     
+#- name: Save virtual L3 connection id
+#  set_fact:
+#    virtualL3Connection_id: "{{ modify_l3connection_response.json.virtualL3ConnectionId }}"
+#
+#- name: Print virtual L3 connection id
+#  debug:
+#    msg: "{{ virtualL3Connection_id }}"
+ 
+#- name: Include retry-able set of tasks to check result of l3connection creation
+#  ansible.builtin.include_tasks: check-l3connection.yml
+#  vars:
+#    max_attempts: 6
+#    retry_delay: 10
