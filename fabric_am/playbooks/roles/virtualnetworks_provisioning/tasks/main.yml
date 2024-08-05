@@ -31,22 +31,25 @@
 #
 - include_tasks: create-token.yml
 
-
 #
-# include yml based on input vars
+# Create Spaces
 #
-#- include_tasks: create-switches.yml
-#  when: 
-#    - op == "create"
-#    - level == "L2"
-#- include_tasks: delete-switches.yml
-#  when: 
-#    - op == "delete"
-#    - level == "L2"
 - include_tasks: create-spaces.yml
   when: 
     - op == "create"
     - level == "L3"
+
+#
+# Modify Spaces
+#    
+- include_tasks: modify-spaces.yml
+  when: 
+    - op == "modify"
+    - level == "L3"
+ 
+#
+# Delete Spaces
+#   
 - include_tasks: delete-spaces.yml
   when: 
     - op == "delete"

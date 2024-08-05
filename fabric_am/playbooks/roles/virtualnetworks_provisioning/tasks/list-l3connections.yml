@@ -1,3 +1,4 @@
+---
 # MIT License
 #
 # Copyright (c) 2022 FABRIC Testbed
@@ -22,32 +23,24 @@
 #
 #
 # Author: Liang Zhang (lzhang9@es.net)
-# /tasks/delete-l3connection.yml
+# /tasks/list-spaces.yml
 #
-
-- name: search for l3connection_id
-  ansible.builtin.include_tasks: search-l3connection.yml
-  when: l3connection_id is not defined
-  
-- name: print l3connection_id
-  debug:
-    msg: "{{ l3connection_id}}"
-  
-- name: delete l3 connection
+- name: List virtual L3 connections
   ansible.builtin.uri:
-    url: "{{ base_url }}/v1/virtualnetworks/l3connections/{{ l3connection_id }}"
+    url: "{{ base_url }}/v1/virtualnetworks/l3connections"
     headers:
       Accept: application/json
       Authorization: "{{ bearer_token }}"
       content-type: application/json
-    status_code: [200, 303]
-    method: DELETE
-    follow_redirects: true
+    status_code: 200
+    method: GET
     validate_certs: no
-  register: delete_connection_response
- 
-- name: print delete l3 result
+  register: list_l3onnection_response
+  
+- name: Print all l3connections
   debug:
-    msg: "{{ delete_connection_response }}"
-
+    msg: "{{ list_l3onnection_response.json }}"
     
+- name: Save list results
+  set_fact:
+    l3_connection_list: "{{ list_l3onnection_response.json }}"

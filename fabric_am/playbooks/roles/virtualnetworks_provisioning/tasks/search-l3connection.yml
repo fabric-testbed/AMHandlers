@@ -1,3 +1,4 @@
+---
 # MIT License
 #
 # Copyright (c) 2022 FABRIC Testbed
@@ -22,32 +23,41 @@
 #
 #
 # Author: Liang Zhang (lzhang9@es.net)
-# /tasks/delete-l3connection.yml
+# /tasks/search-interface.yml
 #
+- name: Parse l3 connection
+  set_fact:
+    arr: "{{ l3connection.interfaceId | split(':') }}"
+    
+- name: Search for interfaceid
+  ansible.builtin.include_tasks: search-interface.yml
+  vars:
+    device: "{{ arr.0 }}"
+    interface: "{{ arr.1 }}"
+    type: "{{ l3connection.cloudConnectionType }}"
+    
+- name: Initialize variable interface_id
+  set_fact:
+    virtual_l3connection_id: None
 
-- name: search for l3connection_id
-  ansible.builtin.include_tasks: search-l3connection.yml
-  when: l3connection_id is not defined
+- name: List L3 connections
+  ansible.builtin.include_tasks: list-l3connections.yml
+
+- name: Search against L3 connections
+  set_fact:
+    l3connection_id: "{{ l3connection_item.virtualL3ConnectionId }}"
+  when:
+    - l3connection_item.interfaceId == interface_id
+  with_items: "{{ l3_connection_list }}"
+  loop_control:
+    loop_var: l3connection_item
   
 - name: print l3connection_id
   debug:
-    msg: "{{ l3connection_id}}"
+    msg: "{{ l3connection_id }}"
+  when: l3connection_id is defined
   
-- name: delete l3 connection
-  ansible.builtin.uri:
-    url: "{{ base_url }}/v1/virtualnetworks/l3connections/{{ l3connection_id }}"
-    headers:
-      Accept: application/json
-      Authorization: "{{ bearer_token }}"
-      content-type: application/json
-    status_code: [200, 303]
-    method: DELETE
-    follow_redirects: true
-    validate_certs: no
-  register: delete_connection_response
- 
-- name: print delete l3 result
-  debug:
-    msg: "{{ delete_connection_response }}"
-
-    
+- name: report if error
+  fail:
+    msg: "{{ l3connection_id }} not defined"
+  when: l3connection_id is not defined

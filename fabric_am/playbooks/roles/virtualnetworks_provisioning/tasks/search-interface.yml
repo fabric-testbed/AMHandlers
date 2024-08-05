@@ -31,6 +31,9 @@
 
 - name: List Cloudconnect interfaces
   ansible.builtin.include_tasks: list-cloudconnects.yml
+  vars:
+    max_attempts: 6
+    retry_delay: 10
   when: type != 'NONCLOUD'
 
 - name: List Affiliation interfaces
