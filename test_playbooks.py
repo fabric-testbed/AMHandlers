@@ -34,8 +34,10 @@ from fim.slivers.attached_components import ComponentSliver, ComponentType, Atta
 from fim.slivers.capacities_labels import Capacities, Labels, CapacityHints
 from fim.slivers.network_node import NodeSliver, NodeType
 
+from fabric_am.handlers.switch_handler import SwitchHandler
 from fabric_am.handlers.vm_handler import VMHandler
 from fabric_am.util.am_constants import AmConstants
+from fabric_am.util.ansible_helper import AnsibleHelper
 
 
 class TestPlaybooks:
@@ -48,6 +50,8 @@ class TestPlaybooks:
     prop = {AmConstants.CONFIG_PROPERTIES_FILE: 'fabric_am/config/vm_handler_config.yml'}
     lock = multiprocessing.Lock()
     handler = VMHandler(logger=logger, properties=prop, process_lock=lock)
+    sw_handler = SwitchHandler(logger=logger, process_lock=lock,
+                               properties={AmConstants.CONFIG_PROPERTIES_FILE: 'fabric_am/config/switch_handler_config.yml'})
     from fabric_cf.actor.core.container.globals import GlobalsSingleton
     GlobalsSingleton.get().log = logger
 
@@ -179,8 +183,8 @@ class TestPlaybooks:
     def test_fpga_prov(self):
         u = Unit(rid=ID(uid='0a0c2fb9-071a-4a3a-ba94-aa178c237aa2'))
         u.properties = {Constants.USER_SSH_KEY:
-                        "ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAABAQDIxGUVBf24l4gSgUtQQaScP7S604CpXKh66cCMZB1GoXfGqyhRVO1xQUXGA2Oj8MeZf3bo4tjmrPnVeeTVfwTrxkkFNvekwY4QbGX7o8YPNnEFquLWMmkoLn9RFJI47Cj+JHWQN7sEW4WVnmHNITcw5lD3V+yw1bD5M0boUXvh/MnHTu59MEDRyLUyWY+N1FUxHrO0UgSISczRjFS31zF5WY83ssNWq+zxD0NM6GhLWg5Ynzat1J75NRvnMVkuj0VmFcJuHIl3jYCdL9uE7kCw08oh06p/VZBzUIDP6EB0e+H1udu0DvT7SunqBZnobrTCyj1Bma9BJEHPhocIIcPl komalthareja@dhcp152-54-6-178.wireless.europa.renci.org,"
-                        "ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAABAQDIxGUVBf24l4gSgUtQQaScP7S604CpXKh66cCMZB1GoXfGqyhRVO1xQUXGA2Oj8MeZf3bo4tjmrPnVeeTVfwTrxkkFNvekwY4QbGX7o8YPNnEFquLWMmkoLn9RFJI47Cj+JHWQN7sEW4WVnmHNITcw5lD3V+yw1bD5M0boUXvh/MnHTu59MEDRyLUyWY+N1FUxHrO0UgSISczRjFS31zF5WY83ssNWq+zxD0NM6GhLWg5Ynzat1J75NRvnMVkuj0VmFcJuHIl3jYCdL9uE7kCw08oh06p/VZBzUIDP6EB0e+H1udu0DvT7SunqBZnobrTCyj1Bma9BJEHPhocIIcPl komalthareja@dhcp152-54-6-178.wireless.europa.renci.org"}
+                        "ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAABAkoLn9RFJIJEHPhocIIcPl komalthareja@dhcp152-54-6-178.wireless.europa.renci.org,"
+                        "ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAPNnEFquLWMmkoLEHPhocIIcPl komalthareja@dhcp152-54-6-178.wireless.europa.renci.org"}
         sliver = NodeSliver()
         cap = Capacities(core=2, ram=8, disk=10)
         sliver.set_properties(type=NodeType.VM, site="RENC", capacity_allocations=cap, name="fpga-vm")
@@ -200,6 +204,75 @@ class TestPlaybooks:
         sliver.attached_components_info.add_device(device_info=component)
         u.set_sliver(sliver=sliver)
         r, u = self.handler.create(unit=u)
+
+    def test_switch(self):
+        u = Unit(rid=ID(uid='0a0c2fb9-071a-4a3a-ba94-aa178c237aa2'))
+        u.properties = {Constants.USER_SSH_KEY:
+                            "ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAABAQDIxGyj1Bma9BJEHPhocIIcPl komalthareja@dhcp152-54-6-178.wireless.europa.renci.org"}
+        sliver = NodeSliver()
+        cap = Capacities(unit=1)
+        sliver.set_properties(type=NodeType.Switch, site="RENC", capacity_allocations=cap, name="p4-sw")
+        u.sliver = sliver
+        r, u = self.sw_handler.create(unit=u)
+
+
+def execute_ansible(*, logger, inventory_path: str, playbook_path: str, extra_vars: dict,
+                    ansible_python_interpreter: str, sources: str = None, private_key_file: str = None,
+                    host_vars: dict = None, host: str = None, user: str = None):
+    ansible_helper = AnsibleHelper(inventory_path=inventory_path, logger=logger,
+                                   ansible_python_interpreter=ansible_python_interpreter,
+                                   sources=sources)
+
+    ansible_helper.set_extra_vars(extra_vars=extra_vars)
+
+    if host is not None and host_vars is not None and len(host_vars) > 0:
+        for key, value in host_vars.items():
+            ansible_helper.add_vars(host=host, var_name=key, value=value)
+
+    logger.info(f"Executing playbook {playbook_path} extra_vars: {extra_vars} host_vars: {host_vars}")
+    ansible_helper.run_playbook(playbook_path=playbook_path, private_key_file=private_key_file, user=user)
+    return ansible_helper.get_result_callback()
+
+
+def test_audit():
+    logger = logging.getLogger("Audit")
+    results_1 = execute_ansible(inventory_path="/etc/fabric/actor/playbooks//inventory",
+                                logger=logger,
+                                playbook_path="/etc/fabric/actor/playbooks//worker_libvirt_operations.yml",
+                                extra_vars={"operation": "listall"},
+                                ansible_python_interpreter='/usr/bin/python3.6')
+
+    # Dictionary to store OpenStack VMs
+    os_vms = {}
+
+    for host, ok_result in results_1.host_ok.items():
+        # Get VMs via Virsh
+        print(f"host: {host}")
+        virsh_vms = []
+        if ok_result and ok_result._result:
+            virsh_vms = ok_result._result.get('stdout_lines', [])
+            print(f"List of VMs: {virsh_vms}")
+
+        results_2 = execute_ansible(inventory_path="/etc/fabric/actor/playbooks//inventory",
+                                    logger=logger,
+                                    playbook_path="/etc/fabric/actor/playbooks//head_vm_provisioning.yml",
+                                    extra_vars={"operation": "list", "host": str(host)},
+                                    ansible_python_interpreter='/usr/bin/python3.6')
+
+        if results_2 and results_2.get('openstack_servers'):
+            servers = results_2.get('openstack_servers')
+            for s in servers:
+                os_vms[s.get('OS-EXT-SRV-ATTR:instance_name')] = s.get('name')
+
+        # Find extra VMs on Virsh and delete them
+        for v in virsh_vms:
+            if v not in os_vms:
+                results_3 = execute_ansible(inventory_path="/etc/fabric/actor/playbooks//inventory",
+                                            logger=logger,
+                                            playbook_path="/etc/fabric/actor/playbooks//head_vm_provisioning.yml",
+                                            extra_vars={"operation": "delete", "host": str(host)},
+                                            ansible_python_interpreter='/usr/bin/python3.6')
+                logger.info(f"Deleting for instance: {v} result: {results_3}")
 
 
 if __name__ == "__main__":
@@ -224,4 +297,8 @@ if __name__ == "__main__":
     #tpb.test_poa_cpupin()
     #tpb.test_poa_reboot()
 
-    tpb.test_fpga_prov()
+    #tpb.test_fpga_prov()
+
+    #test_audit()
+    tpb.test_switch()
+

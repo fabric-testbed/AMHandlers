@@ -191,24 +191,19 @@ class AnsibleHelper:
 
         if user is not None:
             context.CLIARGS = ImmutableDict(connection='smart', tags={}, listtags=False, listtasks=False,
-                                            listhosts=False,
-                                            syntax=False,
-                                            module_path=None, forks=100, private_key_file=private_key_file,
-                                            ssh_common_args=None, ssh_extra_args='-o StrictHostKeyChecking=no',
-                                            sftp_extra_args=None, timeout = 60,
-                                            scp_extra_args=None, become=False,
-                                            become_method='sudo', become_user='root', verbosity=True, check=False,
-                                            start_at_task=None, user=user)
+                                            listhosts=False, syntax=False, module_path=None, forks=100,
+                                            private_key_file=private_key_file, ssh_common_args=None,
+                                            ssh_extra_args='-o StrictHostKeyChecking=no', sftp_extra_args=None,
+                                            timeout=60, scp_extra_args=None, become=False, become_method='sudo',
+                                            become_user='root', verbosity=True, check=False, start_at_task=None,
+                                            user=user)
         else:
             context.CLIARGS = ImmutableDict(connection='smart', tags={}, listtags=False, listtasks=False,
-                                            listhosts=False,
-                                            syntax=False,
-                                            module_path=None, forks=100, private_key_file=private_key_file,
-                                            ssh_common_args=None, ssh_extra_args='-o StrictHostKeyChecking=no',
-                                            sftp_extra_args=None, timeout = 60,
-                                            scp_extra_args=None, become=False,
-                                            become_method='sudo', become_user='root', verbosity=True, check=False,
-                                            start_at_task=None)
+                                            listhosts=False, syntax=False, module_path=None, forks=100,
+                                            private_key_file=private_key_file, ssh_common_args=None,
+                                            ssh_extra_args='-o StrictHostKeyChecking=no', sftp_extra_args=None,
+                                            timeout=60, scp_extra_args=None, become=False, become_method='sudo',
+                                            become_user='root', verbosity=True, check=False, start_at_task=None)
 
         passwords = {}
 

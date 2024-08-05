@@ -14,6 +14,80 @@
     state: shutdown
   when: operation == 'stop'
 
+- name: List VMs in all states
+  shell: "virsh list --all --name"
+  register: vm_list
+  when: operation == 'listall'
+
+- name: List all VMs
+  community.libvirt.virt:
+    command: list_vms
+  register: vm_list
+  when: operation == 'list' or operation == 'is_deleted' or operation == 'delete'
+
+- name: Verify VM has been deleted
+  fail:
+    msg: "VM {{ kvmguest_name }} has not been deleted yet."
+  when: operation == 'is_deleted' and kvmguest_name in vm_list.list_vms
+
+- name: Retrieve Tap Devices
+  shell: "virsh domiflist {{ kvmguest_name }} | grep '^ tap' | awk '{print $1}'"
+  register: virsh_output
+  when: operation == 'delete' and kvmguest_name in vm_list.list_vms
+
+- name: Extract QVO Device
+  set_fact:
+     qvo_devices: "{{ virsh_output.stdout_lines | map('regex_replace', 'tap', 'qvo') | list }}"
+  when: operation == 'delete' and virsh_output is defined and virsh_output.changed
+
+- name: Display QVO Device
+  debug:
+    var: qvo_devices
+  when: operation == 'delete' and qvo_devices is defined
+
+- name: Get disk location using virsh domblklist
+  shell: "virsh domblklist {{ kvmguest_name }} | grep '^ vda' | awk '{print $2}'"
+  register: disk_info
+  when: operation == 'delete' and kvmguest_name in vm_list.list_vms
+
+- debug:
+    var: disk_info.stdout_lines
+  when: operation == 'delete' and kvmguest_name in vm_list.list_vms
+
+- name: Destory a VM
+  community.libvirt.virt:
+    name: "{{ kvmguest_name }}"
+    state: destroyed
+  when: operation == 'delete' and kvmguest_name in vm_list.list_vms
+
+- name: Undefine a VM
+  command: "virsh undefine --remove-all-storage --nvram {{ kvmguest_name }}"
+  when: operation == 'delete' and kvmguest_name in vm_list.list_vms
+
+- name: Delete disk location
+  file:
+    path: "{{ disk_info.stdout }}"
+    state: absent
+  when: disk_info is defined and disk_info.stdout is defined
+
+#- name: Undefine a VM
+#  community.libvirt.virt:
+#    name: "{{ kvmguest_name }}"
+#    command: undefine
+#  when: operation == 'delete' and kvmguest_name in vm_list.list_vms
+
+- name: Check if OVS interfaces exist
+  stat:
+    path: "/sys/class/net/{{ item }}"
+  register: ovs_interface_status
+  with_items: "{{ qvo_devices }}"
+  when: operation == 'delete' and qvo_devices is defined and qvo_devices | length > 0
+
+- name: Delete Interfaces from OVS
+  command: "ovs-vsctl del-port br-int {{ item.item }}"
+  with_items: "{{ ovs_interface_status.results }}"
+  when: operation == 'delete' and qvo_devices is defined and qvo_devices | length > 0 and item.stat.exists == true
+
 - name: Get CPU Info
   ansible.builtin.shell:
     fabric-virt-tools-cli cpu info --domain_name {{ kvmguest_name }}

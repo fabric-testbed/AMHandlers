@@ -1,0 +1,11 @@
+---
+# file: multi_function_pci_devices.yml
+
+- hosts:
+    - "{{ worker_node_name }}"
+
+  vars:
+    dest_domain: "0x0000"
+
+  roles:
+    - multi_function_pci_devices

@@ -147,6 +147,8 @@ class Al2sHandler(HandlerBase):
                   Constants.PROPERTY_ACTION_SEQUENCE_NUMBER: 0}
         sliver = None
         unit_id = None
+        service_type = None
+        service_data = None
         try:
             # self.get_logger().info(f"Create invoked for unit: {unit}")
             sliver = unit.get_sliver()
@@ -210,15 +212,17 @@ class Al2sHandler(HandlerBase):
                     self.get_logger().error(ex)
                 finally:
                     self.get_logger().info(f"Tried to delete VM duo to failure")
-            
-            if service_type == 'l2ptp':
-                ifs = [arg['interfaceId'] for arg in service_data['opargs'] if 'interfaceId' in arg ]
-            elif service_type == 'l3vpn':
-                ifs = [arg['interfaceId'] for arg in service_data['opargs'] if 'interfaceId' in arg ]
-            else:
-                ifs = []
+
+            ifs = []
+            if service_type is not None and service_data is not None:
+                if service_type == 'l2ptp':
+                    ifs = [arg['interfaceId'] for arg in service_data['opargs'] if 'interfaceId' in arg]
+                elif service_type == 'l3vpn':
+                    ifs = [arg['interfaceId'] for arg in service_data['opargs'] if 'interfaceId' in arg]
+                else:
+                    ifs = []
             ext_e = Exception(e, ifs)
-                                
+
             result = {Constants.PROPERTY_TARGET_NAME: Constants.TARGET_CREATE,
                       Constants.PROPERTY_TARGET_RESULT_CODE: Constants.RESULT_CODE_EXCEPTION,
                       Constants.PROPERTY_ACTION_SEQUENCE_NUMBER: 0,

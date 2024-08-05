@@ -19,7 +19,7 @@ requires-python = '>=3.9'
 dependencies = [
     "ansible==7.5.0",
     "paramiko",
-    "fabric-cf==1.5.2"]
+    "fabric-cf==1.7.0"]
 
 [project.optional-dependencies]
 test = ["pytest"]
