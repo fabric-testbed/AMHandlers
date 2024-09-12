@@ -149,6 +149,9 @@ class SwitchHandler(HandlerBase):
             Utils.execute_ansible(inventory_path=inventory_path, playbook_path=f"{playbook_path}/{playbook}",
                                   extra_vars=extra_vars, logger=self.get_logger())
 
+            Utils.verify_ssh(mgmt_ip=ansible_host, user=ansible_ssh_user, pwd=ansible_ssh_pass,
+                             logger=self.get_logger(), retry=10)
+
         except Exception as e:
             self.get_logger().error(e)
             self.get_logger().error(traceback.format_exc())

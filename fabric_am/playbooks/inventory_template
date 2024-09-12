@@ -5,6 +5,9 @@ renc-p4.fabric-testbed.net ansible_host=192.168.11.7
 renc-p4.fabric-testbed.net ansible_python_interpreter=/nix/var/nix/profiles/RARE/bin/python3.10
 renc-p4.fabric-testbed.net ansible_ssh_user=rare
 renc-p4.fabric-testbed.net ansible_ssh_pass=XXXX
+renc-p4.fabric-testbed.net docker_username=XXXX
+renc-p4.fabric-testbed.net docker_password=XXXX
+renc-p4.fabric-testbed.net docker_image=XXXX
 
 
 [fabric_site_worker]
