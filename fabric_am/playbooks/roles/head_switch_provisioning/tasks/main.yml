@@ -164,6 +164,23 @@
   ignore_errors: true
   when: operation == 'config'
 
+- name: Bring up Docker containers in detached mode
+  shell: docker compose up -d
+  args:
+    chdir: /root/  # Directory with docker-compose.yml
+  when: operation == 'post-reboot'
+
+- name: Wait for 10 seconds
+  pause:
+    seconds: 10
+  when: operation == 'post-reboot'
+
+- name: Restart the Docker container
+  shell: docker compose restart
+  args:
+    chdir: /root/  # Directory with docker-compose.yml
+  when: operation == 'post-reboot'
+
 - name: Remove SSH key from authorized_keys
   lineinfile:
     path: ~/.ssh/authorized_keys
