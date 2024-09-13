@@ -32,7 +32,7 @@
 
 - name: Extract ONIE boot entry
   set_fact:
-    onie_entry: "{{ boot_entries.stdout_lines | select('search', 'ONIE:') | map('split', ' ') | map('first') | first }}"
+    onie_entry: "{{ boot_entries.stdout_lines | select('search', 'ONIE:') | map('regex_search', '^Boot([0-9A-F]{4})') | select('string') | first | regex_replace('Boot', '') }}"
   when: operation == 'create'
 
 - name: Ensure ONIE boot entry is found
