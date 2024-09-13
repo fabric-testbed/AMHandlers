@@ -1,5 +1,5 @@
 services:
-  p4-container:
+  p4_container:
     image: kthare10/tofino-sde:latest
     container_name: p4_container
     volumes:
@@ -7,7 +7,6 @@ services:
       - /lib/modules:/lib/modules
     devices:
       - /dev/bf0:/dev/bf0
-    command: ["sleep", "infinity"]  # Keeps the container running in the background
     privileged: true  # Required to allow the container to access kernel-related files
     network_mode: host
     restart: always
