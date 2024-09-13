@@ -64,7 +64,7 @@
   when: operation == 'config'
 
 - name: Install Linux image and headers
-  shell: echo "{{ ansible_ssh_pass }}" | sudo -S apt install -y linux-image-amd64 linux-headers-amd64
+  shell: echo "{{ ansible_ssh_pass }}" | sudo -S apt install -y --allow-change-held-packages linux-image-amd64 linux-headers-amd64
   when: operation == 'config'
 
 - name: Install dependencies for Docker
@@ -72,12 +72,16 @@
   when: operation == 'config'
 
 - name: Add Docker GPG key
-  shell: curl -fsSL https://download.docker.com/linux/debian/gpg | sudo gpg --dearmor -o /usr/share/keyrings/docker-archive-keyring.gpg
+  ansible.builtin.shell: |
+    curl -fsSL https://download.docker.com/linux/debian/gpg -o /tmp/docker.gpg
+    echo "{{ ansible_ssh_pass }}" | sudo -S gpg --yes --dearmor -o /usr/share/keyrings/docker-archive-keyring.gpg /tmp/docker.gpg
+  args:
+    executable: /bin/bash
   when: operation == 'config'
 
 - name: Add Docker repository
   shell: |
-    echo "deb [arch=$(dpkg --print-architecture) signed-by=/usr/share/keyrings/docker-archive-keyring.gpg] https://download.docker.com/linux/debian $(lsb_release -cs) stable" | sudo tee /etc/apt/sources.list.d/docker.list > /dev/null
+    echo "{{ ansible_ssh_pass }}" | sudo -S bash -c 'echo "deb [arch=$(dpkg --print-architecture) signed-by=/usr/share/keyrings/docker-archive-keyring.gpg] https://download.docker.com/linux/debian $(lsb_release -cs) stable" > /etc/apt/sources.list.d/docker.list'
   when: operation == 'config'
 
 - name: Update apt cache again
