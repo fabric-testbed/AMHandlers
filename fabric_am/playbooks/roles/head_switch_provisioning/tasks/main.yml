@@ -100,14 +100,18 @@
   shell: echo "{{ ansible_ssh_pass }}" | sudo -S systemctl enable docker
   when: operation == 'config'
 
-# Add the Docker login task to authenticate to the private registry
 - name: Log in to Docker registry
-  shell: echo "{{ ansible_ssh_pass }}" | sudo -S docker login -u "{{ docker_username }}" -p "{{ docker_password }}"
+  docker_login:
+    username: "{{ docker_username }}"
+    password: "{{ docker_password }}"
+  no_log: true
   when: operation == 'config'
 
-# Add task to pull the private Docker image
-- name: Pull private Docker image kthare10/tofino-sde:latest
-  shell: echo "{{ ansible_ssh_pass }}" | sudo -S docker pull "{{ docker_image }}"
+- name: Pull private Docker image
+  docker_image:
+    name: "{{ docker_image }}"
+    source: pull
+  no_log: true
   when: operation == 'config'
 
 # Optional: Verify the image is pulled successfully
@@ -119,6 +123,7 @@
 # Add Docker logout task to clean up credentials
 - name: Log out from Docker registry
   shell: echo "{{ ansible_ssh_pass }}" | sudo -S docker logout
+  no_log: true
   when: operation == 'config'
 
 # Stop the freerouter service
