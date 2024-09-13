@@ -38,16 +38,16 @@
   shell: echo {{ ansible_ssh_pass }} | sudo -S reboot
   when: operation == 'create'
 
-- name: Add public key to authorized_keys
-  lineinfile:
-    path: ~/.ssh/authorized_keys
-    line: "{{ sshkey }}"
-    state: present
-    create: yes
-    owner: "{{ ansible_ssh_user }}"
-    group: "{{ ansible_ssh_pass }}"
-    mode: "0600"
-  when: operation == 'config'
+#- name: Add public key to authorized_keys
+#  lineinfile:
+#    path: ~/.ssh/authorized_keys
+#    line: "{{ sshkey }}"
+#    state: present
+#    create: yes
+#    owner: "{{ ansible_ssh_user }}"
+#    group: "{{ ansible_ssh_pass }}"
+#    mode: "0600"
+#  when: operation == 'config'
 
 # Add your additional tasks for updating the system and installing Docker
 
