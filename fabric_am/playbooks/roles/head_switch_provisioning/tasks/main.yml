@@ -161,6 +161,7 @@
 
 - name: Reboot the system after installing Docker
   shell: reboot
+  ignore_errors: true
   when: operation == 'config'
 
 - name: Remove SSH key from authorized_keys
