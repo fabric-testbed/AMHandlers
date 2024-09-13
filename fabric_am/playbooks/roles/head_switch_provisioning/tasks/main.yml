@@ -113,16 +113,12 @@
   when: operation == 'config'
 
 - name: Log in to Docker registry
-  docker_login:
-    username: "{{ docker_username }}"
-    password: "{{ docker_password }}"
+  shell: echo "{{ ansible_ssh_pass }}" | sudo -S docker login -u "{{ docker_username }}" -p "{{ docker_password }}"
   no_log: true
   when: operation == 'config'
 
 - name: Pull private Docker image
-  docker_image:
-    name: "{{ docker_image }}"
-    source: pull
+  shell: echo "{{ ansible_ssh_pass }}" | sudo -S docker pull "{{ docker_image }}"
   no_log: true
   when: operation == 'config'
 
@@ -143,14 +139,20 @@
   shell: echo "{{ ansible_ssh_pass }}" | sudo -S systemctl stop freerouter.service
   when: operation == 'config'
 
+- name: Check if freerouter service exists
+  command: systemctl status freerouter.service
+  register: freerouter_service_status
+  ignore_errors: true
+  when: operation == 'config'
+
 # Disable the freerouter service
 - name: Disable freerouter.service
   shell: echo "{{ ansible_ssh_pass }}" | sudo -S systemctl disable freerouter.service
-  when: operation == 'config'
+  when: freerouter_service_status.rc == 0 and operation == 'config'
 
 - name: Upload docker-compose.yml file to /root directory
   copy:
-    src: /path/to/local/docker-compose.yml  # Path to the file on your local machine
+    src: ./docker-compose.yml  # Path to the file on your local machine
     dest: /root/docker-compose.yml  # Destination path in the /root directory on the target machine
     owner: root
     group: root
