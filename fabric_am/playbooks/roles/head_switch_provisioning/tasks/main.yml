@@ -41,7 +41,7 @@
   when: operation == 'create' and (onie_entry is undefined or onie_entry == "")
 
 - name: Set boot entry to ONIE
-  shell: echo "{{ ansible_ssh_pass }}" | sudo -S efibootmgr --bootnext {{ onie_entry }}
+  shell: efibootmgr --bootnext {{ onie_entry }}
   args:
     executable: /bin/bash
   when: operation == 'create'
@@ -64,91 +64,91 @@
 # Add your additional tasks for updating the system and installing Docker
 
 - name: Update apt cache
-  shell: echo "{{ ansible_ssh_pass }}" | sudo -S apt update -y
+  shell: apt update -y
   when: operation == 'config'
 
 - name: Upgrade system packages
-  shell: echo "{{ ansible_ssh_pass }}" | sudo -S apt upgrade -y && sudo apt dist-upgrade -y
+  shell: apt upgrade -y && sudo apt dist-upgrade -y
   when: operation == 'config'
 
 - name: Remove unnecessary packages
-  shell: echo "{{ ansible_ssh_pass }}" | sudo -S apt autoremove -y
+  shell: apt autoremove -y
   when: operation == 'config'
 
 - name: Install Linux image and headers
-  shell: echo "{{ ansible_ssh_pass }}" | sudo -S apt install -y --allow-change-held-packages linux-image-amd64 linux-headers-amd64
+  shell: apt install -y --allow-change-held-packages linux-image-amd64 linux-headers-amd64
   when: operation == 'config'
 
 - name: Install dependencies for Docker
-  shell: echo "{{ ansible_ssh_pass }}" | sudo -S apt install -y gpg apt-transport-https ca-certificates curl software-properties-common
+  shell: apt install -y gpg apt-transport-https ca-certificates curl software-properties-common
   when: operation == 'config'
 
 - name: Add Docker GPG key
   ansible.builtin.shell: |
     curl -fsSL https://download.docker.com/linux/debian/gpg -o /tmp/docker.gpg
-    echo "{{ ansible_ssh_pass }}" | sudo -S gpg --yes --dearmor -o /usr/share/keyrings/docker-archive-keyring.gpg /tmp/docker.gpg
+    gpg --yes --dearmor -o /usr/share/keyrings/docker-archive-keyring.gpg /tmp/docker.gpg
   args:
     executable: /bin/bash
   when: operation == 'config'
 
 - name: Add Docker repository
   shell: |
-    echo "{{ ansible_ssh_pass }}" | sudo -S bash -c 'echo "deb [arch=$(dpkg --print-architecture) signed-by=/usr/share/keyrings/docker-archive-keyring.gpg] https://download.docker.com/linux/debian $(lsb_release -cs) stable" > /etc/apt/sources.list.d/docker.list'
+    bash -c 'echo "deb [arch=$(dpkg --print-architecture) signed-by=/usr/share/keyrings/docker-archive-keyring.gpg] https://download.docker.com/linux/debian $(lsb_release -cs) stable" > /etc/apt/sources.list.d/docker.list'
   when: operation == 'config'
 
 - name: Update apt cache again
-  shell: echo "{{ ansible_ssh_pass }}" | sudo -S apt update -y
+  shell: apt update -y
   when: operation == 'config'
 
 - name: Install Docker packages
-  shell: echo "{{ ansible_ssh_pass }}" | sudo -S apt install -y docker-ce docker-ce-cli containerd.io
+  shell: apt install -y docker-ce docker-ce-cli containerd.io
   when: operation == 'config'
 
 - name: Start Docker service
-  shell: echo "{{ ansible_ssh_pass }}" | sudo -S systemctl start docker
+  shell: systemctl start docker
   when: operation == 'config'
 
 - name: Enable Docker service
-  shell: echo "{{ ansible_ssh_pass }}" | sudo -S systemctl enable docker
+  shell: systemctl enable docker
   when: operation == 'config'
 
 - name: Log in to Docker registry
-  shell: echo "{{ ansible_ssh_pass }}" | sudo -S docker login -u "{{ docker_username }}" -p "{{ docker_password }}"
+  shell: docker login -u "{{ docker_username }}" -p "{{ docker_password }}"
   no_log: true
   when: operation == 'config'
 
 - name: Pull private Docker image
-  shell: echo "{{ ansible_ssh_pass }}" | sudo -S docker pull "{{ docker_image }}"
+  shell: docker pull "{{ docker_image }}"
   no_log: true
   when: operation == 'config'
 
 # Optional: Verify the image is pulled successfully
 - name: Verify Docker image is pulled
-  shell: echo "{{ ansible_ssh_pass }}" | sudo -S docker images | grep "{{ docker_image }}"
+  shell: docker images | grep "{{ docker_image }}"
   register: docker_image_check
   when: operation == 'config'
 
 # Add Docker logout task to clean up credentials
 - name: Log out from Docker registry
-  shell: echo "{{ ansible_ssh_pass }}" | sudo -S docker logout
+  shell: docker logout
   no_log: true
+  when: operation == 'config'
+
+- name: Check if freerouter service exists
+  shell: systemctl list-unit-files | grep freerouter.service
+  register: freerouter_service_check
+  ignore_errors: true
   when: operation == 'config'
 
 # Stop the freerouter service
 - name: Stop freerouter.service
-  shell: echo "{{ ansible_ssh_pass }}" | sudo -S systemctl stop freerouter.service
-  when: operation == 'config'
-
-- name: Check if freerouter service exists
-  command: systemctl status freerouter.service
-  register: freerouter_service_status
-  ignore_errors: true
-  when: operation == 'config'
+  shell: systemctl stop freerouter.service
+  when: freerouter_service_check.rc == 0 and operation == 'config'
 
 # Disable the freerouter service
 - name: Disable freerouter.service
-  shell: echo "{{ ansible_ssh_pass }}" | sudo -S systemctl disable freerouter.service
-  when: freerouter_service_status.rc == 0 and operation == 'config'
+  shell: systemctl disable freerouter.service
+  when: freerouter_service_check.rc == 0 and operation == 'config'
 
 - name: Upload docker-compose.yml file to /root directory
   copy:
@@ -160,7 +160,7 @@
   when: operation == 'config'
 
 - name: Reboot the system after installing Docker
-  shell: echo "{{ ansible_ssh_pass }}" | sudo -S reboot
+  shell: reboot
   when: operation == 'config'
 
 - name: Remove SSH key from authorized_keys
