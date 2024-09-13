@@ -25,13 +25,25 @@
 # Author: Komal Thareja (kthare10@renci.org)
 # /tasks/main.yml
 #
+- name: Get boot entries
+  shell: efibootmgr
+  register: boot_entries
+  when: operation == 'create'
 
-- name: Set bootnext with efibootmgr
-  shell: |
-    echo {{ ansible_ssh_pass }} | sudo -S efibootmgr --bootnext 0004
+- name: Extract ONIE boot entry
+  set_fact:
+    onie_entry: "{{ boot_entries.stdout_lines | select('search', 'ONIE:') | map('split', ' ') | map('first') | first }}"
+  when: operation == 'create'
+
+- name: Ensure ONIE boot entry is found
+  fail:
+    msg: "ONIE boot entry not found!"
+  when: operation == 'create' and (onie_entry is undefined or onie_entry == "")
+
+- name: Set boot entry to ONIE
+  shell: echo "{{ ansible_ssh_pass }}" | sudo -S efibootmgr --bootnext {{ onie_entry }}
   args:
     executable: /bin/bash
-  register: efibootmgr_output
   when: operation == 'create'
 
 - name: Reboot the switch
