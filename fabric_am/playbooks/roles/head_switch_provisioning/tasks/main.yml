@@ -143,12 +143,12 @@
 # Stop the freerouter service
 - name: Stop freerouter.service
   shell: systemctl stop freerouter.service
-  when: freerouter_service_check.rc == 0 and operation == 'config'
+  when: operation == 'config' and freerouter_service_check.rc == 0
 
 # Disable the freerouter service
 - name: Disable freerouter.service
   shell: systemctl disable freerouter.service
-  when: freerouter_service_check.rc == 0 and operation == 'config'
+  when: operation == 'config' and freerouter_service_check.rc == 0
 
 - name: Upload docker-compose.yml file to /root directory
   copy:
