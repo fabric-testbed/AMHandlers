@@ -71,6 +71,7 @@ class AmConstants:
     OP_ADDKEY = "addkey"
     OP_REMOVEKEY = "removekey"
     OP_CONFIG = "config"
+    OP_POST_REBOOT = "post-reboot"
 
     PORT_NAME = "portname"
     NETWORK_NAME = "networkname"
