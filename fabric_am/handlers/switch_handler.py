@@ -140,15 +140,24 @@ class SwitchHandler(HandlerBase):
             Utils.verify_ssh(mgmt_ip=ansible_host, user=ansible_ssh_user, pwd=ansible_ssh_pass,
                              logger=self.get_logger(), retry=10)
 
-            sde_file_name = self.get_config().get(Constants.CONFIG_SECTION_RUNTIME).get(AmConstants.P4)
             extra_vars = {
                 AmConstants.OPERATION: AmConstants.OP_CONFIG,
-                AmConstants.SSH_KEY: ssh_key,
-                AmConstants.SDE_FILE_NAME: sde_file_name
+                AmConstants.SSH_KEY: ssh_key
             }
             Utils.execute_ansible(inventory_path=inventory_path, playbook_path=f"{playbook_path}/{playbook}",
                                   extra_vars=extra_vars, logger=self.get_logger())
 
+            Utils.verify_ssh(mgmt_ip=ansible_host, user=ansible_ssh_user, pwd=ansible_ssh_pass,
+                             logger=self.get_logger(), retry=10)
+
+            extra_vars = {
+                AmConstants.OPERATION: AmConstants.OP_POST_REBOOT,
+            }
+            Utils.execute_ansible(inventory_path=inventory_path, playbook_path=f"{playbook_path}/{playbook}",
+                                  extra_vars=extra_vars, logger=self.get_logger())
+
+            Utils.verify_ssh(mgmt_ip=ansible_host, user=ansible_ssh_user, pwd=ansible_ssh_pass,
+                             logger=self.get_logger(), retry=10)
         except Exception as e:
             self.get_logger().error(e)
             self.get_logger().error(traceback.format_exc())

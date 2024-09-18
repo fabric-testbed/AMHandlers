@@ -25,13 +25,25 @@
 # Author: Komal Thareja (kthare10@renci.org)
 # /tasks/main.yml
 #
+- name: Get boot entries
+  shell: efibootmgr
+  register: boot_entries
+  when: operation == 'create'
 
-- name: Set bootnext with efibootmgr
-  shell: |
-    echo {{ ansible_ssh_pass }} | sudo -S efibootmgr --bootnext 0004
+- name: Extract ONIE boot entry
+  set_fact:
+    onie_entry: "{{ boot_entries.stdout_lines | select('search', 'ONIE:') | map('regex_search', '^Boot([0-9A-F]{4})') | select('string') | first | regex_replace('Boot', '') }}"
+  when: operation == 'create'
+
+- name: Ensure ONIE boot entry is found
+  fail:
+    msg: "ONIE boot entry not found!"
+  when: operation == 'create' and (onie_entry is undefined or onie_entry == "")
+
+- name: Set boot entry to ONIE
+  shell: efibootmgr --bootnext {{ onie_entry }}
   args:
     executable: /bin/bash
-  register: efibootmgr_output
   when: operation == 'create'
 
 - name: Reboot the switch
@@ -49,18 +61,125 @@
     mode: "0600"
   when: operation == 'config'
 
-- name: Copy SDE tarball to the Switch
-  copy:
-    src: "{{ sde_file_name }}"
-    dest: "/home/rare/{{ sde_file_name | basename }}"
+# Add your additional tasks for updating the system and installing Docker
+
+- name: Update apt cache
+  shell: apt update -y
   when: operation == 'config'
 
-- name: Extract SDE tarball on the Switch
-  unarchive:
-    src: "/home/rare/{{ sde_file_name | basename }}"
-    dest: /home/rare/
-    remote_src: yes
+- name: Upgrade system packages
+  shell: apt upgrade -y && sudo apt dist-upgrade -y
   when: operation == 'config'
+
+- name: Remove unnecessary packages
+  shell: apt autoremove -y
+  when: operation == 'config'
+
+- name: Install Linux image and headers
+  shell: apt install -y --allow-change-held-packages linux-image-amd64 linux-headers-amd64
+  when: operation == 'config'
+
+- name: Install dependencies for Docker
+  shell: apt install -y gpg apt-transport-https ca-certificates curl software-properties-common
+  when: operation == 'config'
+
+- name: Add Docker GPG key
+  ansible.builtin.shell: |
+    curl -fsSL https://download.docker.com/linux/debian/gpg -o /tmp/docker.gpg
+    gpg --yes --dearmor -o /usr/share/keyrings/docker-archive-keyring.gpg /tmp/docker.gpg
+  args:
+    executable: /bin/bash
+  when: operation == 'config'
+
+- name: Add Docker repository
+  shell: |
+    bash -c 'echo "deb [arch=$(dpkg --print-architecture) signed-by=/usr/share/keyrings/docker-archive-keyring.gpg] https://download.docker.com/linux/debian $(lsb_release -cs) stable" > /etc/apt/sources.list.d/docker.list'
+  when: operation == 'config'
+
+- name: Update apt cache again
+  shell: apt update -y
+  when: operation == 'config'
+
+- name: Install Docker packages
+  shell: apt install -y docker-ce docker-ce-cli containerd.io
+  when: operation == 'config'
+
+- name: Start Docker service
+  shell: systemctl start docker
+  when: operation == 'config'
+
+- name: Enable Docker service
+  shell: systemctl enable docker
+  when: operation == 'config'
+
+- name: Log in to Docker registry
+  shell: docker login -u "{{ docker_username }}" -p "{{ docker_password }}"
+  no_log: true
+  when: operation == 'config'
+
+- name: Pull private Docker image
+  shell: docker pull "{{ docker_image }}"
+  no_log: true
+  when: operation == 'config'
+
+# Optional: Verify the image is pulled successfully
+- name: Verify Docker image is pulled
+  shell: docker images | grep "{{ docker_image }}"
+  register: docker_image_check
+  when: operation == 'config'
+
+# Add Docker logout task to clean up credentials
+- name: Log out from Docker registry
+  shell: docker logout
+  no_log: true
+  when: operation == 'config'
+
+- name: Check if freerouter service exists
+  shell: systemctl list-unit-files | grep freerouter.service
+  register: freerouter_service_check
+  ignore_errors: true
+  when: operation == 'config'
+
+# Stop the freerouter service
+- name: Stop freerouter.service
+  shell: systemctl stop freerouter.service
+  when: operation == 'config' and freerouter_service_check.rc == 0
+
+# Disable the freerouter service
+- name: Disable freerouter.service
+  shell: systemctl disable freerouter.service
+  when: operation == 'config' and freerouter_service_check.rc == 0
+
+- name: Upload docker-compose.yml file to /root directory
+  copy:
+    src: ./docker-compose.yml  # Path to the file on your local machine
+    dest: /root/docker-compose.yml  # Destination path in the /root directory on the target machine
+    owner: root
+    group: root
+    mode: '0644'
+  when: operation == 'config'
+
+- name: Reboot the system after installing Docker
+  shell: reboot
+  ignore_errors: true
+  when: operation == 'config'
+
+- name: Bring up Docker containers in detached mode
+  shell: docker compose up -d
+  args:
+    chdir: /root/  # Directory with docker-compose.yml
+  when: operation == 'post-reboot'
+
+- name: Wait for 10 seconds
+  pause:
+    seconds: 10
+  when: operation == 'post-reboot'
+
+- name: Restart the Docker container
+  shell: docker compose restart
+  args:
+    chdir: /root/  # Directory with docker-compose.yml
+  when: operation == 'post-reboot'
 
 - name: Remove SSH key from authorized_keys
   lineinfile:
