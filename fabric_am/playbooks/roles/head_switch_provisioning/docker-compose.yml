@@ -5,6 +5,7 @@ services:
     volumes:
       - /usr/src:/usr/src
       - /lib/modules:/lib/modules
+      - /root/work:/root/work  # Users can put the work in this directory which would be accessible from host as well as container.
     devices:
       - /dev/bf0:/dev/bf0
     privileged: true  # Required to allow the container to access kernel-related files
