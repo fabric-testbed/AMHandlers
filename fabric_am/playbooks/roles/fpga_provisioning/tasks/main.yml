@@ -46,6 +46,7 @@
             <address type='pci' domain='{{ dest_domain }}' bus='{{ dest_bus }}' slot='{{ dest_slot }}' function='0x0{{ pci_func }}'/>
           </hostdev>
           {% endfor %}
+          {% if usb_required | lower == 'yes' or usb_required == true %}
           <controller type='usb' index='{{ fpga_dest_usb_bus }}' model='nec-xhci'/>
           <hostdev mode='subsystem' type='usb' managed='yes'>
             <source>
@@ -54,6 +55,7 @@
             </source>
             <address type='usb' bus='{{ fpga_dest_usb_bus }}' port='{{ fpga_dest_usb_port }}'/>
           </hostdev>
+          {% endif %}
   when: operation == 'attach' and device_xml_matches.count == 0
 
 - name: Update the domain XML

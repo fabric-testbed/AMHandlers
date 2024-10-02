@@ -107,6 +107,7 @@ class AmConstants:
     NUM_PCI = "num_pci"
     WORKER_NODE_NAME = "worker_node_name"
     INTERFACE_NAME = "if_name"
+    USB_REQUIRED = "usb_required"
 
     ANSIBLE_FACTS = "ansible_facts"
     COMBINED_FACTS = "combined_facts"
