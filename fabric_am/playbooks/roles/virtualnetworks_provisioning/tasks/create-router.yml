@@ -52,7 +52,7 @@
 #  debug:
 #    msg: "{{ create_router_response }}"
     
-- name: Save virtual space id
+- name: Save virtual router id
   set_fact:
     virtual_router_id: "{{ create_router_response.json.virtualRouterId }}"
 
