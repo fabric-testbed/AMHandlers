@@ -717,7 +717,13 @@ class VMHandler(HandlerBase):
                 AmConstants.NUM_PCI: len(pci_device_list),
                 AmConstants.MAC: mac,
                 AmConstants.PCI_BDF: bdf
+
             }
+
+            # For SN1022; USB tags not required; needed for CIEN rack
+            if "SN1022" in component.get_model():
+                extra_vars[AmConstants.USB_REQUIRED] = "no"
+
             if attach:
                 extra_vars[AmConstants.OPERATION] = AmConstants.OP_ATTACH
             else:

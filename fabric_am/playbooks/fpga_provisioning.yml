@@ -4,6 +4,8 @@
 - hosts:
     - "{{ worker_node_name }}"
 
+  gather_facts: no
+
   vars:
     # note that virsh rewrites these values so
     # for removal to work these must appear exactly so
@@ -23,6 +25,7 @@
     fpga_usb_product_id: "0x6011"
     fpga_dest_usb_bus: "2"
     fpga_dest_usb_port: "2"
+    usb_required: yes
 
   roles:
     - fpga_provisioning
