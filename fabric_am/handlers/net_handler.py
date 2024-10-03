@@ -502,7 +502,7 @@ class NetHandler(HandlerBase):
             interface = {}
             if labs.local_name is None:
                 raise NetHandlerException(f'l2ptp - interface "{interface_name}" has no "local_name" label')
-            interface = self.parse_interface_name(sliver.mirror_port)
+            interface = self.parse_interface_name(labs.local_name)
             if labs.vlan is None or labs.vlan == 0:
                 raise NetHandlerException(
                     f'l2ptp - interface "{interface_name}" must be tagged (with vlan label in 1..4095)')
@@ -563,7 +563,7 @@ class NetHandler(HandlerBase):
             interface = {}
             if labs.local_name is None:
                 raise NetHandlerException(f'l2sts - interface "{interface_name}" has no "local_name" label')
-            interface = self.parse_interface_name(sliver.mirror_port)
+            interface = self.parse_interface_name(labs.local_name)
             if labs.vlan is None:
                 interface['outervlan'] = 0
             else:
@@ -639,7 +639,7 @@ class NetHandler(HandlerBase):
             interface = {}
             if labs.local_name is None:
                 raise NetHandlerException(f'fabnetv4 - interface "{interface_name}" has no "local_name" label')
-            interface = self.parse_interface_name(sliver.mirror_port)
+            interface = self.parse_interface_name(labs.local_name)
             if labs.vlan is None:
                 interface['outervlan'] = 0
             else:
@@ -717,7 +717,7 @@ class NetHandler(HandlerBase):
             interface = {}
             if labs.local_name is None:
                 raise NetHandlerException(f'fabnetv6 - interface "{interface_name}" has no "local_name" label')
-            interface = self.parse_interface_name(sliver.mirror_port)
+            interface = self.parse_interface_name(labs.local_name)
             if labs.vlan is None:
                 interface['outervlan'] = 0
             else:
@@ -798,7 +798,7 @@ class NetHandler(HandlerBase):
             interface = {}
             if labs.local_name is None:
                 raise NetHandlerException(f'l3vpn - interface "{interface_name}" has no "local_name" label')
-            interface = self.parse_interface_name(sliver.mirror_port)
+            interface = self.parse_interface_name(labs.local_name)
             if labs.vlan is None:
                 interface['outervlan'] = 0
             else:
