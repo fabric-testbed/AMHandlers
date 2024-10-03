@@ -469,11 +469,7 @@ class NetHandler(HandlerBase):
             interface = {}
             if labs.local_name is None:
                 raise NetHandlerException(f'l2bridge - interface "{interface_name}" has no "local_name" label')
-            interface_type_id = re.findall(r'(\w+)(\d.+)', labs.local_name)
-            if not interface_type_id or len(interface_type_id[0]) != 2:
-                raise NetHandlerException(f'l2bridge - interface "{interface_name}" has malformed "local_name" label')
-            interface['type'] = interface_type_id[0][0]
-            interface['id'] = interface_type_id[0][1]
+            interface = self.parse_interface_name(labs.local_name)
             if labs.vlan is None:
                 interface['outervlan'] = 0
             else:
@@ -506,11 +502,7 @@ class NetHandler(HandlerBase):
             interface = {}
             if labs.local_name is None:
                 raise NetHandlerException(f'l2ptp - interface "{interface_name}" has no "local_name" label')
-            interface_type_id = re.findall(r'(\w+)(\d.+)', labs.local_name)
-            if not interface_type_id or len(interface_type_id[0]) != 2:
-                raise NetHandlerException(f'l2ptp - interface "{interface_name}" has malformed "local_name" label')
-            interface['type'] = interface_type_id[0][0]
-            interface['id'] = interface_type_id[0][1]
+            interface = self.parse_interface_name(labs.local_name)
             if labs.vlan is None or labs.vlan == 0:
                 raise NetHandlerException(
                     f'l2ptp - interface "{interface_name}" must be tagged (with vlan label in 1..4095)')
@@ -571,11 +563,7 @@ class NetHandler(HandlerBase):
             interface = {}
             if labs.local_name is None:
                 raise NetHandlerException(f'l2sts - interface "{interface_name}" has no "local_name" label')
-            interface_type_id = re.findall(r'(\w+)(\d.+)', labs.local_name)
-            if not interface_type_id or len(interface_type_id[0]) != 2:
-                raise NetHandlerException(f'l2sts - interface "{interface_name}" has malformed "local_name" label')
-            interface['type'] = interface_type_id[0][0]
-            interface['id'] = interface_type_id[0][1]
+            interface = self.parse_interface_name(labs.local_name)
             if labs.vlan is None:
                 interface['outervlan'] = 0
             else:
@@ -651,11 +639,7 @@ class NetHandler(HandlerBase):
             interface = {}
             if labs.local_name is None:
                 raise NetHandlerException(f'fabnetv4 - interface "{interface_name}" has no "local_name" label')
-            interface_type_id = re.findall(r'(\w+)(\d.+)', labs.local_name)
-            if not interface_type_id or len(interface_type_id[0]) != 2:
-                raise NetHandlerException(f'fabnetv4 - interface "{interface_name}" has malformed "local_name" label')
-            interface['type'] = interface_type_id[0][0]
-            interface['id'] = interface_type_id[0][1]
+            interface = self.parse_interface_name(labs.local_name)
             if labs.vlan is None:
                 interface['outervlan'] = 0
             else:
@@ -733,11 +717,7 @@ class NetHandler(HandlerBase):
             interface = {}
             if labs.local_name is None:
                 raise NetHandlerException(f'fabnetv6 - interface "{interface_name}" has no "local_name" label')
-            interface_type_id = re.findall(r'(\w+)(\d.+)', labs.local_name)
-            if not interface_type_id or len(interface_type_id[0]) != 2:
-                raise NetHandlerException(f'fabnetv6 - interface "{interface_name}" has malformed "local_name" label')
-            interface['type'] = interface_type_id[0][0]
-            interface['id'] = interface_type_id[0][1]
+            interface = self.parse_interface_name(labs.local_name)
             if labs.vlan is None:
                 interface['outervlan'] = 0
             else:
@@ -818,11 +798,7 @@ class NetHandler(HandlerBase):
             interface = {}
             if labs.local_name is None:
                 raise NetHandlerException(f'l3vpn - interface "{interface_name}" has no "local_name" label')
-            interface_type_id = re.findall(r'(\w+)(\d.+)', labs.local_name)
-            if not interface_type_id or len(interface_type_id[0]) != 2:
-                raise NetHandlerException(f'l3vpn - interface "{interface_name}" has malformed "local_name" label')
-            interface['type'] = interface_type_id[0][0]
-            interface['id'] = interface_type_id[0][1]
+            interface = self.parse_interface_name(labs.local_name)
             if labs.vlan is None:
                 interface['outervlan'] = 0
             else:
@@ -934,11 +910,14 @@ class NetHandler(HandlerBase):
         return data
 
     def parse_interface_name(self, interface_name: str) -> dict:
+        p = re.compile('^[/\d]+$')
+        if p.match(interface_name):
+            return {'type': "Generic", 'id': interface_name}
         interface_type_id = re.findall(r'(\w+)(\d.+)', interface_name)
         if not interface_type_id or len(interface_type_id[0]) != 2:
             raise NetHandlerException(f'interface name "{interface_name}" is malformed')
-        interface = {'type': interface_type_id[0][0], 'id': interface_type_id[0][1]}
-        return interface
+        else:
+            return {'type': interface_type_id[0][0], 'id': interface_type_id[0][1]}
 
     def poa(self, unit: ConfigToken, data: dict) -> Tuple[dict, ConfigToken]:
         """
