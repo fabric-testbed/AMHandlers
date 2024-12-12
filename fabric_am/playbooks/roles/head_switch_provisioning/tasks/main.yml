@@ -46,9 +46,9 @@
     executable: /bin/bash
   when: operation == 'create'
 
-- name: Reboot the switch
-  shell: echo {{ ansible_ssh_pass }} | sudo -S reboot
-  when: operation == 'create'
+#- name: Reboot the switch
+#  shell: echo {{ ansible_ssh_pass }} | sudo -S reboot
+#  when: operation == 'create'
 
 - name: Add public key to authorized_keys
   lineinfile:
@@ -159,10 +159,10 @@
     mode: '0644'
   when: operation == 'config'
 
-- name: Reboot the system after installing Docker
-  shell: reboot
-  ignore_errors: true
-  when: operation == 'config'
+#- name: Reboot the system after installing Docker
+#  shell: reboot
+#  ignore_errors: true
+#  when: operation == 'config'
 
 - name: Bring up Docker containers in detached mode
   shell: docker compose up -d

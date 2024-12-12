@@ -3,7 +3,7 @@ requires = ["flit_core >=3.2,<4"]
 build-backend = "flit_core.buildapi"
 
 [project]
-name = "fabric-am-handlers"
+name = "fabric_am_handlers"
 authors = [{name="Komal Thareja", email="kthare10@renci.org"}]
 readme = "README.md"
 license = {file = "LICENSE"}
