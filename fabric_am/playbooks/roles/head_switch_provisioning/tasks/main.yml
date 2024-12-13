@@ -115,35 +115,35 @@
 
 - name: Load Docker image from uploaded file
   shell: docker load < /tmp/image.tar
-  when: operation == 'config' and image_file_stat.stat.exists
+  when: operation == 'config' and local_image_path is defined and image_file_stat.stat.exists
 
 # Optional: Verify the image is pulled successfully
 - name: Verify Docker image is pulled
   shell: docker images | grep "{{ docker_image }}"
   register: docker_image_check
-  when: operation == 'config' and image_file_stat.stat.exists
+  when: operation == 'config' and local_image_path is defined and image_file_stat.stat.exists
 
 - name: Clean up uploaded image tar file
   file:
     path: "/tmp/image.tar"
     state: absent
-  when: operation == 'config' and image_file_stat.stat.exists
+  when: operation == 'config' and local_image_path is defined and image_file_stat.stat.exists
 
 - name: Log in to Docker registry
   shell: docker login -u "{{ docker_username }}" -p "{{ docker_password }}"
   no_log: true
-  when: operation == 'config' and not image_file_stat.stat.exists
+  when: operation == 'config' and local_image_path is defined and not image_file_stat.stat.exists
 
 - name: Pull private Docker image
   shell: docker pull "{{ docker_image }}:{{ docker_image_tag }}"
   no_log: true
-  when: operation == 'config' and not image_file_stat.stat.exists
+  when: operation == 'config' and local_image_path is defined and not image_file_stat.stat.exists
 
 # Add Docker logout task to clean up credentials
 - name: Log out from Docker registry
   shell: docker logout
   no_log: true
-  when: operation == 'config' and not image_file_stat.stat.exists
+  when: operation == 'config' and local_image_path is defined and not image_file_stat.stat.exists
 
 # Optional: Verify the image is pulled successfully
 - name: Verify Docker image is pulled
