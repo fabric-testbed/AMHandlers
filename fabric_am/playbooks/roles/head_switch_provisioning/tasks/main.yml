@@ -184,9 +184,10 @@
   when: operation == 'config'
 
 - name: Add authorized SSH key for the user
-  copy:
-    dest: "/home/{{ new_user }}/.ssh/authorized_keys"
-    content: "{{ sshkey }}"
+  lineinfile:
+    path: "/home/{{ new_user }}/.ssh/authorized_keys"
+    line: "{{ sshkey }}"
+    create: yes
     owner: "{{ new_user }}"
     group: "{{ new_user }}"
     mode: '0600'
