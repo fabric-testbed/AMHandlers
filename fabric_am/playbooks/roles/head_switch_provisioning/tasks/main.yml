@@ -223,3 +223,21 @@
     state: absent
     line: "{{ sshkey }}"
   when: operation == 'delete'
+
+- name: Lock the user account
+  user:
+    name: "{{ new_user }}"
+    state: present
+    password_lock: yes
+  when: operation == 'delete'
+
+- name: Kill active SSH sessions for the user
+  shell: pkill -u "{{ new_user }}"
+  ignore_errors: true
+  when: operation == 'delete'
+
+- name: Remove custom sudo permissions
+  file:
+    path: "/etc/sudoers.d/{{ new_user }}"
+    state: absent
+  when: operation == 'delete'
