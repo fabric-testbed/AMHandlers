@@ -1,14 +1,17 @@
 # file: fabric
 
 [fabric_p4_switch]
-renc-p4.fabric-testbed.net ansible_host=192.168.11.7
+renc-p4.fabric-testbed.net ansible_host=
 renc-p4.fabric-testbed.net ansible_python_interpreter=/nix/var/nix/profiles/RARE/bin/python3.10
+renc-p4.fabric-testbed.net ansible_ssh_common_args='-o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null'
 renc-p4.fabric-testbed.net ansible_ssh_user=rare
-renc-p4.fabric-testbed.net ansible_ssh_pass=XXXX
-renc-p4.fabric-testbed.net docker_username=XXXX
-renc-p4.fabric-testbed.net docker_password=XXXX
-renc-p4.fabric-testbed.net docker_image=XXXX
-
+renc-p4.fabric-testbed.net ansible_ssh_pass=rare
+renc-p4.fabric-testbed.net ansible_become_pass=
+renc-p4.fabric-testbed.net docker_username=
+renc-p4.fabric-testbed.net docker_password=
+renc-p4.fabric-testbed.net docker_image=nrigservice/tofino-sde
+renc-p4.fabric-testbed.net docker_image_tag=1.8.0
+renc-p4.fabric-testbed.net new_user=fabric
 
 [fabric_site_worker]
 renc-w1.fabric-testbed.net ansible_host=192.168.11.11

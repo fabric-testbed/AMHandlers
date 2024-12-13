@@ -118,7 +118,7 @@
   when: operation == 'config'
 
 - name: Pull private Docker image
-  shell: docker pull "{{ docker_image }}"
+  shell: docker pull "{{ docker_image }}:{{ docker_image_tag }}"
   no_log: true
   when: operation == 'config'
 
