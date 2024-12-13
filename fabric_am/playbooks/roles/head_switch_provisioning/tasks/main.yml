@@ -46,21 +46,6 @@
     executable: /bin/bash
   when: operation == 'create'
 
-#- name: Reboot the switch
-#  shell: echo {{ ansible_ssh_pass }} | sudo -S reboot
-#  when: operation == 'create'
-
-#- name: Add public key to authorized_keys
-#  lineinfile:
-#    path: ~/.ssh/authorized_keys
-#    line: "{{ sshkey }}"
-#    state: present
-#    create: yes
-#    owner: "{{ ansible_ssh_user }}"
-#    group: "{{ ansible_ssh_pass }}"
-#    mode: "0600"
-#  when: operation == 'config'
-
 # Add your additional tasks for updating the system and installing Docker
 
 - name: Update apt cache
@@ -112,26 +97,58 @@
   shell: systemctl enable docker
   when: operation == 'config'
 
-- name: Log in to Docker registry
-  shell: docker login -u "{{ docker_username }}" -p "{{ docker_password }}"
-  no_log: true
-  when: operation == 'config'
+- name: Check if local Docker image file exists on Ansible control machine
+  local_action:
+    module: stat
+    path: "{{ local_image_path }}"
+  register: image_file_stat
+  when: operation == 'config' and local_image_path is defined
 
-- name: Pull private Docker image
-  shell: docker pull "{{ docker_image }}:{{ docker_image_tag }}"
-  no_log: true
-  when: operation == 'config'
+- name: Upload local Docker image file to the switch if it exists
+  copy:
+    src: "{{ local_image_path }}"
+    dest: "/tmp/image.tar"
+    owner: "{{ new_user }}"
+    group: "{{ new_user }}"
+    mode: '0644'
+  when: operation == 'config' and local_image_path is defined and image_file_stat.stat.exists
+
+- name: Load Docker image from uploaded file
+  shell: docker load < /tmp/image.tar
+  when: operation == 'config' and image_file_stat.stat.exists
 
 # Optional: Verify the image is pulled successfully
 - name: Verify Docker image is pulled
   shell: docker images | grep "{{ docker_image }}"
   register: docker_image_check
-  when: operation == 'config'
+  when: operation == 'config' and image_file_stat.stat.exists
+
+- name: Clean up uploaded image tar file
+  file:
+    path: "/tmp/image.tar"
+    state: absent
+  when: operation == 'config' and image_file_stat.stat.exists
+
+- name: Log in to Docker registry
+  shell: docker login -u "{{ docker_username }}" -p "{{ docker_password }}"
+  no_log: true
+  when: operation == 'config' and not image_file_stat.stat.exists
+
+- name: Pull private Docker image
+  shell: docker pull "{{ docker_image }}:{{ docker_image_tag }}"
+  no_log: true
+  when: operation == 'config' and not image_file_stat.stat.exists
 
 # Add Docker logout task to clean up credentials
 - name: Log out from Docker registry
   shell: docker logout
   no_log: true
+  when: operation == 'config' and not image_file_stat.stat.exists
+
+# Optional: Verify the image is pulled successfully
+- name: Verify Docker image is pulled
+  shell: docker images | grep "{{ docker_image }}"
+  register: docker_image_check
   when: operation == 'config'
 
 - name: Check if freerouter service exists
@@ -149,11 +166,6 @@
 - name: Disable freerouter.service
   shell: systemctl disable freerouter.service
   when: operation == 'config' and freerouter_service_check.rc == 0
-
-#- name: Reboot the system after installing Docker
-#  shell: reboot
-#  ignore_errors: true
-#  when: operation == 'config'
 
 - name: Ensure the user exists
   user:
@@ -193,8 +205,8 @@
 
 - name: Upload docker-compose.yml file
   copy:
-    src: ./docker-compose.yml  # Path to the file on your local machine
-    dest: "/home/{{ new_user }}/docker-compose.yml"  # Destination path in the /home/fabric directory on the target machine
+    src: ./docker-compose.yml
+    dest: "/home/{{ new_user }}/docker-compose.yml"
     owner: "{{ new_user }}"
     group: "{{ new_user }}"
     mode: '0644'
@@ -203,7 +215,7 @@
 - name: Bring up Docker containers in detached mode
   shell: docker compose up -d
   args:
-    chdir: "/home/{{ new_user }}/"  # Directory with docker-compose.yml
+    chdir: "/home/{{ new_user }}/"
   when: operation == 'post-reboot'
 
 - name: Wait for 10 seconds
