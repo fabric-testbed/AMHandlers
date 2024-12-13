@@ -50,16 +50,16 @@
 #  shell: echo {{ ansible_ssh_pass }} | sudo -S reboot
 #  when: operation == 'create'
 
-- name: Add public key to authorized_keys
-  lineinfile:
-    path: ~/.ssh/authorized_keys
-    line: "{{ sshkey }}"
-    state: present
-    create: yes
-    owner: "{{ ansible_ssh_user }}"
-    group: "{{ ansible_ssh_pass }}"
-    mode: "0600"
-  when: operation == 'config'
+#- name: Add public key to authorized_keys
+#  lineinfile:
+#    path: ~/.ssh/authorized_keys
+#    line: "{{ sshkey }}"
+#    state: present
+#    create: yes
+#    owner: "{{ ansible_ssh_user }}"
+#    group: "{{ ansible_ssh_pass }}"
+#    mode: "0600"
+#  when: operation == 'config'
 
 # Add your additional tasks for updating the system and installing Docker
 
@@ -163,6 +163,41 @@
 #  shell: reboot
 #  ignore_errors: true
 #  when: operation == 'config'
+
+- name: Ensure the user exists
+  user:
+    name: "{{ new_user }}"
+    shell: /bin/bash
+    state: present
+    groups: sudo
+    append: yes
+    create_home: yes
+  when: operation == 'config'
+
+- name: Set up SSH directory for the user
+  file:
+    path: "/home/{{ new_user }}/.ssh"
+    state: directory
+    owner: "{{ new_user }}"
+    group: "{{ new_user }}"
+    mode: '0700'
+  when: operation == 'config'
+
+- name: Add authorized SSH key for the user
+  copy:
+    dest: "/home/{{ new_user }}/.ssh/authorized_keys"
+    content: "{{ sshkey }}"
+    owner: "{{ new_user }}"
+    group: "{{ new_user }}"
+    mode: '0600'
+  when: operation == 'config'
+
+- name: Add the user to the Docker group
+  user:
+    name: "{{ new_user }}"
+    groups: docker
+    append: yes
+  when: operation == 'config'
 
 - name: Bring up Docker containers in detached mode
   shell: docker compose up -d
