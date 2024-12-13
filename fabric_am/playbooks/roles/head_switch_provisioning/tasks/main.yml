@@ -150,15 +150,6 @@
   shell: systemctl disable freerouter.service
   when: operation == 'config' and freerouter_service_check.rc == 0
 
-- name: Upload docker-compose.yml file to /root directory
-  copy:
-    src: ./docker-compose.yml  # Path to the file on your local machine
-    dest: /root/docker-compose.yml  # Destination path in the /root directory on the target machine
-    owner: root
-    group: root
-    mode: '0644'
-  when: operation == 'config'
-
 #- name: Reboot the system after installing Docker
 #  shell: reboot
 #  ignore_errors: true
@@ -200,10 +191,19 @@
     append: yes
   when: operation == 'config'
 
+- name: Upload docker-compose.yml file
+  copy:
+    src: ./docker-compose.yml  # Path to the file on your local machine
+    dest: "/home/{{ new_user }}/docker-compose.yml"  # Destination path in the /home/fabric directory on the target machine
+    owner: "{{ new_user }}"
+    group: "{{ new_user }}"
+    mode: '0644'
+  when: operation == 'config'
+
 - name: Bring up Docker containers in detached mode
   shell: docker compose up -d
   args:
-    chdir: /root/  # Directory with docker-compose.yml
+    chdir: "/home/{{ new_user }}/"  # Directory with docker-compose.yml
   when: operation == 'post-reboot'
 
 - name: Wait for 10 seconds
@@ -214,7 +214,7 @@
 - name: Restart the Docker container
   shell: docker compose restart
   args:
-    chdir: /root/  # Directory with docker-compose.yml
+    chdir: "/home/{{ new_user }}/"  # Directory with docker-compose.yml
   when: operation == 'post-reboot'
 
 - name: Remove SSH key from authorized_keys
