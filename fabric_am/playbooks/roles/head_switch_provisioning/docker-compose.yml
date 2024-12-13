@@ -1,6 +1,6 @@
 services:
   p4_container:
-    image: kthare10/tofino-sde:latest
+    image: nrigservice/tofino-sde:1.8.0
     container_name: p4_container
     volumes:
       - /usr/src:/usr/src
