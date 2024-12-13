@@ -219,7 +219,7 @@
 
 - name: Remove SSH key from authorized_keys
   lineinfile:
-    path: ~/.ssh/authorized_keys
+    path: "/home/{{ new_user }}/.ssh/authorized_keys"
     state: absent
     line: "{{ sshkey }}"
   when: operation == 'delete'
