@@ -35,12 +35,14 @@ runtime:
   images:
     default_centos8_stream: centos
     default_centos9_stream: cloud-user
+    default_centos10_stream: cloud-user
     default_debian_11: debian
     default_debian_12: debian
     default_fedora_39: fedora
     default_fedora_40: fedora
     default_freebsd_13_zfs: freebsd
     default_freebsd_14_zfs: freebsd
+    default_fedora_41: fedora
     default_kali: kali
     default_openbsd_7: openbsd
     default_rocky_8: rocky
@@ -52,6 +54,7 @@ runtime:
     docker_rocky_9: rocky
     docker_ubuntu_20: ubuntu
     docker_ubuntu_22: ubuntu
+    docker_ubuntu_24: ubuntu
     attestable_bmv2_v1_ubuntu_20: ubuntu
     attestable_bmv2_v2_ubuntu_20: ubuntu
 playbooks:
