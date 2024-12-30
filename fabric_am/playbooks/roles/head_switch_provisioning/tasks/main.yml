@@ -108,8 +108,8 @@
   copy:
     src: "{{ local_image_path }}"
     dest: "/home/rare/image.tar"
-    owner: "{{ new_user }}"
-    group: "{{ new_user }}"
+    owner: "{{ ansible_ssh_user }}"
+    group: "{{ ansible_ssh_user }}"
     mode: '0644'
   when: operation == 'config' and local_image_path is defined and image_file_stat.stat.exists
 
