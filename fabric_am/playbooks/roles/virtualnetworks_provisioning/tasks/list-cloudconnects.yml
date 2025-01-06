@@ -26,18 +26,53 @@
 # /tasks/list-cloudconnects.yml
 #
 
-- name: List Cloudconnect interfaces
-  ansible.builtin.uri:
-    url: "{{ base_url }}/v1/footprint/cloudconnect"
-    headers:
-      Accept: application/json
-      Authorization: "{{ bearer_token }}"
-      content-type: application/json
-    status_code: 200
-    method: GET
-    validate_certs: no
-  register: list_interfaces_response
+- name: List l3 connection status with retries
+  block:
+    - name: Increment attempts counter
+      ansible.builtin.set_fact:
+        attempt_number: "{{ attempt_number | d(0) | int + 1 }}"
+        
+    - name: List Cloudconnect interfaces
+      ansible.builtin.uri:
+        url: "{{ base_url }}/v1/footprint/cloudconnect"
+        headers:
+          Accept: application/json
+          Authorization: "{{ bearer_token }}"
+          content-type: application/json
+        status_code: 200
+        method: GET
+        validate_certs: no
+      register: list_interfaces_response
+    
+    - name: Save list results
+      set_fact:
+        interface_list: "{{ list_interfaces_response.json }}"
+      
+  rescue:
+    - name: Fail/stop here if application started but did not run
+      ansible.builtin.fail:
+        msg: "Application started but did not run. Exiting"
+      when:
+        - result_run is defined
+        - result_run is failed
 
-- name: Save list results
-  set_fact:
-    interface_list: "{{ list_interfaces_response.json }}"
+    - name: "Fail if we reached the max of {{ max_attempts | d(3) }} attempts"
+      # Default will be 3 attempts if max_attempts is not passed as a parameter
+      ansible.builtin.fail:
+        msg: "Maximum number of attempts reached when L3 connection {{ virtualL3Connection_id }} is in an error state: {{ get_l3connection_response.json.provisioningDetails }}"
+      when: attempt_number | int == max_attempts | int | d(3)
+
+    - name: Show number of attempts
+      ansible.builtin.debug:
+        msg: "provisioningState is not PROVISIONED on attempt {{ attempt_number }}. Retrying"
+
+    - name: Add delay if configured
+      # no delay if retry_delay is not passed as parameter
+      ansible.builtin.wait_for:
+        timeout: "{{ retry_delay | int | d(omit) }}"
+      when: retry_delay is defined
+
+    - name: Include list-cloudconnects.yml to retry.
+      ansible.builtin.include_tasks: list-cloudconnects.yml
+      
+      
