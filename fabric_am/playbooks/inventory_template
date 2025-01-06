@@ -5,7 +5,7 @@ renc-p4.fabric-testbed.net ansible_host=
 renc-p4.fabric-testbed.net ansible_python_interpreter=/nix/var/nix/profiles/RARE/bin/python3.10
 renc-p4.fabric-testbed.net ansible_ssh_common_args='-o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null'
 renc-p4.fabric-testbed.net ansible_ssh_user=rare
-renc-p4.fabric-testbed.net ansible_ssh_pass=rare
+renc-p4.fabric-testbed.net ansible_ssh_pass=
 renc-p4.fabric-testbed.net ansible_become_pass=
 renc-p4.fabric-testbed.net docker_username=
 renc-p4.fabric-testbed.net docker_password=
