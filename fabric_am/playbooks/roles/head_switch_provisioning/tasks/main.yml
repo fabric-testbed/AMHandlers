@@ -117,11 +117,11 @@
   shell: docker load < /home/rare/image.tar
   when: operation == 'config' and local_image_path is defined and image_file_stat.stat.exists
 
-# Optional: Verify the image is pulled successfully
-- name: Verify Docker image is pulled
+- name: Verify Docker image is loaded
   shell: docker images | grep "{{ docker_image }}"
   register: docker_image_check
-  when: operation == 'config' and local_image_path is defined and image_file_stat.stat.exists
+  ignore_errors: true
+  when: operation == 'config'
 
 - name: Clean up uploaded image tar file
   file:
@@ -132,23 +132,22 @@
 - name: Log in to Docker registry
   shell: docker login -u "{{ docker_username }}" -p "{{ docker_password }}"
   no_log: true
-  when: operation == 'config' and local_image_path is defined and not image_file_stat.stat.exists
+  when: operation == 'config' and docker_image_check.rc != 0
 
 - name: Pull private Docker image
   shell: docker pull "{{ docker_image }}:{{ docker_image_tag }}"
   no_log: true
-  when: operation == 'config' and local_image_path is defined and not image_file_stat.stat.exists
+  when: operation == 'config' and docker_image_check.rc != 0
 
 # Add Docker logout task to clean up credentials
 - name: Log out from Docker registry
   shell: docker logout
   no_log: true
-  when: operation == 'config' and local_image_path is defined and not image_file_stat.stat.exists
+  when: operation == 'config' and docker_image_check.rc != 0
 
-# Optional: Verify the image is pulled successfully
+# Verify the image is pulled successfully
 - name: Verify Docker image is pulled
   shell: docker images | grep "{{ docker_image }}"
-  register: docker_image_check
   when: operation == 'config'
 
 - name: Check if freerouter service exists
