@@ -83,7 +83,11 @@ class ResultsCollectorJSONCallback(CallbackBase):
         """
         host = result._host
         if host is not None:
-            self.host_failed[host.get_name()] = result
+            ignore_errors = result._task.ignore_errors if hasattr(result._task, 'ignore_errors') else False
+            if ignore_errors:
+                self.logger.info(f"Task '{result._task.get_name()}' failed but ignore_errors is enabled.")
+            else:
+                self.host_failed[host.get_name()] = result
 
     def __get_json_result(self, host_result_map: dict, host: str = None):
         """
