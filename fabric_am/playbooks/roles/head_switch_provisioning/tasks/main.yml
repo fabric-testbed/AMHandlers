@@ -145,11 +145,6 @@
   no_log: true
   when: operation == 'config' and docker_image_check.rc != 0
 
-# Verify the image is pulled successfully
-- name: Verify Docker image is pulled
-  shell: docker images | grep "{{ docker_image }}"
-  when: operation == 'config'
-
 - name: Check if freerouter service exists
   shell: systemctl list-unit-files | grep freerouter.service
   register: freerouter_service_check
