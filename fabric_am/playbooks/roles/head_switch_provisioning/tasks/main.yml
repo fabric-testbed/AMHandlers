@@ -46,21 +46,6 @@
     executable: /bin/bash
   when: operation == 'create'
 
-- name: Reboot the switch
-  shell: echo {{ ansible_ssh_pass }} | sudo -S reboot
-  when: operation == 'create'
-
-- name: Add public key to authorized_keys
-  lineinfile:
-    path: ~/.ssh/authorized_keys
-    line: "{{ sshkey }}"
-    state: present
-    create: yes
-    owner: "{{ ansible_ssh_user }}"
-    group: "{{ ansible_ssh_pass }}"
-    mode: "0600"
-  when: operation == 'config'
-
 # Add your additional tasks for updating the system and installing Docker
 
 - name: Update apt cache
@@ -112,27 +97,53 @@
   shell: systemctl enable docker
   when: operation == 'config'
 
+- name: Check if local Docker image file exists on Ansible control machine
+  local_action:
+    module: stat
+    path: "{{ local_image_path }}"
+  register: image_file_stat
+  when: operation == 'config' and local_image_path is defined
+
+- name: Upload local Docker image file to the switch if it exists
+  copy:
+    src: "{{ local_image_path }}"
+    dest: "/home/rare/image.tar"
+    owner: "{{ ansible_ssh_user }}"
+    group: "{{ ansible_ssh_user }}"
+    mode: '0644'
+  when: operation == 'config' and local_image_path is defined and image_file_stat.stat.exists
+
+- name: Load Docker image from uploaded file
+  shell: docker load < /home/rare/image.tar
+  when: operation == 'config' and local_image_path is defined and image_file_stat.stat.exists
+
+- name: Verify Docker image is loaded
+  shell: docker images | grep "{{ docker_image }}"
+  register: docker_image_check
+  ignore_errors: true
+  when: operation == 'config'
+
+- name: Clean up uploaded image tar file
+  file:
+    path: "/home/rare/image.tar"
+    state: absent
+  when: operation == 'config' and local_image_path is defined and image_file_stat.stat.exists
+
 - name: Log in to Docker registry
   shell: docker login -u "{{ docker_username }}" -p "{{ docker_password }}"
   no_log: true
-  when: operation == 'config'
+  when: operation == 'config' and docker_image_check.rc != 0
 
 - name: Pull private Docker image
-  shell: docker pull "{{ docker_image }}"
+  shell: docker pull "{{ docker_image }}:{{ docker_image_tag }}"
   no_log: true
-  when: operation == 'config'
-
-# Optional: Verify the image is pulled successfully
-- name: Verify Docker image is pulled
-  shell: docker images | grep "{{ docker_image }}"
-  register: docker_image_check
-  when: operation == 'config'
+  when: operation == 'config' and docker_image_check.rc != 0
 
 # Add Docker logout task to clean up credentials
 - name: Log out from Docker registry
   shell: docker logout
   no_log: true
-  when: operation == 'config'
+  when: operation == 'config' and docker_image_check.rc != 0
 
 - name: Check if freerouter service exists
   shell: systemctl list-unit-files | grep freerouter.service
@@ -150,24 +161,55 @@
   shell: systemctl disable freerouter.service
   when: operation == 'config' and freerouter_service_check.rc == 0
 
-- name: Upload docker-compose.yml file to /root directory
-  copy:
-    src: ./docker-compose.yml  # Path to the file on your local machine
-    dest: /root/docker-compose.yml  # Destination path in the /root directory on the target machine
-    owner: root
-    group: root
-    mode: '0644'
+- name: Ensure the user exists
+  user:
+    name: "{{ new_user }}"
+    shell: /bin/bash
+    state: present
+    groups: sudo
+    append: yes
+    create_home: yes
   when: operation == 'config'
 
-- name: Reboot the system after installing Docker
-  shell: reboot
-  ignore_errors: true
+- name: Set up SSH directory for the user
+  file:
+    path: "/home/{{ new_user }}/.ssh"
+    state: directory
+    owner: "{{ new_user }}"
+    group: "{{ new_user }}"
+    mode: '0700'
+  when: operation == 'config'
+
+- name: Add authorized SSH key for the user
+  lineinfile:
+    path: "/home/{{ new_user }}/.ssh/authorized_keys"
+    line: "{{ sshkey }}"
+    create: yes
+    owner: "{{ new_user }}"
+    group: "{{ new_user }}"
+    mode: '0600'
+  when: operation == 'config'
+
+- name: Add the user to the Docker group
+  user:
+    name: "{{ new_user }}"
+    groups: docker
+    append: yes
+  when: operation == 'config'
+
+- name: Upload docker-compose.yml file
+  copy:
+    src: ./docker-compose.yml
+    dest: "/home/{{ new_user }}/docker-compose.yml"
+    owner: "{{ new_user }}"
+    group: "{{ new_user }}"
+    mode: '0644'
   when: operation == 'config'
 
 - name: Bring up Docker containers in detached mode
   shell: docker compose up -d
   args:
-    chdir: /root/  # Directory with docker-compose.yml
+    chdir: "/home/{{ new_user }}/"
   when: operation == 'post-reboot'
 
 - name: Wait for 10 seconds
@@ -178,12 +220,30 @@
 - name: Restart the Docker container
   shell: docker compose restart
   args:
-    chdir: /root/  # Directory with docker-compose.yml
+    chdir: "/home/{{ new_user }}/"  # Directory with docker-compose.yml
   when: operation == 'post-reboot'
 
 - name: Remove SSH key from authorized_keys
   lineinfile:
-    path: ~/.ssh/authorized_keys
+    path: "/home/{{ new_user }}/.ssh/authorized_keys"
     state: absent
     line: "{{ sshkey }}"
+  when: operation == 'delete'
+
+- name: Lock the user account
+  user:
+    name: "{{ new_user }}"
+    state: present
+    password_lock: yes
+  when: operation == 'delete'
+
+- name: Kill active SSH sessions for the user
+  shell: pkill -u "{{ new_user }}"
+  ignore_errors: true
+  when: operation == 'delete'
+
+- name: Remove custom sudo permissions
+  file:
+    path: "/etc/sudoers.d/{{ new_user }}"
+    state: absent
   when: operation == 'delete'
