@@ -13,6 +13,7 @@ renc-p4.fabric-testbed.net docker_image=nrigservice/tofino-sde
 renc-p4.fabric-testbed.net docker_image_tag=1.8.0
 renc-p4.fabric-testbed.net new_user=fabric
 renc-p4.fabric-testbed.net local_image_path=
+renc-p4.fabric-testbed.net nameservers=
 
 [fabric_site_worker]
 renc-w1.fabric-testbed.net ansible_host=192.168.11.11
