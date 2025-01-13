@@ -47,6 +47,15 @@
   when: operation == 'create'
 
 # Add your additional tasks for updating the system and installing Docker
+- name: Add nameservers from inventory to /etc/resolv.conf
+  lineinfile:
+    path: /etc/resolv.conf
+    line: "nameserver {{ item }}"
+    state: present
+    create: yes
+  with_items: "{{ nameservers.split(',') }}"
+  when: nameservers is defined
+  become: true
 
 - name: Update apt cache
   shell: apt update -y
