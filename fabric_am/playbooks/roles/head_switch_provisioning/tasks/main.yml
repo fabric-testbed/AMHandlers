@@ -46,11 +46,6 @@
     executable: /bin/bash
   when: operation == 'create'
 
-- name: Reboot the switch
-  shell: sudo -S reboot
-  ignore_errors: true
-  when: operation == 'create'
-
 # Add your additional tasks for updating the system and installing Docker
 - name: Add nameservers from inventory to /etc/resolv.conf
   lineinfile:
