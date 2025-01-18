@@ -137,12 +137,6 @@ class SwitchHandler(HandlerBase):
             ansible_ssh_user = host_vars.get('ansible_ssh_user')
             ansible_ssh_pass = host_vars.get('ansible_ssh_pass')
 
-            Utils.execute_command(mgmt_ip=ansible_host, user=ansible_ssh_user, pwd=ansible_ssh_pass,
-                                  logger=self.get_logger(), retry=5,
-                                  command=f"echo { ansible_ssh_pass } | sudo -S reboot")
-
-            time.sleep(1)
-
             Utils.verify_ssh(mgmt_ip=ansible_host, user=ansible_ssh_user, pwd=ansible_ssh_pass,
                              logger=self.get_logger(), retry=10)
 
@@ -152,24 +146,6 @@ class SwitchHandler(HandlerBase):
             }
             Utils.execute_ansible(inventory_path=inventory_path, playbook_path=f"{playbook_path}/{playbook}",
                                   extra_vars=extra_vars, logger=self.get_logger())
-
-            Utils.execute_command(mgmt_ip=ansible_host, user=ansible_ssh_user, pwd=ansible_ssh_pass,
-                                  logger=self.get_logger(), retry=5,
-                                  command=f"echo { ansible_ssh_pass } | sudo -S reboot")
-
-            time.sleep(1)
-
-            Utils.verify_ssh(mgmt_ip=ansible_host, user=ansible_ssh_user, pwd=ansible_ssh_pass,
-                             logger=self.get_logger(), retry=10)
-
-            extra_vars = {
-                AmConstants.OPERATION: AmConstants.OP_POST_REBOOT,
-            }
-            Utils.execute_ansible(inventory_path=inventory_path, playbook_path=f"{playbook_path}/{playbook}",
-                                  extra_vars=extra_vars, logger=self.get_logger())
-
-            Utils.verify_ssh(mgmt_ip=ansible_host, user=ansible_ssh_user, pwd=ansible_ssh_pass,
-                             logger=self.get_logger(), retry=10)
         except Exception as e:
             self.get_logger().error(e)
             self.get_logger().error(traceback.format_exc())

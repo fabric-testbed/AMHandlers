@@ -46,6 +46,11 @@
     executable: /bin/bash
   when: operation == 'create'
 
+- name: Reboot the switch
+  shell: sudo -S reboot
+  ignore_errors: true
+  when: operation == 'create'
+
 # Add your additional tasks for updating the system and installing Docker
 - name: Add nameservers from inventory to /etc/resolv.conf
   lineinfile:
@@ -56,103 +61,6 @@
   with_items: "{{ nameservers.split(',') }}"
   when: nameservers is defined
   become: true
-
-- name: Update apt cache
-  shell: apt update -y
-  when: operation == 'config'
-
-- name: Upgrade system packages
-  shell: apt upgrade -y && sudo apt dist-upgrade -y
-  when: operation == 'config'
-
-- name: Remove unnecessary packages
-  shell: apt autoremove -y
-  when: operation == 'config'
-
-- name: Install Linux image and headers
-  shell: apt install -y --allow-change-held-packages linux-image-amd64 linux-headers-amd64
-  when: operation == 'config'
-
-- name: Install dependencies for Docker
-  shell: apt install -y gpg apt-transport-https ca-certificates curl software-properties-common
-  when: operation == 'config'
-
-- name: Add Docker GPG key
-  ansible.builtin.shell: |
-    curl -fsSL https://download.docker.com/linux/debian/gpg -o /tmp/docker.gpg
-    gpg --yes --dearmor -o /usr/share/keyrings/docker-archive-keyring.gpg /tmp/docker.gpg
-  args:
-    executable: /bin/bash
-  when: operation == 'config'
-
-- name: Add Docker repository
-  shell: |
-    bash -c 'echo "deb [arch=$(dpkg --print-architecture) signed-by=/usr/share/keyrings/docker-archive-keyring.gpg] https://download.docker.com/linux/debian $(lsb_release -cs) stable" > /etc/apt/sources.list.d/docker.list'
-  when: operation == 'config'
-
-- name: Update apt cache again
-  shell: apt update -y
-  when: operation == 'config'
-
-- name: Install Docker packages
-  shell: apt install -y docker-ce docker-ce-cli containerd.io
-  when: operation == 'config'
-
-- name: Start Docker service
-  shell: systemctl start docker
-  when: operation == 'config'
-
-- name: Enable Docker service
-  shell: systemctl enable docker
-  when: operation == 'config'
-
-- name: Check if local Docker image file exists on Ansible control machine
-  local_action:
-    module: stat
-    path: "{{ local_image_path }}"
-  register: image_file_stat
-  when: operation == 'config' and local_image_path is defined
-
-- name: Upload local Docker image file to the switch if it exists
-  copy:
-    src: "{{ local_image_path }}"
-    dest: "/home/rare/image.tar"
-    owner: "{{ ansible_ssh_user }}"
-    group: "{{ ansible_ssh_user }}"
-    mode: '0644'
-  when: operation == 'config' and local_image_path is defined and image_file_stat.stat.exists
-
-- name: Load Docker image from uploaded file
-  shell: docker load < /home/rare/image.tar
-  when: operation == 'config' and local_image_path is defined and image_file_stat.stat.exists
-
-- name: Verify Docker image is loaded
-  shell: docker images | grep "{{ docker_image }}"
-  register: docker_image_check
-  ignore_errors: true
-  when: operation == 'config'
-
-- name: Clean up uploaded image tar file
-  file:
-    path: "/home/rare/image.tar"
-    state: absent
-  when: operation == 'config' and local_image_path is defined and image_file_stat.stat.exists
-
-- name: Log in to Docker registry
-  shell: docker login -u "{{ docker_username }}" -p "{{ docker_password }}"
-  no_log: true
-  when: operation == 'config' and docker_image_check.rc != 0
-
-- name: Pull private Docker image
-  shell: docker pull "{{ docker_image }}:{{ docker_image_tag }}"
-  no_log: true
-  when: operation == 'config' and docker_image_check.rc != 0
-
-# Add Docker logout task to clean up credentials
-- name: Log out from Docker registry
-  shell: docker logout
-  no_log: true
-  when: operation == 'config' and docker_image_check.rc != 0
 
 - name: Check if freerouter service exists
   shell: systemctl list-unit-files | grep freerouter.service
@@ -170,25 +78,6 @@
   shell: systemctl disable freerouter.service
   when: operation == 'config' and freerouter_service_check.rc == 0
 
-- name: Ensure the user exists
-  user:
-    name: "{{ new_user }}"
-    shell: /bin/bash
-    state: present
-    groups: sudo
-    append: yes
-    create_home: yes
-  when: operation == 'config'
-
-- name: Set up SSH directory for the user
-  file:
-    path: "/home/{{ new_user }}/.ssh"
-    state: directory
-    owner: "{{ new_user }}"
-    group: "{{ new_user }}"
-    mode: '0700'
-  when: operation == 'config'
-
 - name: Add authorized SSH key for the user
   lineinfile:
     path: "/home/{{ new_user }}/.ssh/authorized_keys"
@@ -198,39 +87,6 @@
     group: "{{ new_user }}"
     mode: '0600'
   when: operation == 'config'
-
-- name: Add the user to the Docker group
-  user:
-    name: "{{ new_user }}"
-    groups: docker
-    append: yes
-  when: operation == 'config'
-
-- name: Upload docker-compose.yml file
-  copy:
-    src: ./docker-compose.yml
-    dest: "/home/{{ new_user }}/docker-compose.yml"
-    owner: "{{ new_user }}"
-    group: "{{ new_user }}"
-    mode: '0644'
-  when: operation == 'config'
-
-- name: Bring up Docker containers in detached mode
-  shell: docker compose up -d
-  args:
-    chdir: "/home/{{ new_user }}/"
-  when: operation == 'post-reboot'
-
-- name: Wait for 10 seconds
-  pause:
-    seconds: 10
-  when: operation == 'post-reboot'
-
-- name: Restart the Docker container
-  shell: docker compose restart
-  args:
-    chdir: "/home/{{ new_user }}/"  # Directory with docker-compose.yml
-  when: operation == 'post-reboot'
 
 - name: Remove SSH key from authorized_keys
   lineinfile:
@@ -249,10 +105,4 @@
 - name: Kill active SSH sessions for the user
   shell: pkill -u "{{ new_user }}"
   ignore_errors: true
-  when: operation == 'delete'
-
-- name: Remove custom sudo permissions
-  file:
-    path: "/etc/sudoers.d/{{ new_user }}"
-    state: absent
   when: operation == 'delete'
