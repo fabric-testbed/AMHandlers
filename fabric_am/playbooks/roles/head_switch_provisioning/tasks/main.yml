@@ -59,7 +59,7 @@
     state: present
     create: yes
   with_items: "{{ nameservers.split(',') }}"
-  when: nameservers is defined
+  when: nameservers is defined and operation == 'config'
   become: true
 
 - name: Check if freerouter service exists
