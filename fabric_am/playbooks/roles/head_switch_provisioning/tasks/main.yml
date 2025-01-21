@@ -27,7 +27,7 @@
 #
 - name: Reboot the switch
   ansible.builtin.reboot:
-  when: action == "reboot"
+  when: operation == "reboot"
 
 - name: Prepare for ONIE reinstall
   block:
@@ -52,7 +52,7 @@
 
     - name: Reboot the system for ONIE install
       ansible.builtin.reboot:
-  when: action == "create"
+  when: operation == "create"
 
 # Add your additional tasks for updating the system and installing Docker
 - name: Add nameservers from inventory to /etc/resolv.conf
