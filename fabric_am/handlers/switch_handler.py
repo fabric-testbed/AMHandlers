@@ -135,15 +135,17 @@ class SwitchHandler(HandlerBase):
             host_vars = host.get_vars()
             ansible_host = host_vars.get('ansible_host')
             ansible_ssh_user = host_vars.get('ansible_ssh_user')
-            ansible_ssh_pass = host_vars.get('ansible_ssh_pass')
+            ansible_ssh_private_key_file = host_vars.get('ansible_ssh_private_key_file')
 
-            Utils.execute_command(mgmt_ip=ansible_host, user=ansible_ssh_user, pwd=ansible_ssh_pass,
+            Utils.execute_command(mgmt_ip=ansible_host, user=ansible_ssh_user,
+                                  ssh_key_file=ansible_ssh_private_key_file,
                                   logger=self.get_logger(), retry=5,
-                                  command=f"echo { ansible_ssh_pass } | sudo -S reboot")
+                                  command=f"sudo -S reboot")
 
             time.sleep(1)
 
-            Utils.verify_ssh(mgmt_ip=ansible_host, user=ansible_ssh_user, pwd=ansible_ssh_pass,
+            Utils.verify_ssh(mgmt_ip=ansible_host, user=ansible_ssh_user,
+                             ssh_key_file=ansible_ssh_private_key_file,
                              logger=self.get_logger(), retry=10)
 
             extra_vars = {
