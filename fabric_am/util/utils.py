@@ -25,6 +25,7 @@
 # Author: Komal Thareja (kthare10@renci.org)
 import logging
 import re
+import select
 import time
 import traceback
 from typing import List, Dict, Any
@@ -253,24 +254,42 @@ class Utils:
         :return:
         """
         for i in range(retry):
+            ssh = None
             try:
-                # Construct the SSH client
                 ssh = paramiko.SSHClient()
                 ssh.set_missing_host_key_policy(paramiko.AutoAddPolicy())
+
                 if pwd is not None:
-                    # Use password for authentication
                     ssh.connect(mgmt_ip, username=user, password=pwd, timeout=timeout)
                 else:
                     pkey = paramiko.RSAKey.from_private_key_file(ssh_key_file)
                     ssh.connect(mgmt_ip, username=user, timeout=timeout, pkey=pkey)
 
-                # Execute the command
-                stdin, stdout, stderr = ssh.exec_command(command)
-                output = stdout.readlines()
+                # Execute command with timeout
+                stdin, stdout, stderr = ssh.exec_command(command, timeout=timeout)
+
+                # Ensure we don't hang forever
+                while not stdout.channel.exit_status_ready():
+                    rl, wl, xl = select.select([stdout.channel], [], [], timeout)
+                    if not rl:
+                        raise TimeoutError(f"Command timeout: {command}")
+
+                output = stdout.read().decode().strip()
+                error = stderr.read().decode().strip()
+
                 ssh.close()
+
+                if error:
+                    logger.error(f"Error executing command: {error}")
+                    return None
                 return output
+
+            except TimeoutError as e:
+                logger.error(f"Command timeout: {command}")
+                ssh.close()
+                raise e
             except Exception as e:
-                logger.error(f"Exception : {e}")
+                logger.error(f"Exception: {e}")
                 logger.error(traceback.format_exc())
                 if i < retry - 1:
                     time.sleep(timeout)
@@ -278,6 +297,9 @@ class Utils:
                 else:
                     logger.error(f"Failed to execute command {command} on VM {mgmt_ip}")
                     raise e
+            finally:
+                if ssh:
+                    ssh.close()
 
     @staticmethod
     def verify_ssh(*, mgmt_ip: str, user: str, logger: logging.Logger, timeout: int = 60, retry: int = 10,
@@ -293,15 +315,16 @@ class Utils:
         :param ssh_key_file ssh_key_file
 
         """
-        command = f"echo test ssh from {mgmt_ip} > /tmp/fabric_execute_script.sh; " \
-                  f"chmod +x /tmp/fabric_execute_script.sh; /tmp/fabric_execute_script.sh"
+        command = "echo 'SSH connection verified'"
 
         try:
             output = Utils.execute_command(mgmt_ip=mgmt_ip, user=user, command=command, logger=logger,
                                            timeout=timeout, retry=retry, pwd=pwd, ssh_key_file=ssh_key_file)
-            logger.info(f"Output: {output}")
-        except Exception as e:
-            pass
+            if output:
+                logger.info(f"SSH Verification Output: {output}")
+                return True
+        except Exception:
+            return False
 
     @staticmethod
     def execute_ansible(*, inventory_path: str, playbook_path: str, extra_vars: dict, logger: logging.Logger,
