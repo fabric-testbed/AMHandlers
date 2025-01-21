@@ -25,11 +25,16 @@
 # Author: Komal Thareja (kthare10@renci.org)
 # /tasks/main.yml
 #
+- name: Get hostname from the host
+  command: hostname
+  register: hostname_output
+  changed_when: false
+
 - name: Append hostname to /etc/hosts for 127.0.0.1
   lineinfile:
     path: /etc/hosts
     regexp: '^127.0.0.1'
-    line: "127.0.0.1 {{ ansible_hostname }}"
+    line: "127.0.0.1 {{ hostname_output.stdout }}"
     backrefs: yes
 
 - name: Restart the system if action is restart
