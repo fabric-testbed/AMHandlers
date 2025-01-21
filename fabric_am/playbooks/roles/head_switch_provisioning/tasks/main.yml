@@ -37,7 +37,7 @@
     line: "127.0.0.1 {{ hostname_output.stdout }}"
     backrefs: yes
 
-- name: Restart the system if action is restart
+- name: Reboot the switch
   reboot:
   when: operation == "reboot"
 

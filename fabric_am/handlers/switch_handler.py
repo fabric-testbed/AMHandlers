@@ -126,28 +126,15 @@ class SwitchHandler(HandlerBase):
             Utils.execute_ansible(inventory_path=inventory_path, playbook_path=f"{playbook_path}/{playbook}",
                                   extra_vars=extra_vars, logger=self.get_logger())
 
-            from ansible.inventory.manager import InventoryManager
-            from ansible.parsing.dataloader import DataLoader
-            data_loader = DataLoader()
-            inventory = InventoryManager(loader=data_loader,
-                                         sources=[inventory_path])
-            host = inventory.get_host(hostname=f"{sliver.get_site().lower()}-p4.fabric-testbed.net")
-            host_vars = host.get_vars()
-            ansible_host = host_vars.get('ansible_host')
-            ansible_ssh_user = host_vars.get('ansible_ssh_user')
-            ansible_ssh_private_key_file = host_vars.get('ansible_ssh_private_key_file')
+            # Reboot switch
+            extra_vars = {
+                AmConstants.OPERATION: AmConstants.OP_REBOOT
+            }
 
-            Utils.execute_command(mgmt_ip=ansible_host, user=ansible_ssh_user,
-                                  ssh_key_file=ansible_ssh_private_key_file,
-                                  logger=self.get_logger(), retry=5,
-                                  command=f"sudo -S reboot")
+            Utils.execute_ansible(inventory_path=inventory_path, playbook_path=f"{playbook_path}/{playbook}",
+                                  extra_vars=extra_vars, logger=self.get_logger())
 
-            time.sleep(1)
-
-            Utils.verify_ssh(mgmt_ip=ansible_host, user=ansible_ssh_user,
-                             ssh_key_file=ansible_ssh_private_key_file,
-                             logger=self.get_logger(), retry=10)
-
+            # Configure the switch
             extra_vars = {
                 AmConstants.OPERATION: AmConstants.OP_CONFIG,
                 AmConstants.SSH_KEY: ssh_key
