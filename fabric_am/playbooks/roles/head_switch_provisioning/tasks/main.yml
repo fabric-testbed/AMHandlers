@@ -25,33 +25,44 @@
 # Author: Komal Thareja (kthare10@renci.org)
 # /tasks/main.yml
 #
-- name: Reboot the switch
-  ansible.builtin.reboot:
+- name: Append hostname to /etc/hosts for 127.0.0.1
+  lineinfile:
+    path: /etc/hosts
+    regexp: '^127.0.0.1'
+    line: "127.0.0.1 {{ ansible_hostname }}"
+    backrefs: yes
+
+- name: Restart the system if action is restart
+  reboot:
   when: operation == "reboot"
 
-- name: Prepare for ONIE reinstall
-  block:
-    - name: Ensure ONIE boot directory exists
-      ansible.builtin.file:
-        path: /mnt/onie-boot
-        state: directory
-        mode: '0755'
+- name: Ensure /mnt/onie-boot directory exists (for reinstall)
+  file:
+    path: /mnt/onie-boot
+    state: directory
+    mode: '0755'
+  when: operation == "create"
 
-    - name: Mount ONIE boot partition
-      ansible.builtin.mount:
-        path: /mnt/onie-boot
-        src: /dev/sda2
-        fstype: auto
-        state: mounted
+- name: Mount /dev/sda2 to /mnt/onie-boot (for reinstall)
+  mount:
+    path: /mnt/onie-boot
+    src: /dev/sda2
+    fstype: auto
+    state: mounted
+  when: operation == "create"
 
-    - name: Set ONIE to install mode using GRUB
-      ansible.builtin.command: grub-reboot ONIE
+- name: Set grub to reboot into ONIE mode (for reinstall)
+  command: grub-reboot ONIE
+  when: operation == "create"
 
-    - name: Set ONIE boot mode to install
-      ansible.builtin.command: /mnt/onie-boot/onie/tools/bin/onie-boot-mode -o install
+- name: Run ONIE boot mode install (for reinstall)
+  command: /mnt/onie-boot/onie/tools/bin/onie-boot-mode -o install
+  when: operation == "create"
 
-    - name: Reboot the system for ONIE install
-      ansible.builtin.reboot:
+- name: Unmount /mnt/onie-boot (for reinstall)
+  mount:
+    path: /mnt/onie-boot
+    state: unmounted
   when: operation == "create"
 
 # Add your additional tasks for updating the system and installing Docker
