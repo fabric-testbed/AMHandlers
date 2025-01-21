@@ -70,6 +70,51 @@
     state: unmounted
   when: operation == "create"
 
+- name: Update package list
+  apt:
+    update_cache: yes
+    cache_valid_time: 3600
+    force_apt_get: yes
+
+- name: Install Firewalld
+  apt:
+    name: firewalld
+    state: present
+
+- name: Enable and start Firewalld
+  systemd:
+    name: firewalld
+    enabled: yes
+    state: started
+
+- name: Remove SSH service from public zone
+  command: firewall-cmd --permanent --zone=public --remove-service=ssh
+  changed_when: false
+
+- name: Allow SSH from specific addresses
+  command: >
+    firewall-cmd --permanent --zone=public --add-rich-rule='rule family="{{ item.family }}"
+    source address="{{ item.address }}" port port="22" protocol="tcp" accept'
+  loop: "{{ allowed_ssh_sources }}"
+
+- name: Allow ICMP for specific subnets
+  command: >
+    firewall-cmd --permanent --zone=public --add-rich-rule='rule family="{{ item.family }}"
+    source address="{{ item.address }}" protocol value="icmp" accept'
+  loop: "{{ allowed_subnets }}"
+
+- name: Set the management interface to the public zone
+  command: firewall-cmd --zone=public --change-interface={{ management_interface }} --permanent
+  changed_when: false
+
+- name: Enable ICMP block inversion
+  command: firewall-cmd --add-icmp-block-inversion
+  changed_when: false
+
+- name: Reload firewalld
+  command: firewall-cmd --reload
+  changed_when: false
+
 # Add your additional tasks for updating the system and installing Docker
 - name: Add nameservers from inventory to /etc/resolv.conf
   lineinfile:
