@@ -127,7 +127,15 @@ class SwitchHandler(HandlerBase):
                                   extra_vars=extra_vars, logger=self.get_logger())
             time.sleep(1)
 
-            '''
+            # Reboot the switch
+            extra_vars = {
+                AmConstants.OPERATION: AmConstants.OP_REBOOT,
+            }
+            Utils.execute_ansible(inventory_path=inventory_path, playbook_path=f"{playbook_path}/{playbook}",
+                                  extra_vars=extra_vars, logger=self.get_logger())
+
+            time.sleep(1)
+
             # Reboot switch
             from ansible.inventory.manager import InventoryManager
             from ansible.parsing.dataloader import DataLoader
@@ -142,26 +150,8 @@ class SwitchHandler(HandlerBase):
             ssh_retries = self.get_config()[AmConstants.RUNTIME_SECTION][AmConstants.RT_SSH_RETRIES]
             admin_ssh_key = self.get_config()[AmConstants.PLAYBOOK_SECTION][AmConstants.ADMIN_SSH_KEY]
 
-            Utils.execute_command(mgmt_ip=ansible_host, user=ansible_ssh_user,
-                                  ssh_key_file=admin_ssh_key,
-                                  logger=self.get_logger(), retry=ssh_retries,
-                                  command=f"sudo reboot")
-
-            ssh_retries = self.get_config()[AmConstants.RUNTIME_SECTION][AmConstants.RT_SSH_RETRIES]
-            admin_ssh_key = self.get_config()[AmConstants.PLAYBOOK_SECTION][AmConstants.ADMIN_SSH_KEY]
-
-            Utils.verify_ssh(mgmt_ip=ansible_host, user=ansible_ssh_user,
-                             ssh_key_file=admin_ssh_key,
+            Utils.verify_ssh(mgmt_ip=ansible_host, user=ansible_ssh_user, ssh_key_file=admin_ssh_key,
                              logger=self.get_logger(), retry=ssh_retries)
-            '''
-            # Reboot the switch
-            extra_vars = {
-                AmConstants.OPERATION: AmConstants.OP_REBOOT,
-            }
-            Utils.execute_ansible(inventory_path=inventory_path, playbook_path=f"{playbook_path}/{playbook}",
-                                  extra_vars=extra_vars, logger=self.get_logger())
-
-            time.sleep(1)
 
             # Configure the switch
             extra_vars = {

@@ -80,7 +80,7 @@
   with_items: "{{ nameservers.split(',') }}"
   when: nameservers is defined and operation == 'config'
   become: true
-  
+
 - name: Update package list
   shell: apt update -y
   when: operation == "config"
