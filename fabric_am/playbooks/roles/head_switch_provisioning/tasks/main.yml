@@ -70,14 +70,12 @@
     state: unmounted
   when: operation == "create"
 
-- name: Update apt cache
+- name: Update package list
   shell: apt update -y
-  when: operation == 'config'
+  when: operation == "config"
 
 - name: Install Firewalld
-  apt:
-    name: firewalld
-    state: present
+  shell: sudo apt -y install firewalld
   when: operation == "config"
 
 - name: Enable and start Firewalld
