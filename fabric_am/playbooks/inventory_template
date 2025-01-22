@@ -10,7 +10,7 @@ renc-p4.fabric-testbed.net ansible_become_pass=
 renc-p4.fabric-testbed.net nameservers=
 renc-p4.fabric-testbed.net allowed_subnets=
 renc-p4.fabric-testbed.net allowed_ssh_sources=
-renc-p4.fabric-testbed.net management_interface= 
+renc-p4.fabric-testbed.net management_interface=mgmt0
 
 [fabric_site_worker]
 renc-w1.fabric-testbed.net ansible_host=192.168.11.11
