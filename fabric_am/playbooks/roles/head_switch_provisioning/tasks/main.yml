@@ -73,10 +73,12 @@
 - name: Update package list
   shell: apt update -y
   when: operation == "config"
+  become: true
 
 - name: Install Firewalld
-  shell: sudo apt -y install firewalld
+  shell: apt -y install firewalld
   when: operation == "config"
+  become: true
 
 - name: Enable and start Firewalld
   systemd:
