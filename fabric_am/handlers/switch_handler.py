@@ -150,8 +150,8 @@ class SwitchHandler(HandlerBase):
             ssh_retries = self.get_config()[AmConstants.RUNTIME_SECTION][AmConstants.RT_SSH_RETRIES]
             admin_ssh_key = self.get_config()[AmConstants.PLAYBOOK_SECTION][AmConstants.ADMIN_SSH_KEY]
 
-            Utils.verify_ssh(mgmt_ip=ansible_host, user=ansible_ssh_user, ssh_key_file=admin_ssh_key,
-                             logger=self.get_logger(), retry=ssh_retries)
+            #Utils.verify_ssh(mgmt_ip=ansible_host, user=ansible_ssh_user, ssh_key_file=admin_ssh_key,
+            #                 logger=self.get_logger(), retry=ssh_retries)
 
             # Configure the switch
             extra_vars = {
