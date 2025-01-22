@@ -70,12 +70,9 @@
     state: unmounted
   when: operation == "create"
 
-- name: Update package list
-  apt:
-    update_cache: yes
-    cache_valid_time: 3600
-    force_apt_get: yes
-  when: operation == "config"
+- name: Update apt cache
+  shell: apt update -y
+  when: operation == 'config'
 
 - name: Install Firewalld
   apt:
