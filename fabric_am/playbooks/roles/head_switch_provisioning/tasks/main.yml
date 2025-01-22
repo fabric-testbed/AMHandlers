@@ -96,14 +96,14 @@
   command: >
     firewall-cmd --permanent --zone=public --add-rich-rule='rule family="{{ item.family }}"
     source address="{{ item.address }}" port port="22" protocol="tcp" accept'
-    loop: "{{ allowed_ssh_sources }}"
+  loop: "{{ allowed_ssh_sources }}"
   when: operation == "config"
 
 - name: Allow ICMP for specific subnets
   command: >
     firewall-cmd --permanent --zone=public --add-rich-rule='rule family="{{ item.family }}"
     source address="{{ item.address }}" protocol value="icmp" accept'
-    loop: "{{ allowed_subnets }}"
+  loop: "{{ allowed_subnets }}"
   when: operation == "config"
 
 - name: Set the management interface to the public zone
