@@ -39,7 +39,7 @@
 
 - name: Reboot the switch
   reboot:
-    reboot_timeout: 900
+    reboot_timeout: 1500
   when: operation == "reboot"
 
 - name: Ensure /mnt/onie-boot directory exists (for reinstall)
