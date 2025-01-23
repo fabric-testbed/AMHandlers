@@ -777,7 +777,7 @@ class VMHandler(HandlerBase):
 
             for idx in range(len(pci_device_list)):
                 mac = None
-                if ns and interface_names and len(interface_names) > 0:
+                if ns and interface_names and len(interface_names) > 0 and idx < len(interface_names):
                     mac = ns.interface_info.interfaces[interface_names[idx]].label_allocations.mac.lower()
                 ok = self.__post_boot_config(mgmt_ip=mgmt_ip, user=user, pci_device_number=pci_device_number,
                                              mac=mac)
@@ -800,7 +800,7 @@ class VMHandler(HandlerBase):
                             bdf = bdf[:-1]
                         if bdf not in component.label_allocations.bdf and len(bdf):
                             component.label_allocations.bdf.append(bdf)
-                if interface_name is not None:
+                if interface_name is not None and idx < len(interface_names):
                     ns.interface_info.interfaces[interface_names[idx]].label_allocations.local_name = str(
                         interface_name)
                 self.logger.info(f"Label Allocations: {component.label_allocations} {ns}")
@@ -897,7 +897,7 @@ class VMHandler(HandlerBase):
                     AmConstants.PCI_FUNCTION: device_char_arr[3],
                     AmConstants.PCI_BDF: device
                 }
-                if len(interface_names) > 0:
+                if len(interface_names) > 0 and idx < len(interface_names):
                     mac = ns.interface_info.interfaces[interface_names[idx]].label_allocations.mac.lower()
                     host_vars[AmConstants.MAC] = mac
 

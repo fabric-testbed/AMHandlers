@@ -125,7 +125,18 @@ class SwitchHandler(HandlerBase):
 
             Utils.execute_ansible(inventory_path=inventory_path, playbook_path=f"{playbook_path}/{playbook}",
                                   extra_vars=extra_vars, logger=self.get_logger())
+            time.sleep(1)
 
+            # Reboot the switch
+            extra_vars = {
+                AmConstants.OPERATION: AmConstants.OP_REBOOT,
+            }
+            Utils.execute_ansible(inventory_path=inventory_path, playbook_path=f"{playbook_path}/{playbook}",
+                                  extra_vars=extra_vars, logger=self.get_logger())
+
+            time.sleep(1)
+
+            # Reboot switch
             from ansible.inventory.manager import InventoryManager
             from ansible.parsing.dataloader import DataLoader
             data_loader = DataLoader()
@@ -135,41 +146,20 @@ class SwitchHandler(HandlerBase):
             host_vars = host.get_vars()
             ansible_host = host_vars.get('ansible_host')
             ansible_ssh_user = host_vars.get('ansible_ssh_user')
-            ansible_ssh_pass = host_vars.get('ansible_ssh_pass')
 
-            Utils.execute_command(mgmt_ip=ansible_host, user=ansible_ssh_user, pwd=ansible_ssh_pass,
-                                  logger=self.get_logger(), retry=5,
-                                  command=f"echo { ansible_ssh_pass } | sudo -S reboot")
+            ssh_retries = self.get_config()[AmConstants.RUNTIME_SECTION][AmConstants.RT_SSH_RETRIES]
+            admin_ssh_key = self.get_config()[AmConstants.PLAYBOOK_SECTION][AmConstants.ADMIN_SSH_KEY]
 
-            time.sleep(1)
+            #Utils.verify_ssh(mgmt_ip=ansible_host, user=ansible_ssh_user, ssh_key_file=admin_ssh_key,
+            #                 logger=self.get_logger(), retry=ssh_retries)
 
-            Utils.verify_ssh(mgmt_ip=ansible_host, user=ansible_ssh_user, pwd=ansible_ssh_pass,
-                             logger=self.get_logger(), retry=10)
-
+            # Configure the switch
             extra_vars = {
                 AmConstants.OPERATION: AmConstants.OP_CONFIG,
                 AmConstants.SSH_KEY: ssh_key
             }
             Utils.execute_ansible(inventory_path=inventory_path, playbook_path=f"{playbook_path}/{playbook}",
                                   extra_vars=extra_vars, logger=self.get_logger())
-
-            Utils.execute_command(mgmt_ip=ansible_host, user=ansible_ssh_user, pwd=ansible_ssh_pass,
-                                  logger=self.get_logger(), retry=5,
-                                  command=f"echo { ansible_ssh_pass } | sudo -S reboot")
-
-            time.sleep(1)
-
-            Utils.verify_ssh(mgmt_ip=ansible_host, user=ansible_ssh_user, pwd=ansible_ssh_pass,
-                             logger=self.get_logger(), retry=10)
-
-            extra_vars = {
-                AmConstants.OPERATION: AmConstants.OP_POST_REBOOT,
-            }
-            Utils.execute_ansible(inventory_path=inventory_path, playbook_path=f"{playbook_path}/{playbook}",
-                                  extra_vars=extra_vars, logger=self.get_logger())
-
-            Utils.verify_ssh(mgmt_ip=ansible_host, user=ansible_ssh_user, pwd=ansible_ssh_pass,
-                             logger=self.get_logger(), retry=10)
         except Exception as e:
             self.get_logger().error(e)
             self.get_logger().error(traceback.format_exc())

@@ -61,6 +61,7 @@ class AmConstants:
     OP_ATTACH_FIP = "attach_fip"
     OP_GET = "get"
     OP_REBOOT = "reboot"
+    OP_REBOOT_SOFT = "reboot_soft"
     OP_STOP = "stop"
     OP_START = "start"
     OP_CPUINFO = "cpuinfo"
