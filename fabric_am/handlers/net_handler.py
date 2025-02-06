@@ -913,7 +913,7 @@ class NetHandler(HandlerBase):
         p = re.compile('^[/\d]+$')
         if p.match(interface_name):
             return {'type': "Generic", 'id': interface_name}
-        interface_type_id = re.findall(r'(\w+)(\d.+)', interface_name)
+        interface_type_id = re.findall(r'([^\d]+)(\d.*)', interface_name)
         if not interface_type_id or len(interface_type_id[0]) != 2:
             raise NetHandlerException(f'interface name "{interface_name}" is malformed')
         else:
