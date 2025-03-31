@@ -683,7 +683,14 @@ class VMHandler(HandlerBase):
         self.get_logger().debug("__attach_detach_multiple_function_pci IN")
         try:
             resource_type = str(component.get_type())
-            playbook = self.get_config()[AmConstants.PLAYBOOK_SECTION][resource_type]
+            model = str(component.get_model())
+            key = f"{resource_type}_{model}"
+            # Fetch the playbook name via ResourceType_Model key
+            # This is done to handle different playbook for SN1022 FPGAs used by CIEN
+            playbook = self.get_config()[AmConstants.PLAYBOOK_SECTION].get(key)
+            # If playbook not found, fetch the playbook name via ResourceType
+            if playbook is None:
+                playbook = self.get_config()[AmConstants.PLAYBOOK_SECTION].get(resource_type)
             if playbook is None or inventory_path is None:
                 raise VmHandlerException(f"Missing config parameters playbook: {playbook} "
                                          f"playbook_path: {playbook_path} inventory_path: {inventory_path}")
@@ -719,10 +726,6 @@ class VMHandler(HandlerBase):
                 AmConstants.PCI_BDF: bdf
 
             }
-
-            # For SN1022; USB tags not required; needed for CIEN rack
-            if "SN1022" in component.get_model():
-                extra_vars[AmConstants.USB_REQUIRED] = "no"
 
             if attach:
                 extra_vars[AmConstants.OPERATION] = AmConstants.OP_ATTACH
