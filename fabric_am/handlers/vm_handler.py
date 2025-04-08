@@ -285,6 +285,8 @@ class VMHandler(HandlerBase):
                 result = self.__poa_numatune(unit=unit, data=data)
             elif operation == AmConstants.OP_REBOOT:
                 result = self.__poa_reboot(unit=unit, data=data)
+            elif operation == AmConstants.OP_RESCAN:
+                result = self.__poa_rescan(unit=unit, data=data)
             elif operation == AmConstants.OP_ADDKEY or operation == AmConstants.OP_REMOVEKEY:
                 result = self.__poa_sshkey(unit=unit, data=data, operation=operation)
             else:
@@ -1046,7 +1048,7 @@ class VMHandler(HandlerBase):
 
     def __perform_virsh_server_action(self, *, playbook_path: str, inventory_path: str, worker_node_name: str,
                                       instance_name: str, operation: str, vcpu_cpu_map: List[Dict[str, str]] = None,
-                                      node_set: List[str] = None):
+                                      node_set: List[str] = None, bdf: List[str] = None):
         """
         Invoke ansible playbook to perform a server action via openstack commands
         :param playbook_path: playbook location
@@ -1067,6 +1069,9 @@ class VMHandler(HandlerBase):
 
         if node_set is not None:
             extra_vars[AmConstants.NODE_SET] = node_set
+
+        if bdf is not None:
+            extra_vars[AmConstants.PCI_BDF] = bdf
 
         return Utils.execute_ansible(inventory_path=inventory_path, playbook_path=playbook_path_full,
                                      extra_vars=extra_vars, logger=self.get_logger())
@@ -1419,6 +1424,59 @@ class VMHandler(HandlerBase):
                       }
         finally:
             self.get_logger().info(f"POA-reboot completed")
+
+        return result
+
+    def __poa_rescan(self, unit: ConfigToken, data: dict) -> dict:
+        result = {Constants.PROPERTY_TARGET_NAME: Constants.TARGET_POA,
+                  Constants.PROPERTY_TARGET_RESULT_CODE: Constants.RESULT_CODE_OK,
+                  Constants.PROPERTY_ACTION_SEQUENCE_NUMBER: 0}
+
+        try:
+            self.get_logger().info(f"POA-rescan started")
+
+            sliver = unit.get_sliver()
+            if not isinstance(sliver, NodeSliver):
+                raise VmHandlerException(f"Invalid Sliver type {type(sliver)}")
+
+            if sliver is None:
+                raise VmHandlerException(f"Unit # {unit} has no assigned slivers")
+
+            worker_node = sliver.label_allocations.instance_parent
+            bdf = data.get(AmConstants.PCI_BDF)
+
+            playbook_path = self.get_config()[AmConstants.PLAYBOOK_SECTION][AmConstants.PB_LOCATION]
+            inventory_path = self.get_config()[AmConstants.PLAYBOOK_SECTION][AmConstants.PB_INVENTORY]
+
+            if inventory_path is None or playbook_path is None:
+                raise VmHandlerException(f"Missing config parameters "
+                                         f"playbook_path: {playbook_path} inventory_path: {inventory_path}")
+
+            # Pin vCPU to requested CPUs
+            self.__perform_virsh_server_action(playbook_path=playbook_path, inventory_path=inventory_path,
+                                               worker_node_name=worker_node, operation=AmConstants.OP_CPUPIN,
+                                               instance_name=sliver.label_allocations.instance,
+                                               bdf=bdf)
+            result[Constants.PROPERTY_POA_INFO] = {
+                AmConstants.OPERATION: data.get(AmConstants.OPERATION),
+                Constants.POA_ID: data.get(Constants.POA_ID),
+                Constants.PROPERTY_CODE: Constants.RESULT_CODE_OK,
+                Constants.PROPERTY_POA_INFO: {
+                    "operation": data.get("operation"),
+                    "poa_id": data.get("poa_id"),
+                    "code": Constants.RESULT_CODE_OK
+                }
+            }
+        except Exception as e:
+            self.get_logger().error(e)
+            self.get_logger().error(traceback.format_exc())
+
+            result = {Constants.PROPERTY_TARGET_NAME: Constants.TARGET_POA,
+                      Constants.PROPERTY_TARGET_RESULT_CODE: Constants.RESULT_CODE_EXCEPTION,
+                      Constants.PROPERTY_ACTION_SEQUENCE_NUMBER: 0,
+                      Constants.PROPERTY_EXCEPTION_MESSAGE: e}
+        finally:
+            self.get_logger().info(f"POA-rescan completed")
 
         return result
 
