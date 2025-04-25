@@ -42,17 +42,3 @@
 - set_fact:
     pci_device_number: "{{ pci_device_number.stdout }}"
   when: operation == 'attach'
-
-- name: Run pcie_disable_fatal.sh for each PCI device
-  command: "/opt/mlnx-scripts/pcie_disable_fatal.sh {{ item | regex_replace('^0000:', '') }}"
-  loop: "{{ bdf }}"
-  when: operation == 'rescan' and bdf is defined
-
-- name: Remove each PCI device
-  command: "echo 1 > /sys/bus/pci/devices/{{ item }}/remove"
-  loop: "{{ bdf }}"
-  when: operation == 'rescan' and bdf is defined
-
-- name: Rescan PCI bus
-  command: "echo 1 > /sys/bus/pci/rescan"
-  when: operation == 'rescan'

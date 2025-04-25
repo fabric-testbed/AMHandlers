@@ -78,7 +78,7 @@ playbooks:
     reboot: head_vm_provisioning.yml
     delete: worker_libvirt_operations.yml
     is_deleted: worker_libvirt_operations.yml
-    rescan: worker_libvirt_operations.yml
+    rescan: pci_rescan.yml
   config:
     post_boot: head_vm_post_boot_config.yml
     SmartNIC: nmcli_config_nw_interface.yml

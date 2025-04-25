@@ -1,0 +1,12 @@
+---
+# file: pci_rescan.yml
+
+- hosts: 
+    - "{{ worker_node_name }}"
+
+  vars:
+
+  gather_facts: no
+
+  roles:
+    - pci_rescan
