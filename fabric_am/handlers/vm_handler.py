@@ -1454,7 +1454,7 @@ class VMHandler(HandlerBase):
 
             # Pin vCPU to requested CPUs
             self.__perform_virsh_server_action(playbook_path=playbook_path, inventory_path=inventory_path,
-                                               worker_node_name=worker_node, operation=AmConstants.OP_CPUPIN,
+                                               worker_node_name=worker_node, operation=AmConstants.OP_RESCAN,
                                                instance_name=sliver.label_allocations.instance,
                                                bdf=bdf)
             result[Constants.PROPERTY_POA_INFO] = {
