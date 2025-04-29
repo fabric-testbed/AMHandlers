@@ -1484,7 +1484,7 @@ class VMHandler(HandlerBase):
                     self.__attach_detach_pci(playbook_path=playbook_path, inventory_path=inventory_path,
                                              host=worker_node, instance_name=sliver.label_allocations.instance,
                                              device_name=unit_id, component=component, vm_name=vmname,
-                                             project_id=project_id, raise_exception=True, mgmt_ip=fip, user=user)
+                                             project_id=project_id, mgmt_ip=fip, user=user)
 
             # REBOOT the VM
             playbook = self.get_config()[AmConstants.PLAYBOOK_SECTION][resource_type]
@@ -1502,8 +1502,12 @@ class VMHandler(HandlerBase):
 
             result = {Constants.PROPERTY_TARGET_NAME: Constants.TARGET_POA,
                       Constants.PROPERTY_TARGET_RESULT_CODE: Constants.RESULT_CODE_EXCEPTION,
-                      Constants.PROPERTY_ACTION_SEQUENCE_NUMBER: 0,
-                      Constants.PROPERTY_EXCEPTION_MESSAGE: e}
+                      Constants.PROPERTY_ACTION_SEQUENCE_NUMBER: 0, Constants.PROPERTY_EXCEPTION_MESSAGE: e,
+                      Constants.PROPERTY_POA_INFO: {
+                          "operation": data.get("operation"),
+                          "poa_id": data.get("poa_id"),
+                          "code": Constants.RESULT_CODE_EXCEPTION
+                      }}
         finally:
             self.get_logger().info(f"POA-rescan completed")
 
