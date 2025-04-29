@@ -664,8 +664,7 @@ class VMHandler(HandlerBase):
                                      logger=self.get_logger())
 
     def __attach_detach_multiple_function_pci(self, *, playbook_path: str, inventory_path: str, host: str,
-                                              instance_name: str, device_name: str, component: ComponentSliver,
-                                              vm_name: str, project_id: str, attach: bool = True,
+                                              instance_name: str, component: ComponentSliver, attach: bool = True,
                                               raise_exception: bool = False, mgmt_ip: str = None, user: str = None):
         """
         Invoke ansible playbook to attach/detach a PCI device with multiple functions to a provisioned VM
@@ -673,10 +672,7 @@ class VMHandler(HandlerBase):
         :param inventory_path: inventory location
         :param host: host
         :param instance_name: Instance Name
-        :param device_name: Device Name
         :param component: Component Sliver
-        :param vm_name: VM Name
-        :param project_id: Project Id
         :param attach: True for attach and False for detach
         :param mgmt_ip Management IP
         :param user default user
@@ -851,8 +847,7 @@ class VMHandler(HandlerBase):
                     (pci_device_list and len(pci_device_list) > 1 and "multi" in playbook):
                 self.__attach_detach_multiple_function_pci(playbook_path=playbook_path, inventory_path=inventory_path,
                                                            host=host, instance_name=instance_name,
-                                                           device_name=device_name, component=component,
-                                                           vm_name=vm_name, project_id=project_id,
+                                                           component=component,
                                                            attach=attach, raise_exception=raise_exception,
                                                            mgmt_ip=mgmt_ip, user=user)
                 return

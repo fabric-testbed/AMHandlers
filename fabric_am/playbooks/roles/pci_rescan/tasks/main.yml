@@ -1,8 +1,12 @@
 ---
 # /tasks/main.yml
 #
-- name: Run pcie_disable_fatal.sh for each PCI device
-  command: "/opt/mlnx-scripts/pcie_disable_fatal.sh {{ item | regex_replace('^0000:', '') }}"
+- name: Run pcie_disable_fatal.sh for each PCI device and its sibling multifunctions
+  shell: |
+    device_base="{{ item | regex_replace('^0000:', '') | regex_replace('\\.\\d+$', '') }}"
+    for dev in $(ls /sys/bus/pci/devices/0000:${device_base}*); do
+      /opt/mlnx-scripts/pcie_disable_fatal.sh "${dev##*/}" || true
+    done
   loop: "{{ bdf }}"
   when: operation == 'rescan' and bdf is defined
   register: pcie_disable_result
@@ -14,8 +18,12 @@
   loop: "{{ pcie_disable_result.results }}"
   when: pcie_disable_result is defined
 
-- name: Remove each PCI device
-  shell: "echo 1 > /sys/bus/pci/devices/{{ item }}/remove"
+- name: Remove each PCI device and its sibling multifunctions
+  shell: |
+    device_base="{{ item | regex_replace('^0000:', '') | regex_replace('\\.\\d+$', '') }}"
+    for dev in $(ls /sys/bus/pci/devices/0000:${device_base}* 2>/dev/null); do
+      echo 1 > "${dev}/remove" || true
+    done
   loop: "{{ bdf }}"
   when: operation == 'rescan' and bdf is defined
   register: pcie_remove_result
@@ -36,6 +44,5 @@
 
 - name: Show output from PCI rescan
   debug:
-    msg: "{{ item.stdout }}"
-  loop: "{{ pcie_rescan_result.results }}"
+    msg: "{{ pcie_rescan_result.stdout }}"
   when: pcie_rescan_result is defined
