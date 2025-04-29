@@ -1,18 +1,41 @@
 ---
 # /tasks/main.yml
 #
-# ansible-galaxy collection install community.libvirt
-
 - name: Run pcie_disable_fatal.sh for each PCI device
   command: "/opt/mlnx-scripts/pcie_disable_fatal.sh {{ item | regex_replace('^0000:', '') }}"
   loop: "{{ bdf }}"
   when: operation == 'rescan' and bdf is defined
+  register: pcie_disable_result
+  changed_when: false
+
+- name: Show output from pcie_disable_fatal.sh
+  debug:
+    msg: "{{ item.stdout }}"
+  loop: "{{ pcie_disable_result.results }}"
+  when: pcie_disable_result is defined
 
 - name: Remove each PCI device
-  command: "echo 1 > /sys/bus/pci/devices/{{ item }}/remove"
+  shell: "echo 1 > /sys/bus/pci/devices/{{ item }}/remove"
   loop: "{{ bdf }}"
   when: operation == 'rescan' and bdf is defined
+  register: pcie_remove_result
+  changed_when: false
+
+- name: Show output from PCI device removal
+  debug:
+    msg: "{{ item.stdout }}"
+  loop: "{{ pcie_remove_result.results }}"
+  when: pcie_remove_result is defined
+
 
 - name: Rescan PCI bus
-  command: "echo 1 > /sys/bus/pci/rescan"
+  shell: "echo 1 > /sys/bus/pci/rescan"
   when: operation == 'rescan'
+  register: pcie_rescan_result
+  changed_when: false
+
+- name: Show output from PCI rescan
+  debug:
+    msg: "{{ item.stdout }}"
+  loop: "{{ pcie_rescan_result.results }}"
+  when: pcie_rescan_result is defined

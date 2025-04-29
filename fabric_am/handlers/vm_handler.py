@@ -1467,6 +1467,40 @@ class VMHandler(HandlerBase):
                     "code": Constants.RESULT_CODE_OK
                 }
             }
+
+            worker_node = sliver.label_allocations.instance_parent
+            vmname = sliver.get_name()
+            ssh_retries = self.get_config()[AmConstants.RUNTIME_SECTION][AmConstants.RT_SSH_RETRIES]
+            admin_ssh_key = self.get_config()[AmConstants.PLAYBOOK_SECTION][AmConstants.ADMIN_SSH_KEY]
+            unit_id = str(unit.get_reservation_id())
+            unit_properties = unit.get_properties()
+            project_id = unit_properties.get(Constants.PROJECT_ID, None)
+            image = sliver.get_image_ref()
+            user = self.__get_default_user(image=image)
+            fip = sliver.management_ip
+
+            resource_type = str(sliver.get_type())
+            playbook_path = self.get_config()[AmConstants.PLAYBOOK_SECTION][AmConstants.PB_LOCATION]
+            inventory_path = self.get_config()[AmConstants.PLAYBOOK_SECTION][AmConstants.PB_INVENTORY]
+
+            # Attach any attached PCI Devices
+            if sliver.attached_components_info is not None:
+                for component in sliver.attached_components_info.devices.values():
+                    self.__attach_detach_pci(playbook_path=playbook_path, inventory_path=inventory_path,
+                                             host=worker_node, instance_name=sliver.label_allocations.instance,
+                                             device_name=unit_id, component=component, vm_name=vmname,
+                                             project_id=project_id, raise_exception=True, mgmt_ip=fip, user=user)
+
+            # REBOOT the VM
+            playbook = self.get_config()[AmConstants.PLAYBOOK_SECTION][resource_type]
+            playbook_path_full = f"{playbook_path}/{playbook}"
+
+            self.__perform_os_server_action(playbook_path=playbook_path_full, inventory_path=inventory_path,
+                                            vm_name=vmname, unit_id=unit_id, action=AmConstants.OP_REBOOT)
+
+            Utils.verify_ssh(mgmt_ip=fip, user=user, retry=ssh_retries, ssh_key_file=admin_ssh_key,
+                             logger=self.get_logger())
+
         except Exception as e:
             self.get_logger().error(e)
             self.get_logger().error(traceback.format_exc())
