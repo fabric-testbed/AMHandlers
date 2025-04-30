@@ -285,6 +285,8 @@ class VMHandler(HandlerBase):
                 result = self.__poa_numatune(unit=unit, data=data)
             elif operation == AmConstants.OP_REBOOT:
                 result = self.__poa_reboot(unit=unit, data=data)
+            elif operation == AmConstants.OP_RESCAN:
+                result = self.__poa_rescan(unit=unit, data=data)
             elif operation == AmConstants.OP_ADDKEY or operation == AmConstants.OP_REMOVEKEY:
                 result = self.__poa_sshkey(unit=unit, data=data, operation=operation)
             else:
@@ -662,8 +664,7 @@ class VMHandler(HandlerBase):
                                      logger=self.get_logger())
 
     def __attach_detach_multiple_function_pci(self, *, playbook_path: str, inventory_path: str, host: str,
-                                              instance_name: str, device_name: str, component: ComponentSliver,
-                                              vm_name: str, project_id: str, attach: bool = True,
+                                              instance_name: str, component: ComponentSliver, attach: bool = True,
                                               raise_exception: bool = False, mgmt_ip: str = None, user: str = None):
         """
         Invoke ansible playbook to attach/detach a PCI device with multiple functions to a provisioned VM
@@ -671,10 +672,7 @@ class VMHandler(HandlerBase):
         :param inventory_path: inventory location
         :param host: host
         :param instance_name: Instance Name
-        :param device_name: Device Name
         :param component: Component Sliver
-        :param vm_name: VM Name
-        :param project_id: Project Id
         :param attach: True for attach and False for detach
         :param mgmt_ip Management IP
         :param user default user
@@ -849,8 +847,7 @@ class VMHandler(HandlerBase):
                     (pci_device_list and len(pci_device_list) > 1 and "multi" in playbook):
                 self.__attach_detach_multiple_function_pci(playbook_path=playbook_path, inventory_path=inventory_path,
                                                            host=host, instance_name=instance_name,
-                                                           device_name=device_name, component=component,
-                                                           vm_name=vm_name, project_id=project_id,
+                                                           component=component,
                                                            attach=attach, raise_exception=raise_exception,
                                                            mgmt_ip=mgmt_ip, user=user)
                 return
@@ -1046,7 +1043,7 @@ class VMHandler(HandlerBase):
 
     def __perform_virsh_server_action(self, *, playbook_path: str, inventory_path: str, worker_node_name: str,
                                       instance_name: str, operation: str, vcpu_cpu_map: List[Dict[str, str]] = None,
-                                      node_set: List[str] = None):
+                                      node_set: List[str] = None, bdf: List[str] = None):
         """
         Invoke ansible playbook to perform a server action via openstack commands
         :param playbook_path: playbook location
@@ -1067,6 +1064,9 @@ class VMHandler(HandlerBase):
 
         if node_set is not None:
             extra_vars[AmConstants.NODE_SET] = node_set
+
+        if bdf is not None:
+            extra_vars[AmConstants.PCI_BDF] = bdf
 
         return Utils.execute_ansible(inventory_path=inventory_path, playbook_path=playbook_path_full,
                                      extra_vars=extra_vars, logger=self.get_logger())
@@ -1419,6 +1419,97 @@ class VMHandler(HandlerBase):
                       }
         finally:
             self.get_logger().info(f"POA-reboot completed")
+
+        return result
+
+    def __poa_rescan(self, unit: ConfigToken, data: dict) -> dict:
+        result = {Constants.PROPERTY_TARGET_NAME: Constants.TARGET_POA,
+                  Constants.PROPERTY_TARGET_RESULT_CODE: Constants.RESULT_CODE_OK,
+                  Constants.PROPERTY_ACTION_SEQUENCE_NUMBER: 0}
+
+        try:
+            self.get_logger().info(f"POA-rescan started")
+
+            sliver = unit.get_sliver()
+            if not isinstance(sliver, NodeSliver):
+                raise VmHandlerException(f"Invalid Sliver type {type(sliver)}")
+
+            if sliver is None:
+                raise VmHandlerException(f"Unit # {unit} has no assigned slivers")
+
+            worker_node = sliver.label_allocations.instance_parent
+            bdf = data.get(AmConstants.PCI_BDF)
+
+            playbook_path = self.get_config()[AmConstants.PLAYBOOK_SECTION][AmConstants.PB_LOCATION]
+            inventory_path = self.get_config()[AmConstants.PLAYBOOK_SECTION][AmConstants.PB_INVENTORY]
+
+            if inventory_path is None or playbook_path is None:
+                raise VmHandlerException(f"Missing config parameters "
+                                         f"playbook_path: {playbook_path} inventory_path: {inventory_path}")
+
+            # Pin vCPU to requested CPUs
+            self.__perform_virsh_server_action(playbook_path=playbook_path, inventory_path=inventory_path,
+                                               worker_node_name=worker_node, operation=AmConstants.OP_RESCAN,
+                                               instance_name=sliver.label_allocations.instance,
+                                               bdf=bdf)
+            result[Constants.PROPERTY_POA_INFO] = {
+                AmConstants.OPERATION: data.get(AmConstants.OPERATION),
+                Constants.POA_ID: data.get(Constants.POA_ID),
+                Constants.PROPERTY_CODE: Constants.RESULT_CODE_OK,
+                Constants.PROPERTY_POA_INFO: {
+                    "operation": data.get("operation"),
+                    "poa_id": data.get("poa_id"),
+                    "code": Constants.RESULT_CODE_OK
+                }
+            }
+
+            worker_node = sliver.label_allocations.instance_parent
+            vmname = sliver.get_name()
+            ssh_retries = self.get_config()[AmConstants.RUNTIME_SECTION][AmConstants.RT_SSH_RETRIES]
+            admin_ssh_key = self.get_config()[AmConstants.PLAYBOOK_SECTION][AmConstants.ADMIN_SSH_KEY]
+            unit_id = str(unit.get_reservation_id())
+            unit_properties = unit.get_properties()
+            project_id = unit_properties.get(Constants.PROJECT_ID, None)
+            image = sliver.get_image_ref()
+            user = self.__get_default_user(image=image)
+            fip = sliver.management_ip
+
+            resource_type = str(sliver.get_type())
+            playbook_path = self.get_config()[AmConstants.PLAYBOOK_SECTION][AmConstants.PB_LOCATION]
+            inventory_path = self.get_config()[AmConstants.PLAYBOOK_SECTION][AmConstants.PB_INVENTORY]
+
+            # Attach any attached PCI Devices
+            if sliver.attached_components_info is not None:
+                for component in sliver.attached_components_info.devices.values():
+                    self.__attach_detach_pci(playbook_path=playbook_path, inventory_path=inventory_path,
+                                             host=worker_node, instance_name=sliver.label_allocations.instance,
+                                             device_name=unit_id, component=component, vm_name=vmname,
+                                             project_id=project_id, mgmt_ip=fip, user=user)
+
+            # REBOOT the VM
+            playbook = self.get_config()[AmConstants.PLAYBOOK_SECTION][resource_type]
+            playbook_path_full = f"{playbook_path}/{playbook}"
+
+            self.__perform_os_server_action(playbook_path=playbook_path_full, inventory_path=inventory_path,
+                                            vm_name=vmname, unit_id=unit_id, action=AmConstants.OP_REBOOT)
+
+            Utils.verify_ssh(mgmt_ip=fip, user=user, retry=ssh_retries, ssh_key_file=admin_ssh_key,
+                             logger=self.get_logger())
+
+        except Exception as e:
+            self.get_logger().error(e)
+            self.get_logger().error(traceback.format_exc())
+
+            result = {Constants.PROPERTY_TARGET_NAME: Constants.TARGET_POA,
+                      Constants.PROPERTY_TARGET_RESULT_CODE: Constants.RESULT_CODE_EXCEPTION,
+                      Constants.PROPERTY_ACTION_SEQUENCE_NUMBER: 0, Constants.PROPERTY_EXCEPTION_MESSAGE: e,
+                      Constants.PROPERTY_POA_INFO: {
+                          "operation": data.get("operation"),
+                          "poa_id": data.get("poa_id"),
+                          "code": Constants.RESULT_CODE_EXCEPTION
+                      }}
+        finally:
+            self.get_logger().info(f"POA-rescan completed")
 
         return result
 
