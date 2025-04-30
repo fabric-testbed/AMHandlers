@@ -1493,13 +1493,13 @@ class VMHandler(HandlerBase):
                     if not is_subset:
                         continue
 
-                    self.get_logger.info(f"Detaching the component - {component}")
+                    self.get_logger().info(f"Detaching the component - {component}")
                     self.__attach_detach_pci(playbook_path=playbook_path, inventory_path=inventory_path,
                                              host=worker_node, instance_name=sliver.label_allocations.instance,
                                              device_name=unit_id, component=component, vm_name=vmname,
                                              project_id=project_id, mgmt_ip=fip, user=user, attach=False)
 
-                    self.get_logger.info(f"Re-attaching the component - {component}")
+                    self.get_logger().info(f"Re-attaching the component - {component}")
                     self.__attach_detach_pci(playbook_path=playbook_path, inventory_path=inventory_path,
                                              host=worker_node, instance_name=sliver.label_allocations.instance,
                                              device_name=unit_id, component=component, vm_name=vmname,
