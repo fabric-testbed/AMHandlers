@@ -1481,6 +1481,25 @@ class VMHandler(HandlerBase):
             # Attach any attached PCI Devices
             if sliver.attached_components_info is not None:
                 for component in sliver.attached_components_info.devices.values():
+                    if component.get_type() == ComponentType.SharedNIC:
+                        continue
+
+                    if isinstance(component.labels.bdf, str):
+                        pci_device_list = [component.labels.bdf]
+                    else:
+                        pci_device_list = component.labels.bdf
+
+                    is_subset = any(elem in pci_device_list for elem in bdf)
+                    if not is_subset:
+                        continue
+
+                    self.get_logger(f"Detaching the component - {component}")
+                    self.__attach_detach_pci(playbook_path=playbook_path, inventory_path=inventory_path,
+                                             host=worker_node, instance_name=sliver.label_allocations.instance,
+                                             device_name=unit_id, component=component, vm_name=vmname,
+                                             project_id=project_id, mgmt_ip=fip, user=user, attach=False)
+
+                    self.get_logger(f"Re-attaching the component - {component}")
                     self.__attach_detach_pci(playbook_path=playbook_path, inventory_path=inventory_path,
                                              host=worker_node, instance_name=sliver.label_allocations.instance,
                                              device_name=unit_id, component=component, vm_name=vmname,
