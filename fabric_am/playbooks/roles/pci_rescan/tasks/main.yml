@@ -1,0 +1,55 @@
+---
+# /tasks/main.yml
+#
+- name: Run pcie_disable_fatal.sh for each PCI device and its sibling multifunctions
+  shell: |
+    set -x
+    device_base="{{ item | regex_replace('^0000:', '') | regex_replace('[0-9]+$', '') }}"
+    for devpath in /sys/bus/pci/devices/0000:${device_base}*; do
+       full_devname="$(basename "$devpath")"      # e.g., 0000:25:00.0
+       devname="${full_devname#0000:}"            # remove leading 0000:
+       echo "Would run: /opt/mlnx-scripts/pcie_disable_fatal.sh $devname"
+      /opt/mlnx-scripts/pcie_disable_fatal.sh "$devname"
+    done
+  loop: "{{ bdf }}"
+  when: operation == 'rescan' and bdf is defined
+  register: pcie_disable_result
+  changed_when: false
+
+- name: Show output from pcie_disable_fatal.sh
+  debug:
+    msg: "{{ item.stdout }}"
+  loop: "{{ pcie_disable_result.results }}"
+  when: pcie_disable_result is defined
+
+- name: Remove each PCI device and its sibling multifunctions
+  shell: |
+   set -x
+    device_base="{{ item | regex_replace('^0000:', '') | regex_replace('[0-9]+$', '') }}"
+    for devpath in /sys/bus/pci/devices/0000:${device_base}*; do
+      full_devname="$(basename "$devpath")"      # e.g., 0000:25:00.0
+      echo "Would run: echo 1 > /sys/bus/pci/devices/$full_devname/remove"
+      echo 1 > "/sys/bus/pci/devices/$full_devname/remove"
+    done
+  loop: "{{ bdf }}"
+  when: operation == 'rescan' and bdf is defined
+  register: pcie_remove_result
+  changed_when: false
+
+- name: Show output from PCI device removal
+  debug:
+    msg: "{{ item.stdout }}"
+  loop: "{{ pcie_remove_result.results }}"
+  when: pcie_remove_result is defined
+
+
+- name: Rescan PCI bus
+  shell: "echo 1 > /sys/bus/pci/rescan"
+  when: operation == 'rescan'
+  register: pcie_rescan_result
+  changed_when: false
+
+- name: Show output from PCI rescan
+  debug:
+    msg: "{{ pcie_rescan_result.stdout }}"
+  when: pcie_rescan_result is defined

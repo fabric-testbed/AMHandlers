@@ -51,6 +51,7 @@ class AmConstants:
     CLEAN_ALL = "ALL"
 
     OPERATION = "operation"
+    OP_RESCAN = "rescan"
     OP_ATTACH = "attach"
     OP_DETACH = "detach"
     OP_CREATE = "create"

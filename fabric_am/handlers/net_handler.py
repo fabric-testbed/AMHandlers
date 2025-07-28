@@ -528,6 +528,8 @@ class NetHandler(HandlerBase):
             type, path = sliver.ero.get()
             index = 1
             for hop in path.get()[0]:
+                if hop.startswith("link:"):
+                    continue
                 # TODO: validate hop is ipv4 using regex
                 ero_a2z.append({'index': str(index), 'address': hop})
                 index += 1
@@ -537,6 +539,8 @@ class NetHandler(HandlerBase):
             ero_z2a = []
             index = 1
             for hop in path.get()[1]:
+                if hop.startswith("link:"):
+                    continue
                 # TODO: validate hop is ipv4 using regex
                 ero_z2a.append({'index': str(index), 'address': hop})
                 index += 1
