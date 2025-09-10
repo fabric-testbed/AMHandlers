@@ -27,7 +27,8 @@ import json
 import re
 import time
 import traceback
-from typing import Tuple, List, Dict
+from textwrap import indent
+from typing import Tuple, List, Dict, Optional
 
 from fabric_cf.actor.core.common.constants import Constants
 from fabric_cf.actor.core.plugins.handlers.config_token import ConfigToken
@@ -392,16 +393,249 @@ class VMHandler(HandlerBase):
         return result, unit
 
     @staticmethod
-    def __build_user_data(*, default_user: str, ssh_key: str, init_script: str = None):
-        user_data = "#!/bin/bash\n"
-        ssh_keys = ssh_key.split(",")
-        for key in ssh_keys:
-            user_data += f"echo {key} >> /home/{default_user}/.ssh/authorized_keys\n"
+    def __build_user_data(
+            *,
+            ssh_key: str,
+            init_script: Optional[str] = None,
+            force_user: Optional[str] = None,
+            hostname: Optional[str] = None,  # e.g., "cx-6-node"
+            domain: Optional[str] = None,  # e.g., "lab.renci.org" -> fqdn "cx-6-node.lab.renci.org"
+            manage_hosts: bool = True,  # cloud-init manage /etc/hosts
+            dhclient_hostname_protect: bool = False,  # write FreeBSD dhclient hook to ignore DHCP hostnames
+            multipart: bool = True  # MIME (True) or single cloud-config (False)
+    ) -> str:
+        """
+        Build cloud-init user-data that:
+          - adds ssh keys to the image's default user (or a specific user with force_user),
+          - sets hostname/fqdn and persists it (works across Linux/FreeBSD),
+          - optionally runs an init script under /bin/sh,
+          - optionally installs a dhclient hook to stop DHCP from changing hostnames (FreeBSD).
+        """
 
-        if init_script is not None:
-            user_data += init_script
+        # Validate/prepare keys
+        keys = [k.strip() for k in ssh_key.split(",") if k.strip()]
 
-        return user_data
+        # Validate hostname label
+        def _valid_label(s: str) -> bool:
+            return bool(re.fullmatch(r"[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?", s))
+
+        hn_yaml = fqdn_yaml = preserve_yaml = ""
+        if hostname:
+            hn = hostname.strip().lower()
+            if not _valid_label(hn):
+                raise ValueError(f"Invalid hostname label: {hostname!r}")
+            hn_yaml = f"hostname: {hn}\n"
+            fqdn_yaml = f"fqdn: {hn}.{domain.strip().lower()}\n" if domain else ""
+            # Ensure cloud-init actually applies our hostname
+            preserve_yaml = "preserve_hostname: false\n"
+
+        # /etc/hosts mgmt
+        manage_hosts_yaml = "manage_etc_hosts: true\n" if manage_hosts else ""
+
+        # Users/keys block: either use distro default user or force a named user
+        if force_user:
+            users_block = (
+                    "users:\n"
+                    f"  - name: {force_user}\n"
+                    "    shell: /bin/sh\n"
+                    "    ssh_authorized_keys:\n" +
+                    "".join(f"      - {k}\n" for k in keys)
+            )
+            top_level_keys = ""
+        else:
+            users_block = "users:\n  - default\n"
+            # Top-level ssh_authorized_keys applies to the default user
+            top_level_keys = (
+                    "ssh_authorized_keys:\n" +
+                    "".join(f"  - {k}\n" for k in keys)
+            )
+
+        # Base cloud-config
+        cloud_cfg = (
+            "#cloud-config\n"
+            f"{users_block}"
+            f"{top_level_keys}"
+            "ssh_pwauth: false\n"
+            f"{preserve_yaml}"
+            f"{hn_yaml}"
+            f"{fqdn_yaml}"
+            f"{manage_hosts_yaml}"
+        )
+
+        # Optional: write a FreeBSD dhclient hook to stop DHCP from changing the hostname
+        write_files_yaml = ""
+        if dhclient_hostname_protect:
+            # Owner intentionally omitted for portability; defaults to root:root.
+            write_files_yaml = (
+                "write_files:\n"
+                "  - path: /etc/dhclient-enter-hooks\n"
+                "    permissions: '0755'\n"
+                "    content: |\n"
+                "      #!/bin/sh\n"
+                "      # Prevent dhclient from changing the hostname (BOUND/RENEW/REBIND/REBOOT)\n"
+                "      case \"$reason\" in\n"
+                "        BOUND|RENEW|REBIND|REBOOT) unset new_host_name ;;\n"
+                "      esac\n"
+            )
+
+        # Late, cross-OS persistent hostname fallback (handles DHCP race and non-standard images)
+        # - Linux (systemd): hostnamectl
+        # - FreeBSD: sysrc + live kernel name
+        # - Fallback: plain hostname
+        if hostname:
+            fallback_script = f"""#!/bin/sh
+    set -eu
+    NAME="{hostname}"
+    if command -v hostnamectl >/dev/null 2>&1; then
+      hostnamectl set-hostname "$NAME"
+    elif command -v sysrc >/dev/null 2>&1; then
+      sysrc hostname="$NAME" >/dev/null
+      hostname "$NAME"
+    else
+      # Best-effort; some distros persist via /etc/hostname
+      hostname "$NAME" || true
+      if [ -w /etc/hostname ]; then
+        printf "%s\\n" "$NAME" > /etc/hostname || true
+      fi
+    fi
+    """
+        else:
+            fallback_script = "#!/bin/sh\ntrue\n"
+
+        # Compose final payload
+        if init_script:
+            user_script = "#!/bin/sh\nset -eu\n" + init_script.strip() + "\n"
+        else:
+            user_script = None
+
+        if multipart:
+            boundary = "===============cloudinit=="
+            parts = []
+
+            parts.append(
+                f"--{boundary}\n"
+                'Content-Type: text/cloud-config; charset="us-ascii"\n\n'
+                f"{cloud_cfg}"
+                f"{write_files_yaml}"
+                "\n"
+            )
+            parts.append(
+                f"--{boundary}\n"
+                'Content-Type: text/x-shellscript; charset="us-ascii"\n\n'
+                f"{fallback_script}\n"
+            )
+            if user_script:
+                parts.append(
+                    f"--{boundary}\n"
+                    'Content-Type: text/x-shellscript; charset="us-ascii"\n\n'
+                    f"{user_script}\n"
+                )
+            parts.append(f"--{boundary}--\n")
+
+            return (
+                    f'Content-Type: multipart/mixed; boundary="{boundary}"\n'
+                    "MIME-Version: 1.0\n\n" + "".join(parts)
+            )
+
+        # Single cloud-config: write scripts then run them
+        script_entries = []
+        runcmd_entries = []
+
+        # Fallback hostname script
+        fallback_path = "/var/lib/cloud/scripts/per-instance/10-hostname-fallback.sh"
+        script_entries.append(
+            f"  - path: {fallback_path}\n"
+            "    permissions: '0755'\n"
+            "    content: |\n" + indent(fallback_script, "      ")
+        )
+        runcmd_entries.append(f"  - [{fallback_path}]")
+
+        # Optional user script
+        if user_script:
+            user_path = "/var/lib/cloud/scripts/per-instance/99-userinit.sh"
+            script_entries.append(
+                f"  - path: {user_path}\n"
+                "    permissions: '0755'\n"
+                "    content: |\n" + indent(user_script, "      ")
+            )
+            runcmd_entries.append(f"  - [{user_path}]")
+
+        single = (
+                cloud_cfg +
+                write_files_yaml +
+                ("write_files:\n" + "".join(script_entries) if script_entries else "") + "\n" +
+                ("runcmd:\n" + "\n".join(runcmd_entries) if runcmd_entries else "")
+        )
+        return single
+
+    '''
+    def __build_user_data(*, ssh_key: str, init_script: str = None,
+                          force_user: str = None, multipart: bool = True) -> str:
+        """
+        Returns cloud-init user-data that is OS-agnostic.
+        - ssh_key: comma-separated public keys
+        - init_script: optional shell script body (no shebang needed)
+        - force_user: set to a username to avoid 'default' (not recommended)
+        - multipart: True => MIME with cloud-config + shellscript; False => single cloud-config using write_files+runcmd
+        """
+        keys = [k.strip() for k in ssh_key.split(",") if k.strip()]
+
+        if force_user:
+            users_block = (
+                    "users:\n"
+                    f"  - name: {force_user}\n"
+                    "    ssh_authorized_keys:\n" +
+                    "".join([f"      - {k}\n" for k in keys])
+            )
+        else:
+            # Use distro default user (portable): ubuntu/debian/ec2-user/freebsd/etc.
+            users_block = (
+                    "users:\n"
+                    "  - default\n"
+                    "ssh_authorized_keys:\n" +
+                    "".join([f"  - {k}\n" for k in keys])
+            )
+
+        cloud_cfg = (
+            "#cloud-config\n"
+            f"{users_block}"
+            "ssh_pwauth: false\n"
+        )
+
+        if not init_script:
+            return cloud_cfg
+
+        # Make a POSIX-sh script (portable across Linux/FreeBSD)
+        script = "#!/bin/sh\nset -eu\n" + init_script.strip() + "\n"
+
+        if multipart:
+            boundary = "===============cloudinit=="
+            return (
+                f'Content-Type: multipart/mixed; boundary="{boundary}"\n'
+                "MIME-Version: 1.0\n\n"
+                f"--{boundary}\n"
+                'Content-Type: text/cloud-config; charset="us-ascii"\n\n'
+                f"{cloud_cfg}\n"
+                f"--{boundary}\n"
+                'Content-Type: text/x-shellscript; charset="us-ascii"\n\n'
+                f"{script}\n"
+                f"--{boundary}--\n"
+            )
+        else:
+            # Single-part cloud-config: write the script and run it.
+            script_path = "/var/lib/cloud/scripts/per-instance/99-userinit.sh"
+            return (
+                    cloud_cfg +
+                    "write_files:\n"
+                    f"  - path: {script_path}\n"
+                    "    permissions: '0755'\n"
+                    "    owner: root:root\n"
+                    "    content: |\n" +
+                    indent(script, "      ") +
+                    "runcmd:\n"
+                    f"  - [{script_path}]\n"
+            )
+    '''
 
     def __create_vm(self, *, playbook_path: str, inventory_path: str, vm_name: str, worker_node: str, image: str,
                     flavor: str, unit_id: str, ssh_key: str, init_script: str = None) -> dict:
@@ -427,7 +661,9 @@ class VMHandler(HandlerBase):
         if init_script is None:
             init_script = ""
 
-        user_data = self.__build_user_data(default_user=default_user, ssh_key=ssh_key, init_script=init_script)
+        user_data = self.__build_user_data(ssh_key=ssh_key, init_script=init_script,
+                                           dhclient_hostname_protect=True, multipart=True,
+                                           hostname=vm_name)
 
         extra_vars = {
             AmConstants.OPERATION: AmConstants.OP_CREATE,
