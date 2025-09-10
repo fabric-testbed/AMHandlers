@@ -420,15 +420,9 @@ class VMHandler(HandlerBase):
         # Prepare keys
         keys = [k.strip() for k in ssh_key.split(",") if k.strip()]
 
-        # Validate hostname (DNS label)
-        def _valid_label(s: str) -> bool:
-            return bool(re.fullmatch(r"[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?", s))
-
         hn_yaml = fqdn_yaml = preserve_yaml = ""
         if hostname:
             hn = hostname.strip().lower()
-            if not _valid_label(hn):
-                raise ValueError(f"Invalid hostname label: {hostname!r}")
             hn_yaml = f"hostname: {hn}\n"
             fqdn_yaml = f"fqdn: {hn}.{domain.strip().lower()}\n" if domain else ""
             preserve_yaml = "preserve_hostname: false\n"
