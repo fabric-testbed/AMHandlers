@@ -85,7 +85,7 @@ class ResultsCollectorJSONCallback(CallbackBase):
         if host is not None:
             ignore_errors = result._task.ignore_errors if hasattr(result._task, 'ignore_errors') else False
             if ignore_errors:
-                self.logger.info(f"Task '{result._task.get_name()}' failed but ignore_errors is enabled.")
+                print(f"Task '{result._task.get_name()}' failed but ignore_errors is enabled.")
             else:
                 self.host_failed[host.get_name()] = result
 

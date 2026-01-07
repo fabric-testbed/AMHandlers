@@ -27,7 +27,8 @@ import json
 import re
 import time
 import traceback
-from typing import Tuple, List, Dict
+from textwrap import indent
+from typing import Tuple, List, Dict, Optional
 
 from fabric_cf.actor.core.common.constants import Constants
 from fabric_cf.actor.core.plugins.handlers.config_token import ConfigToken
@@ -392,16 +393,229 @@ class VMHandler(HandlerBase):
         return result, unit
 
     @staticmethod
-    def __build_user_data(*, default_user: str, ssh_key: str, init_script: str = None):
-        user_data = "#!/bin/bash\n"
-        ssh_keys = ssh_key.split(",")
-        for key in ssh_keys:
-            user_data += f"echo {key} >> /home/{default_user}/.ssh/authorized_keys\n"
+    def __build_user_data(
+            *,
+            ssh_key: str,
+            init_script: Optional[str] = None,
+            force_user: Optional[str] = None,
+            hostname: Optional[str] = None,
+            domain: Optional[str] = None,
+            manage_hosts: bool = True,
+            dhclient_hostname_protect: bool = False,  # FreeBSD: stop DHCP from changing hostname
+            ipv6_autoconf: bool = True,  # FreeBSD: enable RA/SLAAC; safe no-op on Linux
+            ensure_sshd: bool = True,  # enable & (re)start sshd
+            multipart: bool = True
+    ) -> str:
+        """
+        Build OS-agnostic cloud-init user-data:
+          - Installs SSH keys for default user (or force_user)
+          - Sets hostname/FQDN + late fallback to persist across DHCP races
+          - (FreeBSD) Enables IPv6 autoconfig via rtsold + accept_rtadv (SLAAC)
+          - Optionally prevents DHCP from overwriting hostname (FreeBSD)
+          - Optionally ensures sshd is enabled and listening
+          - Optional user init script (POSIX sh)
+          - MIME multipart (default) or single cloud-config
+        """
 
-        if init_script is not None:
-            user_data += init_script
+        # Prepare keys
+        keys = [k.strip() for k in ssh_key.split(",") if k.strip()]
 
-        return user_data
+        hn_yaml = fqdn_yaml = preserve_yaml = ""
+        if hostname:
+            hn = hostname.strip().lower()
+            hn_yaml = f"hostname: {hn}\n"
+            fqdn_yaml = f"fqdn: {hn}.{domain.strip().lower()}\n" if domain else ""
+            preserve_yaml = "preserve_hostname: false\n"
+
+        manage_hosts_yaml = "manage_etc_hosts: true\n" if manage_hosts else ""
+
+        # Users & keys
+        if force_user:
+            users_block = (
+                    "users:\n"
+                    f"  - name: {force_user}\n"
+                    "    shell: /bin/sh\n"
+                    "    ssh_authorized_keys:\n" +
+                    "".join(f"      - {k}\n" for k in keys)
+            )
+            top_level_keys = ""
+        else:
+            users_block = "users:\n  - default\n"
+            top_level_keys = (
+                    "ssh_authorized_keys:\n" +
+                    "".join(f"  - {k}\n" for k in keys)
+            )
+
+        cloud_cfg = (
+            "#cloud-config\n"
+            f"{users_block}"
+            f"{top_level_keys}"
+            "ssh_pwauth: false\n"
+            f"{preserve_yaml}"
+            f"{hn_yaml}"
+            f"{fqdn_yaml}"
+            f"{manage_hosts_yaml}"
+        )
+
+        # Optional file writes (will be merged correctly even in single-part mode)
+        write_files_entries = ""
+        if dhclient_hostname_protect:
+            write_files_entries += (
+                "  - path: /etc/dhclient-enter-hooks\n"
+                "    permissions: '0755'\n"
+                "    content: |\n"
+                "      #!/bin/sh\n"
+                "      # Prevent dhclient from changing the hostname\n"
+                "      case \"$reason\" in\n"
+                "        BOUND|RENEW|REBIND|REBOOT) unset new_host_name ;;\n"
+                "      esac\n"
+            )
+
+        # Hostname fallback (late, cross-OS)
+        hostname_script = """#!/bin/sh
+    set -eu
+    NAME="{name}"
+    if [ -z "${{NAME:-}}" ]; then exit 0; fi
+    if command -v hostnamectl >/dev/null 2>&1; then
+      hostnamectl set-hostname "$NAME" || true
+    elif command -v sysrc >/dev/null 2>&1; then
+      sysrc hostname="$NAME" >/dev/null || true
+      hostname "$NAME" || true
+    else
+      hostname "$NAME" || true
+      if [ -w /etc/hostname ]; then printf "%s\n" "$NAME" > /etc/hostname || true; fi
+    fi
+    """.format(name=hostname or "")
+
+        # FreeBSD IPv6 autoconf (no-op on Linux due to guards)
+        ipv6_script = """#!/bin/sh
+    set -eu
+    # Only act on FreeBSD-like systems where 'sysrc' exists.
+    if ! command -v sysrc >/dev/null 2>&1; then
+      exit 0
+    fi
+
+    # Enable IPv6 across interfaces and router solicitation
+    sysrc -q ipv6_activate_all_interfaces=YES || true
+    sysrc -q rtsold_enable=YES || true
+
+    # Enable RA acceptance on all non-loopback interfaces now and persistently
+    IFACES=$(ifconfig -l | tr ' ' '\\n' | awk '!/^lo/{print}')
+    for IF in $IFACES; do
+      sysrc -q "ifconfig_${IF}_ipv6=inet6 accept_rtadv" || true
+      ifconfig "$IF" inet6 accept_rtadv || true
+    done
+
+    # Start rtsold (use onestart if available)
+    service rtsold onestart >/dev/null 2>&1 || service rtsold start >/dev/null 2>&1 || true
+    """
+
+        # Ensure sshd is enabled
+        sshd_script = """#!/bin/sh
+    set -eu
+    # FreeBSD path
+    if command -v sysrc >/dev/null 2>&1; then
+      sysrc -q sshd_enable=YES || true
+      service sshd restart >/dev/null 2>&1 || service sshd start >/dev/null 2>&1 || true
+      exit 0
+    fi
+    # systemd Linux (best effort)
+    if command -v systemctl >/dev/null 2>&1; then
+      systemctl enable --now sshd >/dev/null 2>&1 || systemctl enable --now ssh >/dev/null 2>&1 || true
+    fi
+    """
+
+        user_script = "#!/bin/sh\nset -eu\n" + init_script.strip() + "\n" if init_script else None
+
+        if multipart:
+            boundary = "===============cloudinit=="
+            parts = []
+
+            # cloud-config part (with any write_files entries)
+            cfg = cloud_cfg
+            if write_files_entries:
+                cfg += "write_files:\n" + write_files_entries
+            parts.append(
+                f"--{boundary}\n"
+                'Content-Type: text/cloud-config; charset="us-ascii"\n\n'
+                f"{cfg}\n"
+            )
+
+            # hostname fallback
+            parts.append(
+                f"--{boundary}\n"
+                'Content-Type: text/x-shellscript; charset="us-ascii"\n\n'
+                f"{hostname_script}\n"
+            )
+
+            # IPv6 autoconf for FreeBSD
+            if ipv6_autoconf:
+                parts.append(
+                    f"--{boundary}\n"
+                    'Content-Type: text/x-shellscript; charset="us-ascii"\n\n'
+                    f"{ipv6_script}\n"
+                )
+
+            # Ensure sshd
+            if ensure_sshd:
+                parts.append(
+                    f"--{boundary}\n"
+                    'Content-Type: text/x-shellscript; charset="us-ascii"\n\n'
+                    f"{sshd_script}\n"
+                )
+
+            # Optional user script
+            if user_script:
+                parts.append(
+                    f"--{boundary}\n"
+                    'Content-Type: text/x-shellscript; charset="us-ascii"\n\n'
+                    f"{user_script}\n"
+                )
+
+            parts.append(f"--{boundary}--\n")
+            return (
+                    f'Content-Type: multipart/mixed; boundary="{boundary}"\n'
+                    "MIME-Version: 1.0\n\n" + "".join(parts)
+            )
+
+        # ----- Single cloud-config: write scripts + runcmd -----
+        write_files_all = write_files_entries  # start with any pre-collected entries
+
+        def add_script(path: str, content: str):
+            nonlocal write_files_all
+            write_files_all += (
+                    f"  - path: {path}\n"
+                    "    permissions: '0755'\n"
+                    "    content: |\n" +
+                    indent(content, "      ")
+            )
+
+        runcmd_entries = []
+
+        # Add scripts conditionally
+        add_script("/var/lib/cloud/scripts/per-instance/10-hostname-fallback.sh", hostname_script)
+        runcmd_entries.append("  - [/var/lib/cloud/scripts/per-instance/10-hostname-fallback.sh]")
+
+        if ipv6_autoconf:
+            add_script("/var/lib/cloud/scripts/per-instance/20-ipv6-freebsd.sh", ipv6_script)
+            runcmd_entries.append("  - [/var/lib/cloud/scripts/per-instance/20-ipv6-freebsd.sh]")
+
+        if ensure_sshd:
+            add_script("/var/lib/cloud/scripts/per-instance/30-ensure-sshd.sh", sshd_script)
+            runcmd_entries.append("  - [/var/lib/cloud/scripts/per-instance/30-ensure-sshd.sh]")
+
+        if user_script:
+            add_script("/var/lib/cloud/scripts/per-instance/99-userinit.sh", user_script)
+            runcmd_entries.append("  - [/var/lib/cloud/scripts/per-instance/99-userinit.sh]")
+
+        # Merge blocks
+        cfg_single = cloud_cfg
+        if write_files_all:
+            cfg_single += "write_files:\n" + write_files_all
+        if runcmd_entries:
+            cfg_single += "runcmd:\n" + "\n".join(runcmd_entries) + "\n"
+
+        return cfg_single
 
     def __create_vm(self, *, playbook_path: str, inventory_path: str, vm_name: str, worker_node: str, image: str,
                     flavor: str, unit_id: str, ssh_key: str, init_script: str = None) -> dict:
@@ -427,7 +641,12 @@ class VMHandler(HandlerBase):
         if init_script is None:
             init_script = ""
 
-        user_data = self.__build_user_data(default_user=default_user, ssh_key=ssh_key, init_script=init_script)
+        user_data = self.__build_user_data(ssh_key=ssh_key, init_script=init_script,
+                                           dhclient_hostname_protect=True,
+                                           multipart=True,
+                                           hostname=vm_name,
+                                           ipv6_autoconf=True,
+                                           ensure_sshd=True)
 
         extra_vars = {
             AmConstants.OPERATION: AmConstants.OP_CREATE,
