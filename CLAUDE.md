@@ -68,10 +68,10 @@ Handlers receive resource configuration via `ConfigToken` from the Control Frame
 
 ## Dependencies
 
-- `ansible==12.3.0` — playbook execution (pinned version; bundles ansible-core ~2.19)
+- `ansible==13.6.0` — playbook execution (pinned version; bundles ansible-core ~2.20)
 - `paramiko` — SSH remote execution
 - `fabric-cf==1.9.1` — Control Framework base classes and FIM (Fabric Information Model)
-- Python >= 3.11
+- Python >= 3.12
 
 ## Key Conventions
 

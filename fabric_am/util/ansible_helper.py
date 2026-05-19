@@ -194,7 +194,7 @@ class AnsibleHelper:
             raise PlaybookException("Playbook not found")
 
         if user is not None:
-            context.CLIARGS = ImmutableDict(connection='smart', tags={}, listtags=False, listtasks=False,
+            context.CLIARGS = ImmutableDict(connection='ssh', tags={}, listtags=False, listtasks=False,
                                             listhosts=False, syntax=False, module_path=None, forks=100,
                                             private_key_file=private_key_file, ssh_common_args=None,
                                             ssh_extra_args='-o StrictHostKeyChecking=no', sftp_extra_args=None,
@@ -202,7 +202,7 @@ class AnsibleHelper:
                                             become_user='root', verbosity=True, check=False, start_at_task=None,
                                             user=user)
         else:
-            context.CLIARGS = ImmutableDict(connection='smart', tags={}, listtags=False, listtasks=False,
+            context.CLIARGS = ImmutableDict(connection='ssh', tags={}, listtags=False, listtasks=False,
                                             listhosts=False, syntax=False, module_path=None, forks=100,
                                             private_key_file=private_key_file, ssh_common_args=None,
                                             ssh_extra_args='-o StrictHostKeyChecking=no', sftp_extra_args=None,

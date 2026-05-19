@@ -15,9 +15,9 @@ dynamic = ["version"]
 
 keywords = ["Fabric Control Framework", "Aggregate Manager Handlers"]
 
-requires-python = '>=3.11'
+requires-python = '>=3.12'
 dependencies = [
-    "ansible==12.3.0",
+    "ansible==13.6.0",
     "paramiko",
     "fabric-cf==1.9.1"]
 
