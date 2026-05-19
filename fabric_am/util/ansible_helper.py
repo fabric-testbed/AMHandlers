@@ -31,9 +31,9 @@ from typing import Tuple, List
 from ansible import context
 from ansible.executor.playbook_executor import PlaybookExecutor
 from ansible.inventory.manager import InventoryManager
-from ansible.module_utils.common.collections import ImmutableDict
 from ansible.parsing.dataloader import DataLoader
 from ansible.plugins.callback import CallbackBase
+from ansible.utils.context_objects import CLIArgs
 from ansible.vars.manager import VariableManager
 
 
@@ -193,21 +193,17 @@ class AnsibleHelper:
         if not os.path.exists(playbook_path):
             raise PlaybookException("Playbook not found")
 
+        cli_args = {
+            'connection': 'ssh', 'tags': {}, 'listtags': False, 'listtasks': False,
+            'listhosts': False, 'syntax': False, 'module_path': None, 'forks': 100,
+            'private_key_file': private_key_file, 'ssh_common_args': None,
+            'ssh_extra_args': '-o StrictHostKeyChecking=no', 'sftp_extra_args': None,
+            'timeout': 60, 'scp_extra_args': None, 'become': False, 'become_method': 'sudo',
+            'become_user': 'root', 'verbosity': True, 'check': False, 'start_at_task': None,
+        }
         if user is not None:
-            context.CLIARGS = ImmutableDict(connection='ssh', tags={}, listtags=False, listtasks=False,
-                                            listhosts=False, syntax=False, module_path=None, forks=100,
-                                            private_key_file=private_key_file, ssh_common_args=None,
-                                            ssh_extra_args='-o StrictHostKeyChecking=no', sftp_extra_args=None,
-                                            timeout=60, scp_extra_args=None, become=False, become_method='sudo',
-                                            become_user='root', verbosity=True, check=False, start_at_task=None,
-                                            user=user)
-        else:
-            context.CLIARGS = ImmutableDict(connection='ssh', tags={}, listtags=False, listtasks=False,
-                                            listhosts=False, syntax=False, module_path=None, forks=100,
-                                            private_key_file=private_key_file, ssh_common_args=None,
-                                            ssh_extra_args='-o StrictHostKeyChecking=no', sftp_extra_args=None,
-                                            timeout=60, scp_extra_args=None, become=False, become_method='sudo',
-                                            become_user='root', verbosity=True, check=False, start_at_task=None)
+            cli_args['user'] = user
+        context.CLIARGS = CLIArgs(cli_args)
 
         passwords = {}
 
