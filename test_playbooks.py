@@ -240,7 +240,7 @@ def test_audit():
                                 logger=logger,
                                 playbook_path="/etc/fabric/actor/playbooks//worker_libvirt_operations.yml",
                                 extra_vars={"operation": "listall"},
-                                ansible_python_interpreter='/usr/bin/python3.6')
+                                ansible_python_interpreter='/usr/local/bin/python3.9')
 
     # Dictionary to store OpenStack VMs
     os_vms = {}
@@ -257,7 +257,7 @@ def test_audit():
                                     logger=logger,
                                     playbook_path="/etc/fabric/actor/playbooks//head_vm_provisioning.yml",
                                     extra_vars={"operation": "list", "host": str(host)},
-                                    ansible_python_interpreter='/usr/bin/python3.6')
+                                    ansible_python_interpreter='/usr/local/bin/python3.9')
 
         if results_2 and results_2.get('openstack_servers'):
             servers = results_2.get('openstack_servers')
@@ -271,7 +271,7 @@ def test_audit():
                                             logger=logger,
                                             playbook_path="/etc/fabric/actor/playbooks//head_vm_provisioning.yml",
                                             extra_vars={"operation": "delete", "host": str(host)},
-                                            ansible_python_interpreter='/usr/bin/python3.6')
+                                            ansible_python_interpreter='/usr/local/bin/python3.9')
                 logger.info(f"Deleting for instance: {v} result: {results_3}")
 
 

@@ -133,3 +133,4 @@ dmypy.json
 # eclipse project files
 .project
 .pydevproject
+cc-usage-log.md

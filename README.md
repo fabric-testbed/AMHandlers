@@ -61,3 +61,9 @@ In the standard mode the software upgrade to the `VEB` in the hypervisor simply 
 VEPA simply forces VM traffic to be handled by an external switch. This allows each VM frame flow to be monitored managed and secured with all of the tools available to the physical switch. This does not provide any type of individual tunnel for the VM, or a configurable switchport but does allow for things like flow statistic gathering, ACL enforcement, etc. Basically we're just pushing the MAC forwarding decision to the physical switch and allowing that switch to perform whatever functions it has available on each transaction. The drawback here is that we are now performing one ingress and egress for each frame that was previously handled internally. This means that there are bandwidth and latency considerations to be made. Functions like Single Root I/O Virtualization (SR/IOV) and Direct Path I/O can alleviate some of the latency issues when implementing this. Like any technology there are typically trade offs that must be weighed. In this case the added control and functionality should outweigh the bandwidth and latency additions.
 
 More details about `VEPA` can be found [here](https://www.ieee802.org/1/files/public/docs2009/new-hudson-vepa_seminar-20090514d.pdf)
+
+### Worker Node Prerequisites
+Worker nodes must have `libvirt-python` installed under the Python interpreter used by Ansible (e.g. Python 3.9). On some hosts, the `libvirt-devel` system package is required first:
+```bash
+yum install -y libvirt-devel && pip install libvirt-python
+```

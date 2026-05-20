@@ -418,7 +418,7 @@ class VMHandler(HandlerBase):
         """
 
         # Prepare keys
-        keys = [k.strip() for k in ssh_key.split(",") if k.strip()]
+        keys = [k.strip() for k in ssh_key.split(",") if k.strip()] if ssh_key else []
 
         hn_yaml = fqdn_yaml = preserve_yaml = ""
         if hostname:

@@ -23,7 +23,7 @@
 #
 # Author: Komal Thareja (kthare10@renci.org)
 ansible:
-  ansible_python_interpreter: /usr/bin/python3.6
+  ansible_python_interpreter: /usr/local/bin/python3.9
 runtime:
   network_name_prefix: dataplane
 playbooks:

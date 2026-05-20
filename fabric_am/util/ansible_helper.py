@@ -31,9 +31,10 @@ from typing import Tuple, List
 from ansible import context
 from ansible.executor.playbook_executor import PlaybookExecutor
 from ansible.inventory.manager import InventoryManager
-from ansible.module_utils.common.collections import ImmutableDict
 from ansible.parsing.dataloader import DataLoader
 from ansible.plugins.callback import CallbackBase
+from ansible.plugins.loader import init_plugin_loader
+from ansible.utils.context_objects import CLIArgs
 from ansible.vars.manager import VariableManager
 
 
@@ -193,23 +194,24 @@ class AnsibleHelper:
         if not os.path.exists(playbook_path):
             raise PlaybookException("Playbook not found")
 
+        cli_args = {
+            'connection': 'ssh', 'tags': {}, 'listtags': False, 'listtasks': False,
+            'listhosts': False, 'syntax': False, 'module_path': None, 'forks': 100,
+            'private_key_file': private_key_file, 'ssh_common_args': None,
+            'ssh_extra_args': '-o StrictHostKeyChecking=no', 'sftp_extra_args': None,
+            'timeout': 60, 'scp_extra_args': None, 'become': False, 'become_method': 'sudo',
+            'become_user': 'root', 'verbosity': True, 'check': False, 'start_at_task': None,
+        }
         if user is not None:
-            context.CLIARGS = ImmutableDict(connection='smart', tags={}, listtags=False, listtasks=False,
-                                            listhosts=False, syntax=False, module_path=None, forks=100,
-                                            private_key_file=private_key_file, ssh_common_args=None,
-                                            ssh_extra_args='-o StrictHostKeyChecking=no', sftp_extra_args=None,
-                                            timeout=60, scp_extra_args=None, become=False, become_method='sudo',
-                                            become_user='root', verbosity=True, check=False, start_at_task=None,
-                                            user=user)
-        else:
-            context.CLIARGS = ImmutableDict(connection='smart', tags={}, listtags=False, listtasks=False,
-                                            listhosts=False, syntax=False, module_path=None, forks=100,
-                                            private_key_file=private_key_file, ssh_common_args=None,
-                                            ssh_extra_args='-o StrictHostKeyChecking=no', sftp_extra_args=None,
-                                            timeout=60, scp_extra_args=None, become=False, become_method='sudo',
-                                            become_user='root', verbosity=True, check=False, start_at_task=None)
+            cli_args['user'] = user
+        context.CLIARGS = CLIArgs(cli_args)
 
         passwords = {}
+
+        # Initialize the Ansible collection/plugin loader so that built-in
+        # collections (ansible.builtin) are discoverable when using the
+        # Python API directly (required since ansible-core 2.15+).
+        init_plugin_loader()
 
         if self.ansible_python_interpreter is not None and self.ansible_python_interpreter != '':
             self.variable_manager._extra_vars['ansible_python_interpreter'] = self.ansible_python_interpreter
@@ -218,7 +220,15 @@ class AnsibleHelper:
                                 variable_manager=self.variable_manager,
                                 loader=self.loader, passwords=passwords)
 
-        pbex._tqm._stdout_callback = self.results_callback
+        # In ansible-core 2.20+, callbacks are dispatched through the
+        # _callback_plugins list and send_callback() only invokes methods
+        # listed in each plugin's _implemented_callback_methods frozenset.
+        # Manually instantiated callbacks must call _init_callback_methods()
+        # to populate that set (the plugin loader does this automatically).
+        self.results_callback._init_callback_methods()
+        pbex._tqm.load_callbacks()
+        pbex._tqm._callback_plugins.append(self.results_callback)
+
         try:
             results = pbex.run()
             self.logger.debug(f"Playbook result: {results}")
