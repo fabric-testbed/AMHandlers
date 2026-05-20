@@ -221,10 +221,11 @@ class AnsibleHelper:
                                 loader=self.loader, passwords=passwords)
 
         # In ansible-core 2.20+, callbacks are dispatched through the
-        # _callback_plugins list, not via _stdout_callback. Load the default
-        # callbacks first, then append our custom collector so send_callback()
-        # delivers events to it.  Setting _callbacks_loaded prevents run()
-        # from reloading and discarding our addition.
+        # _callback_plugins list and send_callback() only invokes methods
+        # listed in each plugin's _implemented_callback_methods frozenset.
+        # Manually instantiated callbacks must call _init_callback_methods()
+        # to populate that set (the plugin loader does this automatically).
+        self.results_callback._init_callback_methods()
         pbex._tqm.load_callbacks()
         pbex._tqm._callback_plugins.append(self.results_callback)
 
