@@ -33,6 +33,7 @@ from ansible.executor.playbook_executor import PlaybookExecutor
 from ansible.inventory.manager import InventoryManager
 from ansible.parsing.dataloader import DataLoader
 from ansible.plugins.callback import CallbackBase
+from ansible.plugins.loader import init_plugin_loader
 from ansible.utils.context_objects import CLIArgs
 from ansible.vars.manager import VariableManager
 
@@ -206,6 +207,11 @@ class AnsibleHelper:
         context.CLIARGS = CLIArgs(cli_args)
 
         passwords = {}
+
+        # Initialize the Ansible collection/plugin loader so that built-in
+        # collections (ansible.builtin) are discoverable when using the
+        # Python API directly (required since ansible-core 2.15+).
+        init_plugin_loader()
 
         if self.ansible_python_interpreter is not None and self.ansible_python_interpreter != '':
             self.variable_manager._extra_vars['ansible_python_interpreter'] = self.ansible_python_interpreter

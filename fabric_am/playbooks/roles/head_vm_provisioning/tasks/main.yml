@@ -65,7 +65,7 @@
   when: operation == 'attach_fip'
 
 - name: Delete a VM
-  os_server:
+  openstack.cloud.server:
     state: absent
     auth:
       auth_url: "{{ auth_url }}"
