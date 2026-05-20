@@ -220,7 +220,14 @@ class AnsibleHelper:
                                 variable_manager=self.variable_manager,
                                 loader=self.loader, passwords=passwords)
 
-        pbex._tqm._stdout_callback = self.results_callback
+        # In ansible-core 2.20+, callbacks are dispatched through the
+        # _callback_plugins list, not via _stdout_callback. Load the default
+        # callbacks first, then append our custom collector so send_callback()
+        # delivers events to it.  Setting _callbacks_loaded prevents run()
+        # from reloading and discarding our addition.
+        pbex._tqm.load_callbacks()
+        pbex._tqm._callback_plugins.append(self.results_callback)
+
         try:
             results = pbex.run()
             self.logger.debug(f"Playbook result: {results}")
