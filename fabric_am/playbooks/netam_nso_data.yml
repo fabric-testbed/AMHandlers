@@ -10,7 +10,7 @@
 
   tasks:
   - name: Create idipa service
-    cisco.nso.nso_config:
+    nso_config:
       url: "{{ url }}"
       username: "{{ username }}"
       password: "{{ password }}"
@@ -23,7 +23,7 @@
     when: (service == 'l2ptp' or service == 'l2sts' or service == 'l3rt' or service == 'l3vpn') and operation == 'create'
 
   - name: Create network service
-    cisco.nso.nso_config:
+    nso_config:
       url: "{{ url }}"
       username: "{{ username }}"
       password: "{{ password }}"
@@ -31,7 +31,7 @@
     when: operation == 'create'
 
   - name: Delete network service
-    cisco.nso.nso_config:
+    nso_config:
       url: "{{ url }}"
       username: "{{ username }}"
       password: "{{ password }}"
@@ -40,7 +40,7 @@
 
 
   - name: Delete idipa service - upon modify
-    cisco.nso.nso_config:
+    nso_config:
       url: "{{ url }}"
       username: "{{ username }}"
       password: "{{ password }}"
@@ -52,7 +52,7 @@
     when: (service == 'l2ptp' or service == 'l2sts' or service == 'l3rt' or service == 'l3vpn') and operation == 'modify'
 
   - name: Modify network service - delete first
-    cisco.nso.nso_config:
+    nso_config:
       url: "{{ url }}"
       username: "{{ username }}"
       password: "{{ password }}"
@@ -60,7 +60,7 @@
     when: operation == 'modify'
 
   - name: Create idipa service - create again
-    cisco.nso.nso_config:
+    nso_config:
       url: "{{ url }}"
       username: "{{ username }}"
       password: "{{ password }}"
@@ -73,7 +73,7 @@
     when: (service == 'l2ptp' or service == 'l2sts' or service == 'l3rt' or service == 'l3vpn') and operation == 'modify'
 
   - name: Modify network service - create again
-    cisco.nso.nso_config:
+    nso_config:
       url: "{{ url }}"
       username: "{{ username }}"
       password: "{{ password }}"
@@ -81,7 +81,7 @@
     when: operation == 'modify'
 
   - name: Delete idipa service
-    cisco.nso.nso_config:
+    nso_config:
       url: "{{ url }}"
       username: "{{ username }}"
       password: "{{ password }}"
