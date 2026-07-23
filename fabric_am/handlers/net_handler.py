@@ -109,7 +109,8 @@ class NetHandler(HandlerBase):
 
         # -X DELETE all ncs:services
         try:
-            res = requests.delete(url, headers=hdrs, auth=(user, pw), verify=False)
+            # (connect, read) timeout so a hung NSO cannot block actor startup indefinitely
+            res = requests.delete(url, headers=hdrs, auth=(user, pw), verify=False, timeout=(5, 60))
         except Exception as e:
             self.get_logger().error(f"Failure to clean up NSO services: {e}")
 
@@ -121,7 +122,8 @@ class NetHandler(HandlerBase):
             }
         }
         try:
-            res = requests.post(url + '/logging', headers=hdrs, data=json.dumps(logger_data), auth=(user, pw), verify=False)
+            res = requests.post(url + '/logging', headers=hdrs, data=json.dumps(logger_data), auth=(user, pw),
+                                verify=False, timeout=(5, 60))
         except Exception as e:
             self.get_logger().error(f"Failure to clean up NSO services: {e}")
 
