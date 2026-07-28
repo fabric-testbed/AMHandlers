@@ -250,7 +250,7 @@ class NetHandler(HandlerBase):
                     self.__cleanup(sliver=sliver, raise_exception=True, unit_id=unit_id)
                     break
                 except (PlaybookException, NetHandlerException) as pne:
-                    if i < delete_retries:
+                    if i < delete_retries - 1:
                         continue
                     else:
                         self.get_logger().warning(f'Delete Failed - cleanup attempts {delete_retries}')
