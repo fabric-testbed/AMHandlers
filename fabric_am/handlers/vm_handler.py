@@ -705,7 +705,7 @@ class VMHandler(HandlerBase):
                 time.sleep(5)
                 break
             except Exception as e:
-                if i < delete_retries:
+                if i < delete_retries - 1:
                     continue
                 else:
                     self.get_logger().warning(f'Delete Failed - cleanup attempts {delete_retries}')
@@ -729,7 +729,7 @@ class VMHandler(HandlerBase):
                 time.sleep(5)
                 break
             except Exception as e:
-                if i < delete_retries:
+                if i < delete_retries - 1:
                     continue
                 else:
                     self.get_logger().warning(f'Delete Failed - cleanup attempts {delete_retries}')
