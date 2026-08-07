@@ -45,6 +45,10 @@ class PlaybookException(Exception):
     pass
 
 
+# init_plugin_loader() configures process wide state; track it so it runs once
+_plugin_loader_initialized = False
+
+
 class ResultsCollectorJSONCallback(CallbackBase):
     """A callback plugin used for performing an action as results come in.
 
@@ -53,11 +57,12 @@ class ResultsCollectorJSONCallback(CallbackBase):
     or writing your own custom callback plugin.
     """
 
-    def __init__(self, *args, **kwargs):
+    def __init__(self, *args, logger=None, **kwargs):
         super(ResultsCollectorJSONCallback, self).__init__(*args, **kwargs)
         self.host_ok = {}
         self.host_unreachable = {}
         self.host_failed = {}
+        self.logger = logger
 
     def v2_runner_on_unreachable(self, result):
         """
@@ -86,7 +91,8 @@ class ResultsCollectorJSONCallback(CallbackBase):
         if host is not None:
             ignore_errors = result._task.ignore_errors if hasattr(result._task, 'ignore_errors') else False
             if ignore_errors:
-                print(f"Task '{result._task.get_name()}' failed but ignore_errors is enabled.")
+                if self.logger is not None:
+                    self.logger.debug(f"Task '{result._task.get_name()}' failed but ignore_errors is enabled.")
             else:
                 self.host_failed[host.get_name()] = result
 
@@ -164,7 +170,7 @@ class AnsibleHelper:
     Helper class to invoke the Ansible Playbook
     """
     def __init__(self, inventory_path: str, logger, sources: str = None, ansible_python_interpreter: str = None):
-        self.results_callback = ResultsCollectorJSONCallback()
+        self.results_callback = ResultsCollectorJSONCallback(logger=logger)
         self.loader = DataLoader()
         if sources is None:
             self.inventory = InventoryManager(loader=self.loader, sources=[inventory_path])
@@ -200,7 +206,7 @@ class AnsibleHelper:
             'private_key_file': private_key_file, 'ssh_common_args': None,
             'ssh_extra_args': '-o StrictHostKeyChecking=no', 'sftp_extra_args': None,
             'timeout': 60, 'scp_extra_args': None, 'become': False, 'become_method': 'sudo',
-            'become_user': 'root', 'verbosity': True, 'check': False, 'start_at_task': None,
+            'become_user': 'root', 'verbosity': 0, 'check': False, 'start_at_task': None,
         }
         if user is not None:
             cli_args['user'] = user
@@ -210,8 +216,14 @@ class AnsibleHelper:
 
         # Initialize the Ansible collection/plugin loader so that built-in
         # collections (ansible.builtin) are discoverable when using the
-        # Python API directly (required since ansible-core 2.15+).
-        init_plugin_loader()
+        # Python API directly (required since ansible-core 2.15+). This is
+        # process wide and only needs doing once; calling it per playbook run
+        # emits an "AnsibleCollectionFinder has already been configured"
+        # UserWarning on every invocation.
+        global _plugin_loader_initialized
+        if not _plugin_loader_initialized:
+            init_plugin_loader()
+            _plugin_loader_initialized = True
 
         if self.ansible_python_interpreter is not None and self.ansible_python_interpreter != '':
             self.variable_manager._extra_vars['ansible_python_interpreter'] = self.ansible_python_interpreter
@@ -226,8 +238,16 @@ class AnsibleHelper:
         # Manually instantiated callbacks must call _init_callback_methods()
         # to populate that set (the plugin loader does this automatically).
         self.results_callback._init_callback_methods()
-        pbex._tqm.load_callbacks()
+
+        # Register our collector *before* load_callbacks(), which returns early
+        # when _callback_plugins is already populated. That keeps ansible from
+        # loading its 'default' stdout callback, which would otherwise write the
+        # full PLAY/TASK/skipping/PLAY RECAP output to the container's stdout on
+        # every playbook run. Results are collected by our callback and logged by
+        # the caller instead. _stdout_callback_name is not used anywhere else in
+        # TaskQueueManager, so leaving it unresolved is safe.
         pbex._tqm._callback_plugins.append(self.results_callback)
+        pbex._tqm.load_callbacks()
 
         try:
             results = pbex.run()
