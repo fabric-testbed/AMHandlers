@@ -71,7 +71,7 @@
     and
     (ansible_facts[item]['macaddress'] == mac )
   with_items:
-    - "{{ ansible_interfaces }}"
+    - "{{ ansible_facts['interfaces'] }}"
 
 - name: Determine the connection name for the device
   ansible.builtin.shell:

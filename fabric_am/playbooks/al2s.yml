@@ -4,10 +4,10 @@
   tasks:
     - name: message
       debug:
-        msg: "{{ ansible_distribution }}-{{ ansible_distribution_version }}"
+        msg: "{{ ansible_facts['distribution'] }}-{{ ansible_facts['distribution_version'] }}"
 
     - name: show HOME
-      debug: var=ansible_env.HOME
+      debug: var=ansible_facts.env.HOME
 
   roles:
     - { role: ./roles/virtualnetworks_provisioning }
