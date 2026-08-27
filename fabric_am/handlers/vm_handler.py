@@ -309,6 +309,9 @@ class VMHandler(HandlerBase):
         try:
             if component.get_type() not in [ComponentType.SharedNIC, ComponentType.SmartNIC, ComponentType.Storage]:
                 return
+            if mgmt_ip is None:
+                self.get_logger().warning(f"No management IP available; skipping {component.get_name()} config")
+                return
             if component.get_model() == Constants.OPENSTACK_VNIC_MODEL:
                 return
             if component.get_type() == ComponentType.Storage:
@@ -325,7 +328,7 @@ class VMHandler(HandlerBase):
                 for component in sliver.attached_components_info.devices.values():
                     user = self.__get_default_user(image=sliver.get_image_ref())
                     self.__configure_component(component=component,
-                                               mgmt_ip=sliver.management_ip,
+                                               mgmt_ip=str(sliver.management_ip) if sliver.management_ip else None,
                                                user=user)
         except Exception as e:
             self.get_logger().error(e)
@@ -351,6 +354,9 @@ class VMHandler(HandlerBase):
             playbook_path = self.get_config()[AmConstants.PLAYBOOK_SECTION][AmConstants.PB_LOCATION]
             inventory_path = self.get_config()[AmConstants.PLAYBOOK_SECTION][AmConstants.PB_INVENTORY]
             project_id = unit.get_properties().get(Constants.PROJECT_ID, None)
+            # management_ip is an ipaddress object; ansible/paramiko need plain strings
+            mgmt_ip = current_sliver.get_management_ip()
+            mgmt_ip = str(mgmt_ip) if mgmt_ip else None
 
             diff = current_sliver.diff(other_sliver=modified_sliver)
             if diff is not None:
@@ -362,13 +368,12 @@ class VMHandler(HandlerBase):
                                              instance_name=current_sliver.label_allocations.instance,
                                              device_name=str(unit.get_reservation_id()),
                                              component=x, vm_name=current_sliver.get_name(),
-                                             project_id=project_id, mgmt_ip=current_sliver.get_management_ip(),
-                                             user=user)
+                                             project_id=project_id,
+                                             mgmt_ip=mgmt_ip, user=user)
 
                     user = self.__get_default_user(image=current_sliver.get_image_ref())
                     self.__configure_component(component=x,
-                                               mgmt_ip=current_sliver.management_ip,
-                                               user=user)
+                                               mgmt_ip=mgmt_ip, user=user)
 
                 for x in diff.removed.components:
                     self.__attach_detach_pci(playbook_path=playbook_path, inventory_path=inventory_path,
@@ -1691,7 +1696,7 @@ class VMHandler(HandlerBase):
             project_id = unit_properties.get(Constants.PROJECT_ID, None)
             image = sliver.get_image_ref()
             user = self.__get_default_user(image=image)
-            fip = sliver.management_ip
+            fip = str(sliver.management_ip) if sliver.management_ip is not None else None
 
             resource_type = str(sliver.get_type())
             playbook_path = self.get_config()[AmConstants.PLAYBOOK_SECTION][AmConstants.PB_LOCATION]
@@ -1892,8 +1897,11 @@ class VMHandler(HandlerBase):
 
             user = self.__get_default_user(image=sliver.get_image_ref())
 
+            # management_ip is an ipaddress object; ansible needs plain strings
+            mgmt_ip = str(sliver.management_ip) if sliver.management_ip is not None else None
+
             # Set the variables
-            extra_vars = {AmConstants.VM_NAME: sliver.management_ip,
+            extra_vars = {AmConstants.VM_NAME: mgmt_ip,
                           AmConstants.USER: user,
                           AmConstants.KEYS: data.get(AmConstants.KEYS),
                           AmConstants.OPERATION: operation}
@@ -1902,7 +1910,7 @@ class VMHandler(HandlerBase):
             admin_ssh_key = self.get_config()[AmConstants.PLAYBOOK_SECTION][AmConstants.ADMIN_SSH_KEY]
 
             Utils.execute_ansible(inventory_path=None, playbook_path=playbook_path, extra_vars=extra_vars,
-                                  sources=f"{sliver.management_ip},", private_key_file=admin_ssh_key, user=user,
+                                  sources=f"{mgmt_ip},", private_key_file=admin_ssh_key, user=user,
                                   logger=self.get_logger())
 
             result[Constants.PROPERTY_POA_INFO] = {
