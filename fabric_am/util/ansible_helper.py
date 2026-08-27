@@ -26,6 +26,7 @@
 # Create a callback plugin so we can capture the output
 import os
 import traceback
+from enum import Enum
 from typing import Tuple, List
 
 from ansible import context
@@ -47,6 +48,39 @@ class PlaybookException(Exception):
 
 # init_plugin_loader() configures process wide state; track it so it runs once
 _plugin_loader_initialized = False
+
+
+def to_ansible_native(value):
+    """
+    Coerce a value into a type ansible can tag with origin/trust metadata.
+
+    Since ansible-core 2.19 every variable value is tagged when the playbook is
+    loaded, and anything that is not a native YAML/JSON type fails with
+    "<class 'x'> is not taggable". Sliver attributes such as management_ip are
+    ipaddress.IPv4Address/IPv6Address objects, so stringify anything exotic.
+
+    Ansible tags by exact type, so subclasses (IntEnum/StrEnum members, str
+    subclasses, OrderedDict, ...) are rebuilt as their plain counterparts
+    rather than passed through.
+    @param value value to coerce
+    @return value built only from str/bool/int/float/None/list/dict
+    """
+    if value is None or type(value) in (str, bool, int, float):
+        return value
+    if isinstance(value, Enum):
+        return to_ansible_native(value.value)
+    if isinstance(value, dict):
+        return {str(k): to_ansible_native(v) for k, v in value.items()}
+    if isinstance(value, (list, tuple, set)):
+        return [to_ansible_native(v) for v in value]
+    # subclasses of the native scalars: rebuild as the exact base type
+    if isinstance(value, bool):
+        return bool(value)
+    if isinstance(value, int):
+        return int(value)
+    if isinstance(value, float):
+        return float(value)
+    return str(value)
 
 
 class ResultsCollectorJSONCallback(CallbackBase):
@@ -187,7 +221,8 @@ class AnsibleHelper:
         @param var_name variable name
         @param value value
         """
-        self.variable_manager.set_host_variable(host=host, varname=var_name, value=value)
+        self.variable_manager.set_host_variable(host=host, varname=var_name,
+                                                value=to_ansible_native(value))
 
     def run_playbook(self, playbook_path: str, private_key_file: str = None, user: str = None):
         """
@@ -280,4 +315,4 @@ class AnsibleHelper:
         :param extra_vars: Extra variable dict
         :return:
         """
-        self.variable_manager._extra_vars = extra_vars
+        self.variable_manager._extra_vars = to_ansible_native(extra_vars) if extra_vars else {}
