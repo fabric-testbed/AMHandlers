@@ -103,6 +103,9 @@ class AmConstants:
     PCI_BUS = "bus"
     PCI_SLOT = "slot"
     PCI_BDF = "bdf"
+    # expand a BDF to every sibling function on the same PCI device before
+    # resetting it - only safe when the whole card belongs to a single sliver
+    PCI_RESCAN_SIBLINGS = "rescan_siblings"
     PCI_DEVICE_NUMBER = "pci_device_number"
     PCI_FUNCTION = "function"
     DEVICE = "device"

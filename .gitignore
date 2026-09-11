@@ -134,3 +134,6 @@ dmypy.json
 .project
 .pydevproject
 cc-usage-log.md
+
+# local virtualenv
+.venv/
