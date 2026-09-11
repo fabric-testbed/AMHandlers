@@ -1,17 +1,43 @@
 ---
 # /tasks/main.yml
 #
-- name: Run pcie_disable_fatal.sh for each PCI device and its sibling multifunctions
+# rescan_siblings controls whether a BDF is expanded to every function of the same PCI
+# device before it is reset. That is required for an FPGA - the sliver owns the whole card
+# and only one of its BDFs is recorded in the model. It is unsafe for a NIC whose sibling PF
+# is in SR-IOV mode, because removing that PF takes down VFs belonging to other slivers.
+# Defaults to false: the caller must opt in.
+- name: Resolve the set of PCI devices to reset
+  set_fact:
+    pci_rescan_devices: >-
+      {{ bdf | map('regex_replace', '^(0000:)?', '0000:') | list }}
+    pci_rescan_expand_siblings: "{{ rescan_siblings | default(false) | bool }}"
+  when: operation == 'rescan' and bdf is defined
+
+- name: Show which PCI devices will be reset
+  debug:
+    msg: >-
+      Resetting {{ pci_rescan_devices | join(', ') }}
+      ({{ 'including sibling functions' if pci_rescan_expand_siblings else 'exact functions only' }})
+  when: operation == 'rescan' and bdf is defined
+
+- name: Run pcie_disable_fatal.sh for each PCI device
   shell: |
     set -x
-    device_base="{{ item | regex_replace('^0000:', '') | regex_replace('[0-9]+$', '') }}"
-    for devpath in /sys/bus/pci/devices/0000:${device_base}*; do
-       full_devname="$(basename "$devpath")"      # e.g., 0000:25:00.0
-       devname="${full_devname#0000:}"            # remove leading 0000:
-       echo "Would run: /opt/mlnx-scripts/pcie_disable_fatal.sh $devname"
+    expand_siblings="{{ pci_rescan_expand_siblings | lower }}"
+    if [ "$expand_siblings" = "true" ]; then
+      device_base="$(echo "{{ item }}" | sed -e 's/^0000://' -e 's/[0-9]*$//')"
+      devices=$(ls -d /sys/bus/pci/devices/0000:${device_base}* 2>/dev/null)
+    else
+      devices="/sys/bus/pci/devices/{{ item }}"
+    fi
+    for devpath in $devices; do
+      [ -e "$devpath" ] || continue
+      full_devname="$(basename "$devpath")"      # e.g., 0000:25:00.0
+      devname="${full_devname#0000:}"            # remove leading 0000:
+      echo "pcie_disable_fatal.sh $devname"
       /opt/mlnx-scripts/pcie_disable_fatal.sh "$devname"
     done
-  loop: "{{ bdf }}"
+  loop: "{{ pci_rescan_devices }}"
   when: operation == 'rescan' and bdf is defined
   register: pcie_disable_result
   changed_when: false
@@ -20,18 +46,25 @@
   debug:
     msg: "{{ item.stdout }}"
   loop: "{{ pcie_disable_result.results }}"
-  when: pcie_disable_result is defined
+  when: pcie_disable_result is defined and pcie_disable_result.results is defined
 
-- name: Remove each PCI device and its sibling multifunctions
+- name: Remove each PCI device
   shell: |
-   set -x
-    device_base="{{ item | regex_replace('^0000:', '') | regex_replace('[0-9]+$', '') }}"
-    for devpath in /sys/bus/pci/devices/0000:${device_base}*; do
+    set -x
+    expand_siblings="{{ pci_rescan_expand_siblings | lower }}"
+    if [ "$expand_siblings" = "true" ]; then
+      device_base="$(echo "{{ item }}" | sed -e 's/^0000://' -e 's/[0-9]*$//')"
+      devices=$(ls -d /sys/bus/pci/devices/0000:${device_base}* 2>/dev/null)
+    else
+      devices="/sys/bus/pci/devices/{{ item }}"
+    fi
+    for devpath in $devices; do
+      [ -e "$devpath" ] || continue
       full_devname="$(basename "$devpath")"      # e.g., 0000:25:00.0
-      echo "Would run: echo 1 > /sys/bus/pci/devices/$full_devname/remove"
+      echo "removing $full_devname"
       echo 1 > "/sys/bus/pci/devices/$full_devname/remove"
     done
-  loop: "{{ bdf }}"
+  loop: "{{ pci_rescan_devices }}"
   when: operation == 'rescan' and bdf is defined
   register: pcie_remove_result
   changed_when: false
@@ -40,8 +73,7 @@
   debug:
     msg: "{{ item.stdout }}"
   loop: "{{ pcie_remove_result.results }}"
-  when: pcie_remove_result is defined
-
+  when: pcie_remove_result is defined and pcie_remove_result.results is defined
 
 - name: Rescan PCI bus
   shell: "echo 1 > /sys/bus/pci/rescan"

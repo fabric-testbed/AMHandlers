@@ -1267,7 +1267,8 @@ class VMHandler(HandlerBase):
 
     def __perform_virsh_server_action(self, *, playbook_path: str, inventory_path: str, worker_node_name: str,
                                       instance_name: str, operation: str, vcpu_cpu_map: List[Dict[str, str]] = None,
-                                      node_set: List[str] = None, bdf: List[str] = None):
+                                      node_set: List[str] = None, bdf: List[str] = None,
+                                      rescan_siblings: bool = False):
         """
         Invoke ansible playbook to perform a server action via openstack commands
         :param playbook_path: playbook location
@@ -1291,6 +1292,7 @@ class VMHandler(HandlerBase):
 
         if bdf is not None:
             extra_vars[AmConstants.PCI_BDF] = bdf
+            extra_vars[AmConstants.PCI_RESCAN_SIBLINGS] = rescan_siblings
 
         return Utils.execute_ansible(inventory_path=inventory_path, playbook_path=playbook_path_full,
                                      extra_vars=extra_vars, logger=self.get_logger())
@@ -1646,6 +1648,43 @@ class VMHandler(HandlerBase):
 
         return result
 
+    def __rescan_siblings_allowed(self, *, sliver: NodeSliver, bdf: List[str]) -> bool:
+        """
+        Decide whether a PCI reset may be expanded to every sibling function on the card.
+
+        Only components whose entire card belongs to this sliver qualify - in practice FPGAs,
+        where the ARM records one BDF but all functions are passed through together. A NIC never
+        qualifies: on a card running one port in SR-IOV mode and the other dedicated, the sibling
+        PF hosts VFs belonging to other slices.
+
+        :param sliver: the node sliver owning the reservation
+        :param bdf: BDFs named by the POA request
+        :return: True only if every component matching the requested BDFs is sibling-safe
+        """
+        if not bdf or sliver.attached_components_info is None:
+            return False
+
+        matched = False
+        for component in sliver.attached_components_info.devices.values():
+            if component.labels is None or component.labels.bdf is None:
+                continue
+            if isinstance(component.labels.bdf, str):
+                pci_device_list = [component.labels.bdf]
+            else:
+                pci_device_list = component.labels.bdf
+
+            if not any(elem in pci_device_list for elem in bdf):
+                continue
+
+            matched = True
+            if component.get_type() != ComponentType.FPGA:
+                self.get_logger().info(f"Limiting PCI rescan to the exact BDFs {bdf}; component "
+                                       f"{component.get_name()} of type {component.get_type()} may "
+                                       f"share its card with other slivers")
+                return False
+
+        return matched
+
     def __poa_rescan(self, unit: ConfigToken, data: dict) -> dict:
         result = {Constants.PROPERTY_TARGET_NAME: Constants.TARGET_POA,
                   Constants.PROPERTY_TARGET_RESULT_CODE: Constants.RESULT_CODE_OK,
@@ -1671,11 +1710,17 @@ class VMHandler(HandlerBase):
                 raise VmHandlerException(f"Missing config parameters "
                                          f"playbook_path: {playbook_path} inventory_path: {inventory_path}")
 
+            # Resetting a PCI function also resets the sibling functions of the same card. That is
+            # required for an FPGA, where the ARM records a single BDF but every function of the
+            # card belongs to this sliver. It is NOT safe for a NIC: the sibling PF of a card in
+            # mixed mode carries the SR-IOV VFs of other slices, and removing it takes them down.
+            rescan_siblings = self.__rescan_siblings_allowed(sliver=sliver, bdf=bdf)
+
             # Pin vCPU to requested CPUs
             self.__perform_virsh_server_action(playbook_path=playbook_path, inventory_path=inventory_path,
                                                worker_node_name=worker_node, operation=AmConstants.OP_RESCAN,
                                                instance_name=sliver.label_allocations.instance,
-                                               bdf=bdf)
+                                               bdf=bdf, rescan_siblings=rescan_siblings)
             result[Constants.PROPERTY_POA_INFO] = {
                 AmConstants.OPERATION: data.get(AmConstants.OPERATION),
                 Constants.POA_ID: data.get(Constants.POA_ID),
