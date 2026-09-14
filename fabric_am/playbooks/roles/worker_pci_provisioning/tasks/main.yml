@@ -34,8 +34,12 @@
   when: operation == 'attach' or operation == 'detach'
 
 - name: Get PCI Device Number from the Host
+  # lspci prints the PCI domain on every line as soon as the host has more than one domain, so
+  # an unanchored grep for a BDF matches the same bus:slot in *every* domain and reports one
+  # device number per match. Select the device explicitly instead; default to domain 0000 when
+  # the BDF does not carry one.
   ansible.builtin.shell:
-    lspci -n | grep {{ bdf }} | awk '{print $3}'
+    cmd: lspci -Dn -s '{{ bdf if bdf is match("[0-9a-fA-F]{4}:") else "0000:" ~ bdf }}' | awk '{print $3}'
   when: operation == 'attach'
   register: pci_device_number
 

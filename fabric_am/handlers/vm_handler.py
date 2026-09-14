@@ -67,6 +67,33 @@ class VMHandler(HandlerBase):
         return jinja_env.from_string("{{ unsafe_text_variable | string }}").render(
             unsafe_text_variable=unsafe_text_variable)
 
+    @staticmethod
+    def normalize_pci_device_numbers(pci_device_number) -> List[str]:
+        """
+        Normalize the PCI device number(s) reported by the host into a unique, ordered list.
+        A component may span several devices, and the host side lookup can report more than one
+        id, which arrives as a newline separated string; passing that verbatim to a playbook
+        breaks the shell command it is interpolated into.
+        :param pci_device_number: device number(s) as reported by ansible; string or list
+        :return: ordered list of unique vendor:device ids
+        """
+        if pci_device_number is None:
+            return []
+
+        if isinstance(pci_device_number, str):
+            candidates = pci_device_number.split("\n")
+        elif isinstance(pci_device_number, (list, tuple, set)):
+            candidates = list(pci_device_number)
+        else:
+            candidates = [pci_device_number]
+
+        result = []
+        for candidate in candidates:
+            candidate = str(candidate).strip()
+            if candidate and candidate not in result:
+                result.append(candidate)
+        return result
+
     def get_ansible_python_interpreter(self) -> str:
         return self.get_config()[AmConstants.ANSIBLE_SECTION][
                 AmConstants.ANSIBLE_PYTHON_INTERPRETER]
@@ -984,8 +1011,9 @@ class VMHandler(HandlerBase):
             self.get_logger().debug("__attach_detach_multiple_function_pci OUT")
 
     def __determine_pci_address_in_vm(self, *, component: ComponentSliver, mgmt_ip: str, user: str,
-                                      pci_device_number: str):
-        if not pci_device_number or not len(pci_device_number):
+                                      pci_device_number):
+        pci_device_numbers = self.normalize_pci_device_numbers(pci_device_number)
+        if not pci_device_numbers:
             return
         try:
             if isinstance(component.labels.bdf, str):
@@ -1004,7 +1032,7 @@ class VMHandler(HandlerBase):
                 mac = None
                 if ns and interface_names and len(interface_names) > 0 and idx < len(interface_names):
                     mac = ns.interface_info.interfaces[interface_names[idx]].label_allocations.mac.lower()
-                ok = self.__post_boot_config(mgmt_ip=mgmt_ip, user=user, pci_device_number=pci_device_number,
+                ok = self.__post_boot_config(mgmt_ip=mgmt_ip, user=user, pci_device_number=pci_device_numbers,
                                              mac=mac)
                 interface_name = None
                 bdf_facts = None
@@ -1108,11 +1136,10 @@ class VMHandler(HandlerBase):
 
             self.get_logger().info(f"Device List Size: {len(pci_device_list)} List: {pci_device_list}")
             idx = 0
-            pci_device_number = None
+            pci_device_number = []
             # Attach/ Detach the PCI Device
             for device in pci_device_list:
                 device_char_arr = self.__extract_device_addr_octets(device_address=device)
-                device = device.replace("0000:", "")
                 host_vars = {
                     AmConstants.KVM_GUEST_NAME: instance_name,
                     AmConstants.PCI_DOMAIN: device_char_arr[0],
@@ -1133,7 +1160,11 @@ class VMHandler(HandlerBase):
                     idx += 1
                     ansible_facts = ok.get(AmConstants.ANSIBLE_FACTS)
                     if ansible_facts:
-                        pci_device_number = self.convert_to_string(ansible_facts.get(AmConstants.PCI_DEVICE_NUMBER))
+                        # Accumulate across devices; each device may report more than one id
+                        for device_number in self.normalize_pci_device_numbers(
+                                self.convert_to_string(ansible_facts.get(AmConstants.PCI_DEVICE_NUMBER))):
+                            if device_number not in pci_device_number:
+                                pci_device_number.append(device_number)
 
             # In case of Attach, determine the PCI device id from inside the VM
             # Also, determine the ethernet interface name in case of Shared/Smart NIC
@@ -1416,7 +1447,7 @@ class VMHandler(HandlerBase):
             self.get_logger().error(f"Exception : {e}")
             self.get_logger().error(traceback.format_exc())
 
-    def __post_boot_config(self, *, mgmt_ip: str, user: str, pci_device_number: str = None, mac: str=None):
+    def __post_boot_config(self, *, mgmt_ip: str, user: str, pci_device_number: List[str] = None, mac: str=None):
         """
         Perform post boot configuration:
         - Grabs the PCI device name from inside the VM
@@ -1440,7 +1471,7 @@ class VMHandler(HandlerBase):
             extra_vars = {AmConstants.VM_NAME: mgmt_ip,
                           AmConstants.IMAGE: user}
 
-            if pci_device_number is not None:
+            if pci_device_number:
                 extra_vars[AmConstants.OPERATION] = 'get_pci'
                 extra_vars[AmConstants.PCI_DEVICE_NUMBER] = pci_device_number
 
