@@ -38,16 +38,33 @@
   with_items:
     - "{{ ansible_facts['interfaces'] }}"
 
-- name: Determine the PCI Address provided PCI Device Number
-  ansible.builtin.shell:
-    dmesg | grep {{ pci_device_number }} | awk '{print $4}'
+- name: Normalize the PCI Device Number(s) reported by the host
+  # A component may span several devices, so pci_device_number may arrive as a list or as a
+  # newline separated string. Interpolating such a value straight into a shell command splits
+  # it into two separate commands and silently drops the rest of the pipeline.
+  set_fact:
+    pci_device_ids: >-
+      {{ ((pci_device_number if pci_device_number is not string else pci_device_number.split('\n'))
+          if pci_device_number is defined else [])
+         | map('trim') | reject('equalto', '') | unique | list }}
   when: operation == 'get_pci'
+
+- name: Determine the PCI Address provided PCI Device Number
+  # Match every vendor:device id in a single grep and extract the BDF by pattern rather than by
+  # field position, so the result does not depend on the dmesg line layout.
+  ansible.builtin.shell:
+    cmd: >-
+      dmesg | grep -E -- '{{ pci_device_ids | join("|") }}'
+      | grep -oE '([0-9a-fA-F]{4}:)?[0-9a-fA-F]{2}:[0-9a-fA-F]{2}\.[0-9a-fA-F]'
+      | awk '!seen[$0]++'
+  when: operation == 'get_pci' and pci_device_ids | length > 0
   register: bdf
+  changed_when: false
 
 - name: Save the PCI Address determined in the previous step
   set_fact:
     bdf:
-      bdf: "{{ bdf.stdout }}"
+      bdf: "{{ bdf.stdout | default('') }}"
   when: operation == 'get_pci'
 
 - name: Combine facts

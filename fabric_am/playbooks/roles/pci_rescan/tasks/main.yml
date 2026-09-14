@@ -2,13 +2,17 @@
 # /tasks/main.yml
 #
 - name: Run pcie_disable_fatal.sh for each PCI device and its sibling multifunctions
+  # Keep the domain carried by the BDF instead of assuming 0000; a host with more than one PCI
+  # domain has the same bus:slot in each of them, so hardcoding 0000 targets the wrong device.
   shell: |
     set -x
-    device_base="{{ item | regex_replace('^0000:', '') | regex_replace('[0-9]+$', '') }}"
-    for devpath in /sys/bus/pci/devices/0000:${device_base}*; do
-       full_devname="$(basename "$devpath")"      # e.g., 0000:25:00.0
-       devname="${full_devname#0000:}"            # remove leading 0000:
-       echo "Would run: /opt/mlnx-scripts/pcie_disable_fatal.sh $devname"
+    device_domain="{{ item | regex_search('^[0-9a-fA-F]{4}:') | default('0000:', true) }}"
+    device_base="{{ item | regex_replace('^[0-9a-fA-F]{4}:', '') | regex_replace('[0-9]+$', '') }}"
+    for devpath in /sys/bus/pci/devices/${device_domain}${device_base}*; do
+      [ -e "$devpath" ] || continue
+      full_devname="$(basename "$devpath")"      # e.g., 0000:25:00.0
+      devname="${full_devname#0000:}"            # domain 0000 is implicit, others must be kept
+      echo "Would run: /opt/mlnx-scripts/pcie_disable_fatal.sh $devname"
       /opt/mlnx-scripts/pcie_disable_fatal.sh "$devname"
     done
   loop: "{{ bdf }}"
@@ -23,10 +27,13 @@
   when: pcie_disable_result is defined
 
 - name: Remove each PCI device and its sibling multifunctions
+  # Same as above: honour the domain in the BDF rather than assuming 0000.
   shell: |
-   set -x
-    device_base="{{ item | regex_replace('^0000:', '') | regex_replace('[0-9]+$', '') }}"
-    for devpath in /sys/bus/pci/devices/0000:${device_base}*; do
+    set -x
+    device_domain="{{ item | regex_search('^[0-9a-fA-F]{4}:') | default('0000:', true) }}"
+    device_base="{{ item | regex_replace('^[0-9a-fA-F]{4}:', '') | regex_replace('[0-9]+$', '') }}"
+    for devpath in /sys/bus/pci/devices/${device_domain}${device_base}*; do
+      [ -e "$devpath" ] || continue
       full_devname="$(basename "$devpath")"      # e.g., 0000:25:00.0
       echo "Would run: echo 1 > /sys/bus/pci/devices/$full_devname/remove"
       echo 1 > "/sys/bus/pci/devices/$full_devname/remove"
